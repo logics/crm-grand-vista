@@ -228,6 +228,19 @@ Quatro camadas de controle, do mais amplo ao mais fino:
 3. **Escopo de dados.** Cada perfil define, por módulo, se enxerga apenas os próprios registros ou os de todos. "Próprios" significa ser o **corretor responsável** pelo registro — não ter o perfil Corretor. Os dois eixos são independentes: um Gestor pode responder por fazendas, e alguém com o perfil Corretor pode não responder por nenhuma. Cláusula reutilizável aplicada nas listagens e nos guards de detalhe.
 4. **Comissão.** Sem permissão de ver comissão alheia, o usuário enxerga apenas a própria linha numa negociação — nunca a dos colegas nem o total. Filtro aplicado na camada de serviço, não na UI: a API nunca devolve o que o usuário não pode ver.
 
+### Dois papéis no banco — o RLS depende disso
+
+**O Postgres não aplica RLS ao dono da tabela nem a superusuário.** Se a API conectar com o usuário que criou o banco, todas as policies são ignoradas em silêncio: as queries funcionam, os testes de feature passam, e o isolamento entre empresas simplesmente não existe. É a pior falha possível neste sistema, e ela não dá erro — só vaza.
+
+Por isso o banco tem **dois papéis distintos**:
+
+- **`crm_owner`** — dono do schema, roda as migrations. Não é usado pela aplicação.
+- **`crm_app`** — o que a API usa. Não é superusuário, não é dono de tabela nenhuma, não tem `BYPASSRLS`, e só recebe `SELECT`/`INSERT`/`UPDATE`/`DELETE` nas tabelas de negócio. Está sujeito às policies como qualquer um.
+
+Como reforço, toda tabela de negócio recebe `ALTER TABLE ... FORCE ROW LEVEL SECURITY`, que aplica as policies **inclusive ao dono** — assim, se alguém algum dia apontar a aplicação para o papel errado, as policies continuam valendo.
+
+Nunca usar `crm_owner`, `postgres`, nem qualquer papel com `BYPASSRLS` na string de conexão da aplicação. O teste de isolamento da Fase 0 conecta como `crm_app` justamente para que ele prove algo: rodando como dono, ele passaria sem o RLS fazer nada.
+
 ### Empresa ativa: contexto, não filtro
 
 A empresa ativa vem do **slug na URL** (`/e/<empresa>/fazendas/123`), e a URL **pede** uma empresa — nunca autoriza. O fluxo por requisição é: resolver o slug, verificar o vínculo do usuário logado, e só então aplicar o `SET LOCAL`. Sem vínculo, **404 e não 403** — um 403 confirmaria que aquela empresa existe, permitindo varrer slugs e descobrir a carteira de clientes da plataforma. Na tela isso não precisa ser hostil: "Você não tem acesso a esta empresa, ou ela não existe", seguido da lista das empresas que ele acessa.
@@ -460,7 +473,8 @@ Se a Fase 1 atrasar, a ordem de corte é: **tela de configuração do matching**
 ## Verificação
 
 - **Isolamento multi-tenant:** teste de integração que cria dois tenants e confirma, para cada tabela, que o tenant A não enxerga nada do tenant B — inclusive com queries propositalmente sem filtro, validando o RLS.
-- **Cobertura de RLS por schema:** teste que varre o schema e **falha o CI** se existir tabela de negócio sem `tenant_id` ou sem policy ativa, com as tabelas de autenticação como exceção explícita e nominal. É o que impede uma tabela nova nascer sem policy daqui a seis meses.
+- **Cobertura de RLS por schema:** teste que varre o schema e **falha o CI** se existir tabela de negócio sem `tenant_id`, sem policy ativa ou sem `FORCE ROW LEVEL SECURITY`, com as tabelas de autenticação como exceção explícita e nominal. É o que impede uma tabela nova nascer sem policy daqui a seis meses.
+- **Papel da aplicação:** teste que falha se o papel usado na conexão for superusuário, tiver `BYPASSRLS` ou for dono de alguma tabela de negócio. Sem isso, todo o resto da suíte de isolamento pode passar sem que o RLS esteja fazendo nada.
 - **Contexto de empresa:** teste provando que um usuário sem vínculo recebe **404** (nunca 403) ao acessar o slug de outra empresa, por listagem e por ID direto, e que o wrapper de transação estoura erro quando não há tenant definido.
 - **Permissões e escopo:** testes cobrindo perfis de acesso semeados e customizados, garantindo que sem a permissão certa a rota nega, e que um usuário de escopo restrito não acessa fazenda nem oportunidade de outro responsável, seja por listagem ou por ID direto. Inclui o caso de usuário com dois perfis de acesso, onde vale a união das permissões, e o caso de Gestor que é corretor responsável — perfil de acesso amplo com carteira própria.
 - **Super Admin:** teste provando que a flag nunca aparece em nenhuma resposta da API, que o super admin surge como usuário comum nas listagens de equipe, e que a flag não é alterável por rota alguma — só pelo script de CLI.
