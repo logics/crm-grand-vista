@@ -4,11 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Idioma
 
-Toda a comunicação deste projeto é em **português brasileiro (pt-BR)**: respostas ao usuário, mensagens de commit, comentários de código, documentação e qualquer pergunta ou alinhamento necessário durante o trabalho. Nomes de identificadores no código (variáveis, funções, tabelas) podem seguir convenções em inglês quando for o padrão da stack, mas texto voltado a humanos — comentários, docs, mensagens de commit, textos de UI, respostas — deve ser em pt-BR.
+Toda a comunicação deste projeto é em **português brasileiro (pt-BR)**: respostas ao usuário, mensagens de commit, comentários de código, documentação e qualquer pergunta ou alinhamento necessário durante o trabalho.
+
+A regra no código é por natureza do texto, não por arquivo:
+
+- **Nomes em inglês, sempre** — variáveis, funções, classes, tipos, constantes, arquivos de código, tabelas, colunas, aliases de SQL, chaves de config. Ex.: `createPool`, `InvalidEnvError`, `roles.integration.test.ts`, `access_profiles`.
+- **Texto informativo em pt-BR** — comentários, docs, descrições de teste (`it('nomeia a variável ausente')`), mensagens de erro e de log, textos de UI, mensagens de commit.
+
+Termos de domínio seguem o glossário (`CONTEXT.md`): o rótulo visível em português, o identificador em inglês (`tenant_id` no código, "empresa" na tela).
 
 ## Repository state
 
-This repository currently contains **planning documents only** — no application code has been scaffolded yet. Before writing any code, read both source documents in full:
+The monorepo is scaffolded (`docs/specs/fase-0-monorepo.md`); features are built spec by spec, in the order of `docs/specs/README.md`. Before writing code, read both source documents:
 
 - `Escopo CRM.md` — the commercial scope proposal (in Portuguese) for the client, Grand Vista. Describes *what* the system must do: modules, fields, dashboards, business rules. This is the contract; do not silently deviate from it.
 - `Plano_Geral_de_Desenvolvimento.md` — the technical build plan derived from the scope. Describes *how*: stack, architecture, data model, phased roadmap, and testing strategy. **This is the primary reference for all technical decisions** — check it before introducing a pattern, dependency, or module boundary it doesn't already define.
@@ -19,7 +26,7 @@ Both documents are living plans for a solo developer (user + Claude) build. When
 
 A multi-tenant CRM tailored to high-value rural real estate brokerage (farm buying/selling), replacing spreadsheets/WhatsApp/paper agendas. Solo build, TDD, MVP (cadastros + funil comercial) targeted at 3 months, full system at 6 months.
 
-## Planned stack (not yet scaffolded)
+## Stack
 
 - **Backend:** Node.js + Hono + Drizzle ORM + PostgreSQL + Zod
 - **Frontend:** React + Vite + shadcn/ui + TanStack Query + React Hook Form + MapLibre
@@ -79,16 +86,21 @@ These are closed decisions from `Plano_Geral_de_Desenvolvimento.md` — follow t
 
 If Phase 1 slips, the agreed cut order is: matching config screen (keep default weights in code) → custom fields → video galleries (keep photos). All three return in Phase 4 without rework. Cadastros, referral chain, funnel, commission, and matching working are non-negotiable for the 3-month milestone — don't cut those to save time.
 
-## Verification commands (once the monorepo exists)
-
-Per the plan, every phase should be checked with:
+## Verification commands
 
 ```
-pnpm dev      # exercise the module manually in the browser
-pnpm build    # production build must succeed
+pnpm install            # Node 22 (.nvmrc), pnpm pelo packageManager
+pnpm db:up              # Postgres 18 em container: bancos crm_dev e crm_test, papéis crm_owner e crm_app
+pnpm dev                # API (tsx watch) + web (Vite); a API lê o `.env` (copie de `.env.example`)
+pnpm build              # artefatos de produção dos cinco pacotes
+pnpm typecheck          # tsc --noEmit strict em todos os pacotes
+pnpm lint               # oxlint, com as regras de aderência ao Design System
+pnpm test               # projeto Vitest `unit` — sem banco, sem container
+pnpm test:integration   # projeto `integration` — zera crm_test e aplica as migrations do zero
+pnpm test:e2e           # Playwright
 ```
 
-And continuously: full test suite green, `tsc --noEmit` clean across packages, migrations applying cleanly to a zeroed database.
+Every phase: full suite green, typecheck clean, migrations applying to a zeroed database, and the module exercised in the browser via `pnpm dev`.
 
 ## Agent skills
 
