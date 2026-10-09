@@ -6,9 +6,17 @@
 
 Transformar `design-system-export/` — o dump do Claude Design com o design system da Grand Vista — em `packages/ui`, o Design System de produção do projeto. O export é **referência visual e fonte dos tokens, não código de produção**.
 
-## Pré-requisito
+## Vocabulário
 
-O monorepo precisa existir, com `packages/ui` criado pelo scaffold da Fase 0. Esta spec não cria o monorepo.
+`CONTEXT.md`: **Compatibilidade** (o que `CompatibilityGauge` mede), **Oportunidade** (o que `OpportunityCard` representa), **Fazenda**, **Etapa do funil** (as colunas do `KanbanBoard`), **Auditoria** (o que `AuditTimeline` exibe).
+
+Nome de componente segue o glossário, não o export. É a razão da tabela de renomeação abaixo.
+
+## Decisões que governam
+
+- `docs/adr/0003-design-system-export-e-referencia.md` — o export é referência visual e fonte dos tokens, **não código de produção**
+- Seção "Design System" do `Plano_Geral_de_Desenvolvimento.md` — a divisão em camadas e os três componentes fundacionais
+- `shadcn/ui` não é dependência: é código copiado para dentro de `packages/ui`, escrito sobre os primitivos do **Radix**, do qual passamos a ser donos
 
 ## Inventário do export (verificado, 170 arquivos)
 
@@ -103,3 +111,9 @@ Não existe logotipo vetorial — só raster. O `readme.md` do export é explíc
 7. **Só então** apagar `design-system-export/`, em commit separado
 
 O export está versionado em git (commit `f85ca62`), então erro de triagem é recuperável — mas a exclusão só acontece depois do passo 6 verificado.
+
+## Depende de
+
+`fase-0-monorepo.md` — `packages/ui` precisa existir como pacote compilável, criado pelo scaffold. Esta spec não cria o monorepo.
+
+Não depende da trilha de banco, autenticação ou permissões: é paralelizável com toda ela.

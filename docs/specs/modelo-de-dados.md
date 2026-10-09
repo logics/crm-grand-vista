@@ -208,6 +208,6 @@ Onde não havia definição explícita nas dez rodadas, escolhi e marquei aqui. 
 
 ## Fora do RLS, lista nominal
 
-`tenants`, `users`, `sessions`, `accounts`, `verifications`, `memberships`, `permissions`, `municipalities`.
+`tenants`, `users`, `sessions`, `accounts`, `verifications`, `memberships`, `permissions`, `user_platform_permissions`, `municipalities`.
 
 Todo o resto carrega `tenant_id`, policy e `FORCE ROW LEVEL SECURITY`. O teste de schema da Fase 0 usa exatamente esta lista como exceção e **falha o CI** diante de qualquer tabela de negócio sem os três.

@@ -122,7 +122,7 @@ Detalhe de implementação: a tabela `buyer_profiles` agrupa todas as caracterí
 ## Stack
 
 **Runtime:** Node 22 LTS
-**Backend:** Hono + Drizzle ORM + PostgreSQL 16+ + Zod
+**Backend:** Hono + Drizzle ORM + PostgreSQL 18 + Zod
 **Frontend:** React + Vite + Tailwind + shadcn/ui (Radix) + TanStack Query + React Hook Form + MapLibre
 **Auth:** Better Auth (organizations plugin)
 **Storage:** Cloudflare R2 (S3-compatible)
@@ -396,6 +396,8 @@ O desenvolvimento é solo, com agentes distintos pegando tarefa por tarefa. Para
 
 **Spec no repositório, tarefa na issue.** As duas coisas cumprem papéis diferentes: a spec é o contrato durável, versionado e revisável em pull request, que evolui junto do código; a issue é a atribuição, que fecha quando o trabalho termina. `docs/agents/issue-tracker.md` diz que "issues e specs vivem como issues do GitHub" — desviamos nessa metade, porque issue não entra em PR, não tem diff revisável e divergiria do código sem deixar rastro.
 
+**`docs/specs/README.md` é o índice canônico** — esqueleto fixo, grafo de dependências entre specs e ordem de execução. Divergência entre esta seção e o índice se resolve pelo índice.
+
 Cada `docs/specs/<modulo>.md` segue um esqueleto fixo:
 
 ```
@@ -420,7 +422,7 @@ Em seguida, as specs por módulo escritas contra esse modelo.
 
 ### Fase 0 — Fundação (semanas 1–2)
 
-Monorepo pnpm com Turborepo, Docker Compose com Postgres 16+, Drizzle com migrations, Better Auth com organizations, **motor de permissões granulares** com os perfis de acesso Admin/Gestor/Corretor semeados e o escopo de plataforma desenhado, flag `is_super_admin` e seu script de CLI, provisionamento de tenant por CLI, **RLS ativo e testado** com o teste de schema que falha o CI, resolução de empresa por slug na URL, wrapper de transação que exige tenant, wrapper de auditoria, infraestrutura de testes (Vitest, banco de teste em container, Playwright), CI rodando os testes, deploy contínuo com um "hello world" autenticado.
+Monorepo pnpm com Turborepo, Docker Compose com Postgres 18 (mesma major version de produção, fixada por tag exata), Drizzle com migrations, Better Auth com organizations, **motor de permissões granulares** com os perfis de acesso Admin/Gestor/Corretor semeados e o escopo de plataforma desenhado, flag `is_super_admin` e seu script de CLI, provisionamento de tenant por CLI, **RLS ativo e testado** com o teste de schema que falha o CI, resolução de empresa por slug na URL, wrapper de transação que exige tenant, wrapper de auditoria, infraestrutura de testes (Vitest, banco de teste em container, Playwright), CI rodando os testes, deploy contínuo com um "hello world" autenticado.
 
 **Design System:** triagem do `design-system-export` para `packages/ui` — tokens, primitivos shadcn reestilizados, os componentes de apresentação reescritos em TSX, Storybook, e a config oxlint de aderência virando a config de lint do projeto. Isso acontece depois do scaffold do monorepo, que é o que cria a pasta de destino.
 
@@ -496,9 +498,12 @@ Se a Fase 1 atrasar, a ordem de corte é: **tela de configuração do matching**
 
 Nesta ordem:
 
-1. **Migrar o Postgres** para a mesma rede privada da API, já na versão 16+, para que o pipeline da Fase 0 seja montado uma vez só contra o endereço definitivo.
-2. **Modelo de dados completo** (Fase -1) — todas as tabelas e colunas das seis fases, de uma vez, para que as migrations seguintes sejam só aditivas.
-3. **Specs por módulo** em `docs/specs/`, escritas contra esse modelo.
-4. **Fase 0**, com agentes distintos pegando issue por issue.
+1. ~~**Migrar o Postgres** para a mesma rede da API.~~ **Feito** — 18.0 instalado no mesmo servidor, escutando em `localhost`.
+2. ~~**Modelo de dados completo** (Fase -1).~~ **Feito** — `docs/specs/modelo-de-dados.md`, todas as tabelas das seis fases.
+3. ~~**Specs da Fase 0**.~~ **Feito** — cinco specs mais a do Design System, indexadas em `docs/specs/README.md`.
+4. **Criar os dois papéis no banco** (`crm_owner` e `crm_app`), revogar `CONNECT` de `PUBLIC` e provisionar os segredos. Trabalho humano, conduzido por `/wizard`.
+5. **Fase 0**, com agentes distintos pegando issue por issue, na ordem do índice de specs.
+
+As specs das Fases 1–5 são escritas quando a fase chegar, contra o modelo de dados que já está fechado.
 
 Os tokens de marca já vêm resolvidos do `design-system-export`. A pendência de design que resta é o **logotipo vetorial**, que não bloqueia nada: enquanto não chegar, a marca aparece pelo `Wordmark`, só tipográfico, e o monograma não deve ser aproximado.

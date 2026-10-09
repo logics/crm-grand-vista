@@ -4,6 +4,41 @@ CRM multi-tenant sob medida para corretagem de fazendas de alto valor: cadastro 
 
 ## Language
 
+### Acesso e empresa
+
+**Empresa**:
+A corretora que usa o sistema — o tenant. Toda tabela de negócio pertence a exatamente uma empresa, e o isolamento é garantido pelo Row-Level Security do Postgres, não por filtro na consulta. A palavra visível ao usuário é sempre "empresa"; "tenant" aparece só em identificador de código (`tenant_id`, `tenants`).
+_Avoid_: "organização", "cliente" no sentido de tenant (cliente, no domínio, é o comprador)
+
+**Empresa ativa**:
+A empresa sob a qual a requisição corrente é executada. Vem do slug na URL (`/e/<empresa>/...`), é validada contra o vínculo do usuário logado e aplicada via `SET LOCAL app.tenant_id` antes de qualquer consulta. É **contexto, nunca filtro**: não existe seletor de empresa dentro dos filtros de nenhum módulo. Ver ADR 0002.
+
+**Vínculo**:
+A ligação entre um usuário e uma empresa que ele pode acessar (`memberships`). É o que *define* a pertinência — por isso a tabela fica fora do RLS: filtrá-la por empresa seria circular. Um usuário com vários vínculos marca um como padrão, pré-selecionado no login.
+
+**Permissão**:
+Unidade granular de autorização identificada por `<modulo>.<acao>` (`fazendas.criar`, `comissao.ver_de_terceiros`). O catálogo é definido em código e sincronizado por migration — não é cadastrável pelo usuário. Cada permissão tem escopo de **empresa** ou de **plataforma**; perfil de acesso só compõe permissões de escopo de empresa, porque um perfil pertence a uma empresa e não pode conceder poder sobre outra.
+
+**Escopo de dados**:
+Para cada módulo, se um perfil de acesso enxerga apenas os próprios registros ou os de todos. "Próprios" significa ser o **corretor responsável** pelo registro — não ter o perfil de acesso Corretor. Os dois eixos são independentes.
+
+**Permissão efetiva**:
+A união das permissões de todos os perfis de acesso vinculados ao usuário. Não há subtração: um perfil nunca remove o que outro concede.
+
+**Super admin**:
+Usuário com a flag `is_super_admin`, que atravessa todas as verificações de permissão e escopo, inclusive entre empresas. Marcada exclusivamente por script de CLI, e **invisível por requisito**: removida de toda serialização, e o super admin aparece como usuário comum em qualquer listagem, seletor ou relatório.
+_Avoid_: tratar como um perfil de acesso — não é, e não aparece em tela nenhuma
+
+**AdminMaster**:
+O papel **visível** de administrador da plataforma, que gere empresas pela interface. Distinto do super admin justamente por ser visível e normal. Adiado — hoje o dono do negócio e o desenvolvedor são a mesma pessoa —, mas a estrutura de permissões de escopo de plataforma já existe para recebê-lo sem reestruturação.
+
+**Auditoria**:
+O registro de alterações (`audit_log`), um mecanismo único que atende tanto o requisito geral de "logs de auditoria" quanto o campo "histórico de alterações" da ficha da fazenda. Alimentado por um wrapper de escrita, não por disciplina do desenvolvedor. Guarda campo, valor anterior, valor novo, autor e instante; o rótulo legível e a formatação vêm dos metadados de campo.
+
+**Papel do banco**:
+Um dos dois papéis Postgres do projeto. `crm_owner` é dono do schema e roda as migrations; `crm_app` é o que a API usa e está sujeito às policies. A distinção não é organizacional: o Postgres **não aplica RLS ao dono da tabela**, então usar o papel errado na aplicação desliga o isolamento em silêncio.
+_Avoid_: "usuário do banco" — em Postgres papel e usuário são a mesma coisa, mas "papel" é o termo que a documentação usa
+
 ### Fazenda
 
 **Fazenda**:
