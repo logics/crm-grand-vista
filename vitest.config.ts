@@ -13,6 +13,10 @@ const ignored = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'design-system-ex
 export default defineConfig({
   resolve: { conditions },
   ssr: { resolve: { conditions } },
+  // O global setup roda no processo principal, pelo ambiente `__vitest__`, que
+  // não herda as condições do `ssr`. Sem isto ele importa o `dist` — que só
+  // existe depois de um build, e num checkout limpo (o CI) não existe.
+  environments: { __vitest__: { resolve: { conditions } } },
   test: {
     projects: [
       {

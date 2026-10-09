@@ -34,12 +34,12 @@ Em pull request e no merge para `main`, nesta ordem, parando no primeiro erro:
 2. `typecheck` — `tsc --noEmit` em todos os pacotes
 3. `lint` — oxlint
 4. testes **unitários**, sem banco
-5. testes de **integração**, contra Postgres **18** como service container, com as migrations aplicadas **de banco zerado**
+5. testes de **integração**, contra Postgres **18** subido pelo mesmo `docker-compose.yml` do desenvolvimento, com as migrations aplicadas **de banco zerado**
 6. `build` de todos os pacotes
 
 Os quatro testes de guarda da spec de banco e a varredura de rotas da spec de permissões rodam no passo 5. **Eles são o principal motivo de o CI existir**: provam o isolamento entre empresas e falham quando alguém cria tabela sem policy ou rota sem permissão. CI que roda feature e não roda guarda é CI decorativo.
 
-A major version do Postgres do CI é fixada pela mesma tag do Compose local — nunca `latest`, nunca uma major diferente da de produção.
+A major version do Postgres do CI é fixada pela mesma tag do Compose local — nunca `latest`, nunca uma major diferente da de produção. Por isso o CI sobe o próprio Compose em vez de um service container do GitHub Actions: um service container repetiria a tag no workflow (duas cópias que podem divergir) e não consegue montar o `init.sh` que cria `crm_owner` e `crm_app`, porque o container sobe antes do checkout.
 
 Status de verificação obrigatório para merge. Branch `main` protegida.
 

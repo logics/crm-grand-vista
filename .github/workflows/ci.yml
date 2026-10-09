@@ -1,0 +1,64 @@
+# Verificação de todo pull request e de todo merge em `main`. As etapas rodam
+# em sequência e o job para na primeira que falhar. O nome do job é o status de
+# verificação obrigatório da proteção de `main`: renomeá-lo exige atualizar a
+# regra junto, ou o merge fica bloqueado esperando um check que não existe mais.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Um push novo no mesmo pull request torna a execução anterior irrelevante.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verificação
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # Versão do pnpm vem do `packageManager` do package.json; a do Node, do `.nvmrc`.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Lockfile fora de sincronia com os package.json falha aqui, em vez de
+      # produzir um build que ninguém reproduz.
+      - name: Instalação (lockfile congelado)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      # Antes de subir o Postgres de propósito: prova que a suíte unitária não
+      # depende de banco nem de container.
+      - name: Testes unitários
+        run: pnpm test
+
+      # O mesmo docker-compose.yml do desenvolvimento: mesma tag exata do
+      # Postgres (major 18, a de produção) e o mesmo init com os papéis
+      # crm_owner e crm_app. Uma segunda cópia da tag aqui poderia divergir.
+      - name: Postgres 18
+        run: pnpm db:up
+
+      # O setup global zera crm_test e aplica as migrations do zero; as
+      # conexões vêm do `.env.test`, que aponta para o container acima.
+      - name: Testes de integração
+        run: pnpm test:integration
+
+      - name: Build
+        run: pnpm build
