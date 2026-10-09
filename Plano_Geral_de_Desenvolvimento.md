@@ -293,6 +293,10 @@ O escopo pede "logs de auditoria" como requisito geral e "histórico de alteraç
 
 ## Modelo de dados
 
+> **`docs/specs/modelo-de-dados.md` é o modelo canônico** — todas as tabelas das seis fases, com colunas, tipos, restrições, índices e a lista nominal do que fica fora do RLS. A visão abaixo é o resumo por área, útil para orientação; divergência entre os dois se resolve pelo arquivo de spec.
+>
+> Sete tabelas que esta seção descreve em prosa e o modelo nomeia: `profile_data_scopes` (escopo de dados por módulo), `user_platform_permissions` (estrutura do AdminMaster, vazia na Fase 0), `opportunity_regions` e `opportunity_crops` (critérios da demanda), `due_diligence_templates` e `due_diligence_template_items` (os cinco checklists configuráveis), e `sessions` (Better Auth).
+
 **Acesso e configuração**
 - `tenants`, `users` (com `is_super_admin`), `memberships` (vínculo usuário↔tenant) — Better Auth
 - `permissions` — catálogo de permissões granulares (módulo + ação), definido em código e sincronizado por migration
