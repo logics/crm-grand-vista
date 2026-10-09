@@ -68,6 +68,8 @@ Com vários perfis, vale o **mais amplo**: `all` em qualquer perfil vence `own`.
 
 A cláusula é **uma função reutilizável**, aplicada tanto nas listagens quanto nos guards de detalhe. Aplicada em dois lugares com código diferente é a forma como a listagem fica correta e o acesso por ID direto vaza.
 
+**O que a Fase 0 pode provar, e o que ela não pode.** Não existe nenhuma tabela com corretor responsável nesta fase — `farms` e `opportunities` nascem nas Fases 1 e 2. Então a Fase 0 entrega a cláusula e a prova por **teste unitário**: a função é pura, recebe escopo e usuário e devolve um predicado, e isso é verificável sem tabela nenhuma. A prova de integração — usuário de escopo `own` recebendo 404 ao acessar por ID direto o registro de outro responsável — é **critério de aceite da spec de Fazendas**, o primeiro módulo que tem um responsável. Escrever esse teste agora exigiria uma tabela que só existe no schema de teste, e teste que exercita caminho diferente do de produção não vale nada.
+
 ### Como o escopo de dados falha: 404
 
 Usuário de escopo `own` acessando registro de outro responsável por **ID direto** recebe **404**, não 403.
@@ -109,10 +111,9 @@ Nenhuma tela. A única consequência visual na Fase 0 é o menu e os botões res
 
 1. Rota sem a permissão exigida devolve **403**; com ela, executa.
 2. Usuário com **dois perfis de acesso** tem a **união** das permissões.
-3. Usuário de escopo `own` **não** acessa fazenda nem oportunidade de outro responsável, **por listagem e por ID direto**, e o ID direto devolve **404**.
-4. **Gestor que é corretor responsável**: perfil amplo com carteira própria — enxerga tudo e continua responsável pelos seus registros.
-5. Perfil com `own` em um módulo e `all` em outro se comporta diferente nos dois.
-6. Dois perfis com escopos divergentes no mesmo módulo resolvem para o **mais amplo**.
+3. **Unitário:** a cláusula de escopo devolve predicado restrito para `own` e irrestrito para `all`; perfil com `own` em um módulo e `all` em outro produz predicados diferentes nos dois.
+4. **Unitário:** dois perfis com escopos divergentes no mesmo módulo resolvem para o **mais amplo**.
+5. A resolução de escopo por módulo devolve o escopo correto para usuário com um e com vários perfis.
 7. Permissão de `scope='platform'` **não** pode ser vinculada a perfil de acesso — recusada **pelo banco**, não só pela aplicação.
 8. Os três perfis semeados nascem com o conteúdo desta spec, e o Admin contém **todas** as permissões de empresa do catálogo.
 9. Revogar um perfil de um usuário surte efeito **na requisição seguinte**, sem novo login.
@@ -129,6 +130,7 @@ Nenhuma tela. A única consequência visual na Fase 0 é o menu e os botões res
 - AdminMaster como papel ativo — só a estrutura
 - **Filtro de visibilidade de comissão** (quarta camada): o código `comissao.ver_de_terceiros` nasce no catálogo aqui, mas o filtro de serviço é da Fase 2, com a comissão
 - Qualquer permissão de módulo de negócio sendo *verificada* — nesta fase existe o motor e o catálogo; as rotas que os consomem nascem com cada módulo
+- **Prova de integração do escopo de dados** (404 por ID direto, Gestor com carteira própria): migra para a spec de Fazendas, por não haver tabela com corretor responsável nesta fase
 
 ## Depende de
 
