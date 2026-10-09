@@ -1,0 +1,26 @@
+# Só desenvolvimento e CI. Em produção o Postgres é instalado no servidor e a
+# API roda como processo nativo — este arquivo nunca é usado lá.
+services:
+  postgres:
+    # Tag exata, mesma major da produção (18). Nunca `latest`.
+    image: postgres:18.0
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      CRM_OWNER_PASSWORD: crm_owner
+      CRM_APP_PASSWORD: crm_app
+    ports:
+      # 5433 no host: não colide com um Postgres instalado na máquina.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/01-roles-and-databases.sh:ro
+      - ./packages/db/sql/public-schema.sql:/crm/public-schema.sql:ro
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:
