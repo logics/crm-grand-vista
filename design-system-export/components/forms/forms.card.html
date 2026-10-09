@@ -1,0 +1,35 @@
+<!-- @dsCard group="Components" viewport="700x340" name="Forms" subtitle="Campos, selects, checkbox, switch e a barra de busca" -->
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:16px;background:var(--surface-page)}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.col{display:flex;flex-direction:column;gap:12px}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const { Field, Input, Textarea, Select, Checkbox, Switch, SearchBar } = window.GrandVistaDesignSystem_6745fe;
+
+function Demo(){
+  const [on,setOn]=React.useState(true);const [ck,setCk]=React.useState(true);
+  return(<div className="col" style={{gap:18}}>
+  <SearchBar placeholder="Fazenda, município ou proprietário" filters={<><Select placeholder="Região" options={['Oeste da Bahia','Alto Paranaíba','Sul do Piauí']} style={{width:160}} /><Select placeholder="Aptidão" options={['Lavoura','Pecuária','Mista']} style={{width:140}} /></>} />
+  <div className="col" style={{gap:18,padding:20,background:'var(--surface-card)',borderRadius:'var(--radius-card)',boxShadow:'var(--shadow-sm)'}}>
+  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
+    <Field label="Nome da propriedade" required><Input placeholder="Fazenda Três Barras" /></Field>
+    <Field label="Valor por hectare útil" hint="Sem centavos"><Input prefix="R$" suffix="/ ha" defaultValue="62.000" /></Field>
+    <Field label="Área total" error="Informe a área em hectares"><Input suffix="ha" invalid /></Field>
+  </div>
+  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+    <Field label="Situação documental"><Select options={['Regular','Em regularização','Pendente']} /></Field>
+    <Field label="Diferenciais"><Textarea rows={2} placeholder="Sede reformada, 12 km de rodovia asfaltada…" /></Field>
+  </div>
+  <div className="row" style={{gap:24}}>
+    <Checkbox label="CAR válido" description="Cadastro Ambiental Rural" checked={ck} onChange={()=>setCk(!ck)} />
+    <Checkbox label="Georreferenciamento" />
+    <Switch label="Publicar no site" checked={on} onChange={()=>setOn(!on)} />
+    <Switch label="Alertas de pendência" />
+  </div>
+  </div>
+</div>)}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body></html>

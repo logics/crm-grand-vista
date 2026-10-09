@@ -1,0 +1,31 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Navigation" subtitle="Sidebar flutuante, topbar, tabs (segmentada e sublinhada) e etapas" -->
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:16px;background:var(--surface-page)}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.col{display:flex;flex-direction:column;gap:12px}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const { SidebarNav, TopBar, Tabs, StageStepper, Button, IconButton, Input, Wordmark } = window.GrandVistaDesignSystem_6745fe;
+
+const items=[{id:'dash',label:'Dashboard',icon:'layout-dashboard'},{section:'Comercial'},
+ {id:'faz',label:'Fazendas',icon:'tractor',badge:128},{id:'comp',label:'Compradores',icon:'users',badge:342},
+ {id:'op',label:'Oportunidades',icon:'handshake'},{id:'pipe',label:'Pipeline',icon:'kanban'},{section:'Operação'},
+ {id:'dd',label:'Due diligence',icon:'shield-check',badge:7},{id:'ag',label:'Agenda',icon:'calendar-clock'}];
+function Demo(){
+  const [a,setA]=React.useState('faz');const [t,setT]=React.useState('ficha');
+  return(<div style={{display:'flex',gap:12,height:388,padding:12,borderRadius:'var(--radius-card)',overflow:'hidden',background:'var(--surface-page)'}}>
+    <SidebarNav items={items} active={a} onSelect={setA} style={{width:224}} footer={<><span style={{display:'grid',placeItems:'center',width:36,height:36,borderRadius:'50%',background:'var(--brand-primary-soft)',color:'var(--brand-primary)',fontSize:12,fontWeight:600}}>MS</span><span style={{display:'flex',flexDirection:'column',fontSize:13,fontWeight:600,lineHeight:1.25}}>Milson<small style={{fontSize:11,color:'var(--text-faint)',fontWeight:400}}>Diretor comercial</small></span></>} />
+    <div style={{flex:1,display:'flex',flexDirection:'column',gap:12,minWidth:0}}>
+      <TopBar breadcrumb="Comercial · Fazendas" title="Fazenda Três Barras" actions={<><IconButton icon="bell" label="Alertas" variant="outline" dot /><Button size="sm" icon="share-2">Enviar</Button></>} />
+      <div style={{padding:'18px 20px',display:'flex',flexDirection:'column',gap:22,background:'var(--surface-card)',borderRadius:'var(--radius-card)',boxShadow:'var(--shadow-sm)',flex:1,minHeight:0}}>
+        <Tabs variant="underline" active={t} onSelect={setT} items={[{id:'ficha',label:'Ficha técnica'},{id:'docs',label:'Documentos',count:14},{id:'match',label:'Compradores compatíveis',count:6},{id:'hist',label:'Histórico'}]} />
+        <Tabs active="30d" items={[{id:'7d',label:'7 dias'},{id:'30d',label:'30 dias'},{id:'tri',label:'Trimestre'},{id:'ano',label:'Ano'}]} />
+        <StageStepper current={6} stages={['Lead','Qualificação','Perfil','Opções','Visita','Pré-negociação','Due diligence','Contrato','Fechamento','Pós-venda']} />
+        <div style={{maxWidth:290}}><StageStepper compact current={4} stages={['Lead recebido','Qualificação','Levantamento de perfil','Apresentação de opções','Visita técnica','Pré-negociação','Due diligence','Estruturação contratual','Fechamento','Pós-venda']} /></div>
+      </div>
+    </div>
+  </div>)}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body></html>

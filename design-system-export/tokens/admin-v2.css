@@ -1,0 +1,47 @@
+/* Admin v2 short aliases (--a2-*) used by ui_kits/crm-v2.
+   Since v2 became the system standard these point at the core tokens — edit values there. */
+:root{
+--a2-font:var(--font-sans);
+--a2-font-mono:var(--font-mono);
+--a2-font-brand:var(--font-display);
+
+--a2-canvas:var(--surface-page);
+--a2-surface:var(--surface-card);
+--a2-surface-2:var(--surface-sunken);
+--a2-surface-3:var(--surface-muted);
+--a2-line:var(--border-subtle);
+--a2-line-strong:var(--border-default);
+
+--a2-ink:var(--text-heading);
+--a2-ink-2:var(--text-muted);
+--a2-ink-3:var(--text-faint);
+--a2-ink-4:var(--text-disabled);
+
+--a2-primary:var(--brand-primary);
+--a2-primary-hover:var(--brand-primary-hover);
+--a2-primary-2:var(--brand-primary-2);
+--a2-primary-soft:var(--brand-primary-soft);
+--a2-primary-tint:var(--brand-primary-tint);
+--a2-nav-active:var(--surface-inverse);
+--a2-accent:var(--brand-accent);
+--a2-accent-soft:var(--brand-accent-soft);
+--a2-accent-ink:var(--brand-accent-ink);
+
+--a2-success:var(--status-success-fg);--a2-success-soft:var(--status-success-bg);
+--a2-warning:var(--status-warning-fg);--a2-warning-soft:var(--status-warning-bg);
+--a2-danger:var(--status-danger-fg);--a2-danger-soft:var(--status-danger-bg);
+--a2-info:var(--status-info-fg);--a2-info-soft:var(--status-info-bg);
+
+--a2-r-xs:8px;--a2-r-sm:var(--radius-sm);--a2-r-md:var(--radius-md);--a2-r-lg:var(--radius-lg);--a2-r-xl:var(--radius-xl);--a2-r-pill:var(--radius-pill);
+
+--a2-shadow-card:var(--shadow-sm);
+--a2-shadow-raised:var(--shadow-md);
+--a2-shadow-pop:var(--shadow-lg);
+--a2-shadow-btn:var(--shadow-xs);
+--a2-shadow-primary:var(--shadow-primary);
+--a2-shadow-hero:var(--shadow-hero);
+--a2-ring:var(--ring-focus);
+
+--a2-gap:var(--gap-shell);--a2-pad:var(--gutter-card);--a2-sidebar:var(--sidebar-width);--a2-control:var(--control-height);--a2-row:var(--row-height);
+--a2-ease:var(--ease-standard); /* @kind other */
+}
