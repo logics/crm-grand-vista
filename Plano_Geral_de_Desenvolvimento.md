@@ -160,9 +160,9 @@ VPS Linux administrado por **aaPanel**, com a API rodando como **processo nativo
 
 **Frontend no Netlify**, com `base = "apps/web"` e instalação a partir da raiz do workspace — monorepo pnpm não é obstáculo. Mídia no R2.
 
-**Postgres 16 ou superior**, com a mesma major version no local, no CI e em produção, fixada por tag explícita no Docker Compose (nunca `latest`). O servidor atual está em 12.13, série que saiu de suporte em novembro de 2024; a atualização acontece na migração de infra, enquanto o banco está vazio e é barata.
+**Postgres 18**, instalado no mesmo servidor da aplicação e escutando apenas em `localhost` — sem porta exposta, sem SSL na conexão, sem regra de firewall. A mesma major version vale no local e no CI, fixada por tag explícita no Docker Compose (nunca `latest`).
 
-Enquanto a conexão atravessar a internet, `sslmode=require` e firewall liberando só o IP da API. Na rede privada, IP interno.
+A instância é **compartilhada com outros projetos** do mesmo servidor, o que impõe dois cuidados. O isolamento é no nível do banco, e como o Postgres concede `CONNECT` a todo papel autenticado por padrão, o banco do CRM revoga `CONNECT` de `PUBLIC` e concede apenas a `crm_owner` e `crm_app` — sem isso, o papel de outra aplicação conseguiria conectar e enumerar o schema. E o `max_connections` é dividido entre os projetos, então o pool da API é dimensionado conservadoramente (ordem de 10 conexões), não no padrão da biblioteca.
 
 **Sem homologação na Fase 0** — local direto para produção, que é o que a fase pede e ninguém está usando ainda. O ambiente de homologação nasce ao fim da Fase 1, quando a Grand Vista começa a usar de verdade: a partir daí, subir migration quebrada na produção do cliente é risco de outra natureza. É o mesmo pipeline apontando para outro diretório e outro banco.
 
