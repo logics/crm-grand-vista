@@ -1,0 +1,39 @@
+:root{
+--space-0:0px;
+--space-1:2px;
+--space-2:4px;
+--space-3:6px;
+--space-4:8px;
+--space-5:12px;
+--space-6:16px;
+--space-7:20px;
+--space-8:24px;
+--space-9:32px;
+--space-10:40px;
+--space-11:56px;
+--space-12:72px;
+--space-13:96px;
+
+/* Shell: floating cards on a canvas, one gap everywhere */
+--gap-shell:16px;
+--gap-shell-mobile:12px;
+--gutter-card:20px;
+--gutter-card-mobile:14px;
+--gutter-section:32px;
+--gutter-page:16px;
+--row-height:56px;
+--row-height-dense:44px;
+--control-height:40px;
+--control-height-sm:32px;
+--control-height-lg:48px;
+--hit-target:44px;
+--sidebar-width:264px;
+--sidebar-width-collapsed:76px;
+--topbar-height:64px;
+--tabbar-height:68px;
+--content-max:1320px;
+
+/* Breakpoints (container widths): rail ≤1180, mobile ≤760 */
+--bp-rail:1180px;/* @kind other */
+--bp-mobile:760px;/* @kind other */
+}

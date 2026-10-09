@@ -1,0 +1,43 @@
+:root{
+/* Geist carries all UI and headings; Jost is reserved for the wordmark/brand lockups */
+--font-display:"Jost","Century Gothic",system-ui,sans-serif;
+--font-sans:"Geist",ui-sans-serif,system-ui,-apple-system,sans-serif;
+--font-mono:"Geist Mono",ui-monospace,monospace;
+
+--text-body-font:var(--font-sans);
+--text-heading-font:var(--font-sans);
+--text-data-font:var(--font-sans);
+--text-brand-font:var(--font-display);
+
+--size-hero:56px;
+--size-display:40px;
+--size-h1:30px;
+--size-h2:22px;
+--size-h3:18px;
+--size-lg:16px;
+--size-body:14px;
+--size-sm:13px;
+--size-xs:12px;
+--size-micro:11px;
+--size-label:10.5px;
+
+--lh-tight:1.1;/* @kind other */
+--lh-snug:1.25;/* @kind other */
+--lh-normal:1.5;/* @kind other */
+--lh-relaxed:1.6;/* @kind other */
+
+--weight-light:300;/* @kind font */
+--weight-regular:400;/* @kind font */
+--weight-medium:500;/* @kind font */
+--weight-semibold:600;/* @kind font */
+--weight-bold:700;/* @kind font */
+
+/* Wide tracking survives only in the brand lockup; UI headings track tight */
+--tracking-brand:.24em;/* @kind other */
+--tracking-eyebrow:.08em;/* @kind other */
+--tracking-wide:.01em;/* @kind other */
+--tracking-normal:0;/* @kind other */
+--tracking-tight:-.01em;/* @kind other */
+--tracking-heading:-.025em;/* @kind other */
+--tracking-display:-.03em;/* @kind other */
+}

@@ -1,0 +1,81 @@
+<!-- @dsCard group="CRM Rural v2" viewport="1440x900" name="CRM Rural v2 — admin responsivo" subtitle="Superfícies suaves, controles em pílula, desktop + tablet + mobile" -->
+<!-- @startingPoint section="CRM Rural" subtitle="Admin v2: dashboard, fazendas, pipeline e compradores, responsivo até mobile" viewport="1440x900" -->
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Grand Vista · CRM Rural v2</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="crm-v2.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../data.js"></script>
+</head><body><div id="root" style="height:100%"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="Shell.jsx"></script>
+<script type="text/babel" src="Dashboard.jsx"></script>
+<script type="text/babel" src="Fazendas.jsx"></script>
+<script type="text/babel" src="Pipeline.jsx"></script>
+<script type="text/babel" src="Drawers.jsx"></script>
+<script type="text/babel" data-presets="react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "viewport": "Auto",
+  "hero": "Gradiente",
+  "density": "Confortável"
+}/*EDITMODE-END*/;
+const SIZES = { Auto: null, Tablet: [820, 1100, 'is-tablet'], Mobile: [390, 844, 'is-device'] };
+const HERO = { Gradiente: '', Escuro: 'solid', Dourado: 'gold' };
+const SCREENS = ['dashboard', 'fazendas', 'pipeline', 'compradores'];
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [view, setView] = React.useState(() => localStorage.getItem('gv-a2-view') || 'dashboard');
+  const [farmIdx, setFarmIdx] = React.useState(null);
+  const [filters, setFilters] = React.useState(false);
+  const [menu, setMenu] = React.useState(false);
+  const [toast, setToast] = React.useState(null);
+  const F = window.GV_DATA.fazendas;
+  React.useEffect(() => localStorage.setItem('gv-a2-view', view), [view]);
+  const nav = id => { if (id === '__menu') return setMenu(true); setView(id); setFarmIdx(null); };
+  const showToast = (title, sub) => { setToast({ title, sub }); clearTimeout(window.__a2t); window.__a2t = setTimeout(() => setToast(null), 3800); };
+  const openFarm = f => setFarmIdx(Math.max(0, F.findIndex(x => x.id === f.id)));
+  const size = SIZES[t.viewport];
+  const dense = t.density === 'Compacta';
+  const vars = dense ? { '--a2-row': '44px', '--a2-control': '34px', '--a2-gap': '12px', '--a2-pad': '16px' } : {};
+  const nav0 = window.GV_DATA.nav.find(n => n.id === view);
+  return (
+    <div className={'a2-stage ' + (size ? size[2] : '')}>
+      <div className="a2-frame" style={{ ...(size ? { width: size[0], height: size[1], flex: 'none' } : {}), ...vars }}>
+        <div className="a2-app">
+          <A2Sidebar view={view} onNavigate={nav} />
+          <div className="a2-col">
+            <A2TopBar />
+            <A2MobileTop />
+            <main className="a2-main">
+              {view === 'dashboard' && <A2Dashboard heroStyle={HERO[t.hero]} onOpenFarm={openFarm} onNavigate={nav} />}
+              {view === 'fazendas' && <A2Fazendas onOpenFarm={openFarm} onFilters={() => setFilters(true)} onToast={showToast} />}
+              {view === 'pipeline' && <A2Pipeline onOpenFarm={openFarm} />}
+              {view === 'compradores' && <A2Compradores onToast={showToast} />}
+              {!SCREENS.includes(view) && <div className="a2-page"><A2Head title={nav0 ? nav0.label : ''} /><div className="a2-card"><A2Empty title="Módulo não desenhado">Este módulo consta no escopo do CRM, mas ainda não tem tela definida. Nada foi inventado aqui.</A2Empty></div></div>}
+            </main>
+          </div>
+        </div>
+        {view === 'fazendas' && <button className="a2-fab" aria-label="Cadastrar fazenda"><A2Icon name="plus" size={22} /></button>}
+        <A2TabBar view={view} onNavigate={nav} />
+        {menu && <A2MenuSheet view={view} onNavigate={nav} onClose={() => setMenu(false)} />}
+        {farmIdx != null && <A2FarmDrawer farm={F[farmIdx]} onClose={() => setFarmIdx(null)} onStep={d => setFarmIdx(i => (i + d + F.length) % F.length)} onSend={() => { setFarmIdx(null); showToast('Oportunidade enviada', 'WhatsApp e e-mail para 4 compradores compatíveis'); }} />}
+        {filters && <A2FilterSheet onClose={() => setFilters(false)} onApply={() => { setFilters(false); showToast('Filtros aplicados', 'Oeste da Bahia · 500–3.000 ha'); }} />}
+        {toast && <div className="a2-toast" role="status"><span className="ic"><A2Icon name="check" size={16} /></span><span>{toast.title}<small>{toast.sub}</small></span></div>}
+      </div>
+      <TweaksPanel>
+        <TweakSection label="Visualização" />
+        <TweakRadio label="Tela" value={t.viewport} options={['Auto', 'Tablet', 'Mobile']} onChange={v => setTweak('viewport', v)} />
+        <TweakRadio label="Densidade" value={t.density} options={['Confortável', 'Compacta']} onChange={v => setTweak('density', v)} />
+        <TweakSection label="Estilo" />
+        <TweakRadio label="Card destaque" value={t.hero} options={['Gradiente', 'Escuro', 'Dourado']} onChange={v => setTweak('hero', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+const start = () => { if (!window.A2FarmDrawer || !window.TweaksPanel || !window.A2Pipeline) return setTimeout(start, 50); ReactDOM.createRoot(document.getElementById('root')).render(<App />); };
+start();
+</script>
+</body></html>

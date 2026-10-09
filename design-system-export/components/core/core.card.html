@@ -1,0 +1,50 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Core" subtitle="Botões pill, ícones circulares, badges, tags, cards sem borda" -->
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:16px;background:var(--surface-page)}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.col{display:flex;flex-direction:column;gap:12px}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const { Button, IconButton, Badge, Tag, Card, Wordmark, Icon } = window.GrandVistaDesignSystem_6745fe;
+
+function Demo(){return(<div className="col" style={{gap:16}}>
+  <div className="row">
+    <Button icon="plus">Cadastrar fazenda</Button>
+    <Button variant="accent">Enviar oportunidade</Button>
+    <Button variant="secondary" icon="download">Exportar</Button>
+    <Button variant="soft" icon="sliders-horizontal" count={3}>Filtros</Button>
+    <Button variant="dark">Ver relatório</Button>
+    <Button variant="ghost">Cancelar</Button>
+    <Button variant="danger" size="sm">Excluir</Button>
+    <Button size="sm" disabled>Salvando…</Button>
+  </div>
+  <div className="row">
+    <IconButton icon="pencil" label="Editar" />
+    <IconButton icon="bell" label="Alertas" variant="outline" dot />
+    <IconButton icon="more-horizontal" label="Mais" variant="soft" />
+    <IconButton icon="send" label="Enviar" variant="solid" />
+    <span style={{width:8}} />
+    <Badge tone="success" dot>Disponível</Badge>
+    <Badge tone="warning" icon="file-warning">Doc. pendente</Badge>
+    <Badge tone="danger" dot>Estagnada</Badge>
+    <Badge tone="gold">Prioridade alta</Badge>
+    <Badge tone="brand">Due diligence</Badge>
+    <Badge>Arquivada</Badge>
+  </div>
+  <div className="row">
+    <Tag icon="map-pin">Oeste da Bahia</Tag>
+    <Tag selected onRemove={()=>{}}>Soja</Tag>
+    <Tag icon="droplets">Irrigável</Tag>
+  </div>
+  <div className="row" style={{alignItems:'stretch',gap:16}}>
+    <Card eyebrow="Pipeline" title="Negociações ativas" style={{flex:1}} action={<Button size="sm" variant="secondary">Ver</Button>}>
+      <span style={{font:'var(--weight-regular) var(--size-sm) var(--font-sans)',color:'var(--text-muted)'}}>Card padrão: sem borda, raio 20px, sombra muito suave sobre o canvas.</span>
+    </Card>
+    <Card accent style={{flex:'0 0 210px',display:'grid',placeItems:'center'}}><Wordmark size={19} /></Card>
+    <div style={{flex:'0 0 190px',display:'grid',placeItems:'center',background:'var(--gradient-hero)',boxShadow:'var(--shadow-hero)',borderRadius:'var(--radius-card)'}}><Wordmark size={19} tone="light" /></div>
+  </div>
+</div>)}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body></html>
