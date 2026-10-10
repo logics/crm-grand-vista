@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { createDatabase, MissingTenantError } from './database.js';
-import { createPool } from './pool.js';
+import { createDatabase, MissingTenantError } from '../src/database.js';
+import { createPool } from '../src/pool.js';
 
 describe('empresa obrigatória', () => {
   // pg.Pool só conecta na primeira consulta: aqui não há rede, e o wrapper tem

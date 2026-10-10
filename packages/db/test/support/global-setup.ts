@@ -5,9 +5,9 @@ import { readFile } from 'node:fs/promises';
 import { migrationEnvSchema, parseEnv } from '@crm/shared/env';
 import pg from 'pg';
 import type { TestProject } from 'vitest/node';
-import { runMigrations } from '../src/migrate.js';
+import { runMigrations } from '../../src/migrate.js';
 
-const PUBLIC_SCHEMA_SQL = new URL('../sql/public-schema.sql', import.meta.url);
+const PUBLIC_SCHEMA_SQL = new URL('../../sql/public-schema.sql', import.meta.url);
 
 export default async function setup(project: TestProject): Promise<void> {
   // O setup roda no processo principal, onde o `env` do projeto (`.env.test`)

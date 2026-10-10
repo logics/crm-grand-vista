@@ -146,7 +146,7 @@ crm/
     └── ui/           # Design System: componentes, tokens, documentação
 ```
 
-Cada módulo de negócio é uma pasta autocontida em `apps/api/src/modules/<nome>` (rotas, serviço, schemas, testes) registrada no router raiz, com o correspondente em `apps/web/src/modules/`. Adicionar um módulo não deve exigir tocar em nenhum outro — é o que o escopo pede ao falar em "possibilidade de criação de novos módulos".
+Cada módulo de negócio é uma pasta autocontida em `apps/api/src/modules/<nome>` (rotas, serviço, schemas) registrada no router raiz, com o correspondente em `apps/web/src/modules/`. Os testes do módulo ficam fora de `src/`, em `apps/api/test/modules/<nome>`: `src/` guarda só o que vai para produção, e cada pacote tem a sua pasta `test/` espelhando o caminho do código que exercita. Adicionar um módulo não deve exigir tocar em nenhum outro — é o que o escopo pede ao falar em "possibilidade de criação de novos módulos".
 
 Cada pasta de módulo carrega um `CLAUDE.md` curto — quais tabelas o módulo possui, onde está a spec dele, convenções locais. É carregado automaticamente quando um agente trabalha ali, e é ponteiro, não spec.
 

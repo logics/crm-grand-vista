@@ -50,7 +50,7 @@ crm/
     └── ui/           # Design System: components, tokens, Storybook docs
 ```
 
-Each business module is a self-contained folder at `apps/api/src/modules/<name>` (routes, service, schemas, tests) registered on the root router, mirrored at `apps/web/src/modules/`. Adding a module should not require touching another module — this is a direct requirement from the scope ("possibilidade de criação de novos módulos").
+Each business module is a self-contained folder at `apps/api/src/modules/<name>` (routes, service, schemas) registered on the root router, mirrored at `apps/web/src/modules/`. Its tests live outside `src/`, at `apps/api/test/modules/<name>`. Adding a module should not require touching another module — this is a direct requirement from the scope ("possibilidade de criação de novos módulos").
 
 ## Architectural decisions that must not be relitigated
 
@@ -73,6 +73,7 @@ These are closed decisions from `Plano_Geral_de_Desenvolvimento.md` — follow t
 - **Unit (Vitest):** pure business rules with mocked dependencies — commission split, matching score, saca value calculation, referral chain assembly, inertia thresholds. These live in I/O-free services specifically so they're trivial to test.
 - **Integration (Vitest + real Postgres in a container):** HTTP routes against a real DB with migrations applied from scratch. Covers RLS, per-role permissions, commission visibility, audit — things no mock can prove.
 - **E2E (Playwright):** critical end-to-end flows, e.g. register farm → check compatible buyers → create opportunity → set commission groups → move through pipeline → log activity.
+- **Tests never live in `src/`.** Each package keeps them in its own `test/` folder, mirroring the `src/` path of what they exercise (`src/modules/farms/service.ts` → `test/modules/farms/service.test.ts`); helpers shared between tests go in `test/support/`. `src/` holds only what ships to production. A guard test (`test/no-tests-in-src.test.ts`) fails otherwise.
 - No feature is done without a test. Where a test diverges from what production actually executes, the test is worthless — always exercise the real code path.
 
 ## Roadmap phases (for sequencing decisions)

@@ -32,14 +32,14 @@ export default defineConfig({
         extends: true,
         test: {
           // Postgres real do container, com as migrations aplicadas do zero
-          // a cada execução (ver `packages/db/test/global-setup.ts`).
+          // a cada execução (ver `packages/db/test/support/global-setup.ts`).
           name: 'integration',
           include: ['**/*.integration.test.ts'],
           exclude: ignored,
           // `.env.test` aponta para o banco de teste; variáveis já definidas
           // no ambiente (CI) têm precedência.
           env: loadEnv('test', rootDir, ''),
-          globalSetup: ['packages/db/test/global-setup.ts'],
+          globalSetup: ['packages/db/test/support/global-setup.ts'],
           fileParallelism: false,
         },
       },

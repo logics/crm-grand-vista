@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiEnvSchema, InvalidEnvError, migrationEnvSchema, parseEnv } from './env.js';
+import { apiEnvSchema, InvalidEnvError, migrationEnvSchema, parseEnv } from '../src/env.js';
 
 const validApiEnv = {
   DATABASE_URL: 'postgres://crm_app:senha@localhost:5432/crm_dev',
