@@ -2,7 +2,6 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "ignorePatterns": [
     "design-system-export/**",
-    ".agent/**",
     ".agents/**",
     ".claude/**"
   ],
