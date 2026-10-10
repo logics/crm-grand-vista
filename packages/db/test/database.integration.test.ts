@@ -3,10 +3,10 @@
 import { loadApiEnv } from '@crm/shared/env';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createAccessProfile, createTenant } from '../test/fixtures.js';
-import { createDatabase, type Transaction } from './database.js';
-import { createPool } from './pool.js';
-import { accessProfiles, tenants } from './schema/index.js';
+import { createAccessProfile, createTenant } from './support/fixtures.js';
+import { createDatabase, type Transaction } from '../src/database.js';
+import { createPool } from '../src/pool.js';
+import { accessProfiles, tenants } from '../src/schema/index.js';
 
 describe('wrapper de transação', () => {
   const pool = createPool(loadApiEnv().DATABASE_URL);
