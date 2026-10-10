@@ -55,6 +55,8 @@ Toda tabela de negócio recebe:
 
 O predicado compara `tenant_id` com `current_setting('app.tenant_id', true)::uuid`. O segundo argumento (`missing_ok`) é deliberado: sem ele, consulta sem a variável definida **estoura exceção**; com ele, retorna `NULL`, a comparação é falsa e a consulta devolve **zero linhas**. Falhar fechado, nunca aberto.
 
+Na migration o valor passa ainda por `nullif(..., '')`: depois de um `SET LOCAL` confirmado, o Postgres deixa a variável na conexão como **string vazia**, não como `NULL`, e o cast de `''` para `uuid` estouraria exceção justamente nas conexões reaproveitadas do pool. Com o `nullif`, os dois casos de ausência dão zero linhas.
+
 Isso não substitui o wrapper estourar erro — são duas camadas, e a do banco é a que vale quando alguém contorna a de cima.
 
 ### Wrapper de transação

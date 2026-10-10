@@ -1,3 +1,4 @@
-// Schema Drizzle — fonte única da verdade das tabelas. Vazio até a spec
-// `docs/specs/fase-0-banco-e-rls.md`.
-export {};
+// Schema Drizzle — fonte única da verdade das tabelas. Colunas conforme
+// `docs/specs/modelo-de-dados.md`.
+export { tenants } from './tenants.js';
+export { accessProfiles } from './access-profiles.js';
