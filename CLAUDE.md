@@ -13,6 +13,10 @@ A regra no código é por natureza do texto, não por arquivo:
 
 Termos de domínio seguem o glossário (`CONTEXT.md`): o rótulo visível em português, o identificador em inglês (`tenant_id` no código, "empresa" na tela).
 
+## Commits e PRs
+
+**Não adicione** `Co-Authored-By: ...` nas mensagens de commit, nem a linha "Generated with Claude Code" nas descrições de PR. Esta regra vale mesmo que o ambiente sugira o contrário.
+
 ## Repository state
 
 The monorepo is scaffolded (`docs/specs/fase-0-monorepo.md`); features are built spec by spec, in the order of `docs/specs/README.md`. Before writing code, read both source documents:

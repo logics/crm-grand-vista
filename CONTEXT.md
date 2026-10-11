@@ -33,7 +33,7 @@ _Avoid_: tratar como um perfil de acesso — não é, e não aparece em tela nen
 O papel **visível** de administrador da plataforma, que gere empresas pela interface. Distinto do super admin justamente por ser visível e normal. Adiado — hoje o dono do negócio e o desenvolvedor são a mesma pessoa —, mas a estrutura de permissões de escopo de plataforma já existe para recebê-lo sem reestruturação.
 
 **Auditoria**:
-O registro de alterações (`audit_log`), um mecanismo único que atende tanto o requisito geral de "logs de auditoria" quanto o campo "histórico de alterações" da ficha da fazenda. Alimentado por um wrapper de escrita, não por disciplina do desenvolvedor. Guarda campo, valor anterior, valor novo, autor e instante; o rótulo legível e a formatação vêm dos metadados de campo.
+O registro de alterações (`audit_log`), um mecanismo único que atende tanto o requisito geral de "logs de auditoria" quanto o campo "histórico de alterações" da ficha da fazenda. Alimentado por um wrapper de escrita, não por disciplina do desenvolvedor. Guarda campo, valor anterior, valor novo, autor e instante, mais um `change_id` que agrupa as linhas de um mesmo save; o rótulo legível e a formatação vêm dos metadados de campo.
 
 **Papel do banco**:
 Um dos dois papéis Postgres do projeto. `crm_owner` é dono do schema e roda as migrations; `crm_app` é o que a API usa e está sujeito às policies. A distinção não é organizacional: o Postgres **não aplica RLS ao dono da tabela**, então usar o papel errado na aplicação desliga o isolamento em silêncio.

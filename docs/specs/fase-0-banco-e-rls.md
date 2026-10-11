@@ -93,7 +93,7 @@ Duas propriedades que não são opcionais:
 - **Na mesma transação da escrita.** Em transação separada, um rollback deixa registro de auditoria de alteração que não aconteceu — pior que não auditar, porque mente com aparência de prova.
 - **`audit_log` é append-only para a aplicação.** `crm_app` recebe `INSERT` e `SELECT`, e **não** `UPDATE` nem `DELETE`. Log de auditoria editável pela aplicação que ele audita não é log de auditoria.
 
-Campo não alterado não gera linha. Valores vão como `text`, para caber qualquer tipo; a formatação e o rótulo legível vêm dos metadados de campo, não do log.
+Campo não alterado não gera linha. Todas as linhas gravadas por um mesmo envio (uma instância do wrapper por requisição) compartilham o mesmo `change_id` (uuid), mesmo que o envio toque vários registros e tabelas. Isso permite reconstruir "o que mudou neste save" sem abrir mão da consulta por campo; envios distintos têm `change_id` distintos. Valores vão como `text`, para caber qualquer tipo; a formatação e o rótulo legível vêm dos metadados de campo, não do log.
 
 O autor vem do contexto da requisição e é **nulo** para ação de CLI ou de sistema — nulo é a verdade, e inventar um usuário de sistema criaria um autor que não existe em `users`.
 
@@ -117,7 +117,7 @@ Mais:
 
 5. `INSERT` com `tenant_id` de outra empresa é recusado pelo banco (prova o `WITH CHECK`).
 6. Consulta sem a variável de sessão definida devolve **zero linhas**, não exceção (prova o `missing_ok`).
-7. Alterar dois campos de um registro gera exatamente duas linhas de `audit_log`, com valor anterior, valor novo e autor; alterar e dar rollback gera **zero**.
+7. Alterar dois campos de um registro gera exatamente duas linhas de `audit_log`, com valor anterior, valor novo e autor; alterar e dar rollback gera **zero**; as linhas de um mesmo envio compartilham `change_id`, e envios distintos não.
 8. `crm_app` não consegue `UPDATE` nem `DELETE` em `audit_log`.
 9. `semTenant()` com o caminho do super admin aplica a empresa inspecionada, e uma consulta nesse caminho **não** retorna linhas de duas empresas.
 10. Migrations aplicam de banco zerado e `tsc --noEmit` fica limpo.
