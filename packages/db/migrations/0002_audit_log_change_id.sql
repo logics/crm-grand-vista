@@ -1,0 +1,2 @@
+ALTER TABLE "audit_log" ADD COLUMN "change_id" uuid DEFAULT gen_random_uuid() NOT NULL;--> statement-breakpoint
+CREATE INDEX "audit_log_tenant_id_change_id_index" ON "audit_log" USING btree ("tenant_id","change_id");

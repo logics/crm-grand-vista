@@ -287,7 +287,7 @@ O sigilo é requisito, não detalhe: a flag é removida de toda serialização d
 
 ### Auditoria
 
-O escopo pede "logs de auditoria" como requisito geral e "histórico de alterações" como campo de fazenda — é o mesmo mecanismo. Tabela `audit_log` genérica (`tenant_id`, entidade, `entity_id`, campo, valor anterior, valor novo, usuário, timestamp), alimentada por um wrapper de escrita no Drizzle, para não depender de o desenvolvedor lembrar de registrar. A exibição usa os metadados de campo para mostrar rótulo legível e valor formatado.
+O escopo pede "logs de auditoria" como requisito geral e "histórico de alterações" como campo de fazenda — é o mesmo mecanismo. Tabela `audit_log` genérica (`tenant_id`, entidade, `entity_id`, `change_id`, campo, valor anterior, valor novo, usuário, timestamp), uma linha por campo alterado, com `change_id` agrupando as linhas de um mesmo save, alimentada por um wrapper de escrita no Drizzle, para não depender de o desenvolvedor lembrar de registrar. A exibição usa os metadados de campo para mostrar rótulo legível e valor formatado.
 
 ---
 

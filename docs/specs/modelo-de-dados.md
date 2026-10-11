@@ -54,7 +54,7 @@ Estas tabelas **não** carregam policy por tenant. O vínculo usuário↔empresa
 | `profile_permissions` | 0 | `profile_id`, `permission_code`. PK composta. Só aceita permissão de `scope='tenant'` — perfil de tenant não pode conceder poder sobre outros tenants |
 | `profile_data_scopes` | 0 | `profile_id`, `module`, `scope` CHECK `('own','all')`. PK `(profile_id, module)`. `own` significa ser o **corretor responsável** pelo registro — não ter o perfil de acesso Corretor |
 | `user_profiles` | 0 | `user_id`, `profile_id`. PK composta. Vale a união das permissões |
-| `audit_log` | 0 | `bigint` identity PK. `tenant_id` (nulo para ação de plataforma), `entity`, `entity_id`, `field`, `old_value` text, `new_value` text, `user_id` (nulo para ação de CLI/sistema), `created_at`. Índices `(tenant_id, entity, entity_id, created_at DESC)` e `(tenant_id, created_at DESC)`. Valores em `text` para caber qualquer tipo; a formatação é dos metadados de campo |
+| `audit_log` | 0 | `bigint` identity PK. `tenant_id` (nulo para ação de plataforma), `entity`, `entity_id`, `change_id` uuid (agrupa as linhas de um mesmo save; default `gen_random_uuid()`), `field`, `old_value` text, `new_value` text, `user_id` (nulo para ação de CLI/sistema), `created_at`. Índices `(tenant_id, entity, entity_id, created_at DESC)` e `(tenant_id, created_at DESC)` e `(tenant_id, change_id)`. Valores em `text` para caber qualquer tipo; a formatação é dos metadados de campo |
 
 ---
 

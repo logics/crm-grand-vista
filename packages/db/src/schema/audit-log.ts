@@ -17,6 +17,9 @@ export const auditLog = pgTable(
     tenantId: uuid('tenant_id').references(() => tenants.id),
     entity: text('entity').notNull(),
     entityId: text('entity_id').notNull(),
+    // Agrupa as linhas de uma mesma escrita (um save de formulário). O default
+    // faz a linha gravada fora do wrapper ser uma mudança própria.
+    changeId: uuid('change_id').notNull().defaultRandom(),
     field: text('field').notNull(),
     oldValue: text('old_value'),
     newValue: text('new_value'),
@@ -27,6 +30,7 @@ export const auditLog = pgTable(
   (table) => [
     index().on(table.tenantId, table.entity, table.entityId, table.createdAt.desc()),
     index().on(table.tenantId, table.createdAt.desc()),
+    index().on(table.tenantId, table.changeId),
     tenantIsolationPolicy(),
   ],
 );
