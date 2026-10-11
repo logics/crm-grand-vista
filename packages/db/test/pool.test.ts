@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPool, POOL_MAX_CONNECTIONS } from './pool.js';
+import { createPool, POOL_MAX_CONNECTIONS } from '../src/pool.js';
 
 describe('createPool', () => {
   it('limita o pool a 10 conexões, não ao padrão da biblioteca', async () => {

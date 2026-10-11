@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { uuidv7 } from './uuid.js';
+import { uuidv7 } from '../src/uuid.js';
 
 describe('uuidv7', () => {
   it('gera um UUID versão 7, variante RFC 9562', () => {

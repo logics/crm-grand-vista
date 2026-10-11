@@ -8,6 +8,13 @@
       "when": 1791638098892,
       "tag": "0000_tenants_and_access_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791646479085,
+      "tag": "0001_phase_0_schema",
+      "breakpoints": true
     }
   ]
 }
