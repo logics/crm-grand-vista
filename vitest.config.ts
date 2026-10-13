@@ -6,7 +6,11 @@ const rootDir = fileURLToPath(new URL('.', import.meta.url));
 
 // Os testes importam o código-fonte dos pacotes do workspace, não o `dist`:
 // é a condição `@crm/source` declarada no `exports` de cada pacote.
-const conditions = ['@crm/source', ...defaultServerConditions];
+// `module` fica de fora: é convenção de bundler, que o Node não segue. Com ela,
+// dependência que só a declara para bundlers (o OpenTelemetry que o Better Auth
+// traz) resolve para um build que o Node não executa — e o teste deixaria de
+// carregar o que produção carrega.
+const conditions = ['@crm/source', ...defaultServerConditions.filter((condition) => condition !== 'module')];
 
 const ignored = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'design-system-export/**'];
 
