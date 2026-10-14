@@ -5,9 +5,10 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTenant, createUser } from './support/fixtures.js';
 import { auditedWrites } from '../src/audit.js';
-import { createDatabase } from '../src/database.js';
+import { createDatabase, type Transaction } from '../src/database.js';
 import { createPool } from '../src/pool.js';
-import { accessProfiles, auditLog } from '../src/schema/index.js';
+import { accessProfiles, auditLog, users } from '../src/schema/index.js';
+import { uuidv7 } from '../src/uuid.js';
 
 describe('wrapper de auditoria', () => {
   const pool = createPool(loadApiEnv().DATABASE_URL);
@@ -151,5 +152,41 @@ describe('wrapper de auditoria', () => {
       /permission denied/i,
     );
     expect(await deniedBy(db.withTenant(tenantId, (tx) => tx.delete(auditLog)))).toMatch(/permission denied/i);
+  });
+
+  describe('flag de super admin', () => {
+    const fieldsLoggedFor = (entityId: string, tx: Transaction) =>
+      tx
+        .select({ field: auditLog.field, newValue: auditLog.newValue })
+        .from(auditLog)
+        .where(eq(auditLog.entityId, entityId));
+
+    it('não entra no histórico de uma empresa, nem quando o usuário nasce nela', async () => {
+      const fields = await db.withTenant(tenantId, async (tx) => {
+        const user = await auditedWrites(tx, { tenantId, userId: null }).insert(users, {
+          name: 'Nova',
+          email: `${uuidv7()}@teste.local`,
+        });
+        return (await fieldsLoggedFor(user.id, tx)).map((row) => row.field);
+      });
+
+      expect(fields).toContain('email');
+      expect(fields).not.toContain('is_super_admin');
+    });
+
+    it('entra na linha de plataforma, sem empresa', async () => {
+      const target = await createUser(db, 'Marcada');
+
+      const logged = await db.semTenant({ reason: 'cli' }, async (tx) => {
+        await auditedWrites(tx, { tenantId: null, userId: null }).update(
+          users,
+          { isSuperAdmin: true },
+          eq(users.id, target),
+        );
+        return fieldsLoggedFor(target, tx);
+      });
+
+      expect(logged).toEqual([{ field: 'is_super_admin', newValue: 'true' }]);
+    });
   });
 });

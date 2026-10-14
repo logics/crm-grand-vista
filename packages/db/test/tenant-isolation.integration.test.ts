@@ -7,9 +7,10 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createAccessProfile, createTenant, createTenantWithBusinessData } from './support/fixtures.js';
 import { listBusinessTables } from './support/schema-sweep.js';
-import { createDatabase } from '../src/database.js';
+import { createDatabase, type Transaction } from '../src/database.js';
 import { createPool } from '../src/pool.js';
-import { accessProfiles } from '../src/schema/index.js';
+import { accessProfiles, auditLog } from '../src/schema/index.js';
+import { uuidv7 } from '../src/uuid.js';
 
 /** Código do Postgres para "new row violates row-level security policy". */
 const RLS_VIOLATION = '42501';
@@ -82,18 +83,23 @@ describe('isolamento entre empresas em todas as tabelas de negócio', () => {
       });
     });
 
-    it('sem a variável de sessão definida devolve zero linhas, não exceção', async () => {
+    // Linha de empresa: em `audit_log`, as de plataforma (sem empresa) são
+    // justamente as que se veem fora de empresa — ver o bloco abaixo.
+    const tenantRowsOf = (table: string, client: pg.Client) =>
+      client.query(`select * from ${client.escapeIdentifier(table)} where tenant_id is not null`);
+
+    it('sem a variável de sessão definida não devolve linha de empresa, nem exceção', async () => {
       const client = new pg.Client({ connectionString: DATABASE_URL });
       await client.connect();
       try {
         // Conexão nova: a variável nunca existiu (missing_ok).
-        const fresh = await client.query(`select * from ${client.escapeIdentifier(table)}`);
+        const fresh = await tenantRowsOf(table, client);
 
         // Conexão que já teve empresa: o SET LOCAL confirmado deixa string vazia (nullif).
         await client.query('begin');
         await client.query(`select set_config('app.tenant_id', $1, true)`, [tenantA]);
         await client.query('commit');
-        const reused = await client.query(`select * from ${client.escapeIdentifier(table)}`);
+        const reused = await tenantRowsOf(table, client);
 
         expect(fresh.rows).toEqual([]);
         expect(reused.rows).toEqual([]);
@@ -107,7 +113,7 @@ describe('isolamento entre empresas em todas as tabelas de negócio', () => {
       await owner.connect();
       try {
         const { rows: role } = await owner.query<{ role: string }>('select current_user as role');
-        const { rows } = await owner.query(`select * from ${owner.escapeIdentifier(table)}`);
+        const { rows } = await tenantRowsOf(table, owner);
 
         expect(role[0]?.role).toBe('crm_owner');
         expect(rows).toEqual([]);
@@ -115,6 +121,49 @@ describe('isolamento entre empresas em todas as tabelas de negócio', () => {
         await owner.end();
       }
     });
+  });
+});
+
+describe('linhas de plataforma do audit_log (tenant_id nulo)', () => {
+  const { DATABASE_URL } = loadApiEnv();
+  const pool = createPool(DATABASE_URL);
+  const db = createDatabase(pool);
+  const entityId = uuidv7();
+
+  let tenantId: string;
+
+  const platformRow = () => ({ tenantId: null, entity: 'users', entityId, field: 'probe', newValue: 'x' });
+  const platformRowsVisible = (tx: Transaction) =>
+    tx.select({ id: auditLog.id }).from(auditLog).where(eq(auditLog.entityId, entityId));
+
+  beforeAll(async () => {
+    tenantId = await createTenant(db, 'plataforma');
+    await db.semTenant({ reason: 'cli' }, (tx) => tx.insert(auditLog).values(platformRow()));
+  });
+
+  afterAll(() => pool.end());
+
+  it('fora de empresa, são gravadas e lidas', async () => {
+    const rows = await db.semTenant({ reason: 'cli' }, platformRowsVisible);
+
+    expect(rows).toHaveLength(1);
+  });
+
+  it('dentro de uma empresa, não são lidas', async () => {
+    expect(await db.withTenant(tenantId, platformRowsVisible)).toEqual([]);
+    expect(await db.semTenant({ reason: 'super_admin', tenantId }, platformRowsVisible)).toEqual([]);
+  });
+
+  it('dentro de uma empresa, não são gravadas (WITH CHECK)', async () => {
+    const insert = db.withTenant(tenantId, (tx) => tx.insert(auditLog).values(platformRow()));
+
+    await expect(insert).rejects.toMatchObject({ cause: { code: RLS_VIOLATION } });
+  });
+
+  it('fora de empresa, a linha de uma empresa não é gravada', async () => {
+    const insert = db.semTenant({ reason: 'cli' }, (tx) => tx.insert(auditLog).values({ ...platformRow(), tenantId }));
+
+    await expect(insert).rejects.toMatchObject({ cause: { code: RLS_VIOLATION } });
   });
 });
 

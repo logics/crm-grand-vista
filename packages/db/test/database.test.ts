@@ -34,4 +34,11 @@ describe('empresa obrigatória', () => {
     expect(callback).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();
   });
+
+  it('semTenant no caminho do CLI estoura erro com empresa informada que não é uuid', async () => {
+    await expect(db.semTenant({ reason: 'cli', tenantId: '*' }, callback)).rejects.toBeInstanceOf(MissingTenantError);
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(connect).not.toHaveBeenCalled();
+  });
 });

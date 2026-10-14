@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiEnvSchema, InvalidEnvError, migrationEnvSchema, parseEnv } from '../src/env.js';
+import { apiEnvSchema, cliEnvSchema, InvalidEnvError, migrationEnvSchema, parseEnv } from '../src/env.js';
 
 const validApiEnv = {
   DATABASE_URL: 'postgres://crm_app:senha@localhost:5432/crm_dev',
@@ -62,6 +62,10 @@ describe('parseEnv', () => {
   it('não exige a string de migration no ambiente da API', () => {
     expect(apiEnvSchema.shape).not.toHaveProperty('MIGRATION_DATABASE_URL');
     expect(Object.keys(migrationEnvSchema.shape)).toEqual(['MIGRATION_DATABASE_URL']);
+  });
+
+  it('o CLI só exige a conexão da aplicação, nunca a de migration', () => {
+    expect(Object.keys(cliEnvSchema.shape)).toEqual(['DATABASE_URL']);
   });
 
   it('ignora variáveis que o schema não declara', () => {

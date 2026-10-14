@@ -16,6 +16,8 @@ const ALLOWED: readonly string[] = [
   'apps/api/src/tenant-context.ts',
   // Regra provisória de edição de usuário, até a permissão efetiva (#11).
   'apps/api/src/modules/users/routes.ts',
+  // O único caminho que altera a flag: o CLI de super admin.
+  'apps/api/src/provisioning/super-admin.ts',
 ];
 const CODE_FILE = /\.(?:[cm]?[jt]sx?)$/;
 const FLAG = /is_?super_?admin/i;

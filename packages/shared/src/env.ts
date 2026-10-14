@@ -23,7 +23,14 @@ export const migrationEnvSchema = z.object({
   MIGRATION_DATABASE_URL: postgresUrl,
 });
 
+/**
+ * Scripts de CLI da API (provisionamento, super admin). Conectam como `crm_app`,
+ * como a API: o RLS vale para eles também.
+ */
+export const cliEnvSchema = apiEnvSchema.pick({ DATABASE_URL: true });
+
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
+export type CliEnv = z.infer<typeof cliEnvSchema>;
 export type MigrationEnv = z.infer<typeof migrationEnvSchema>;
 
 type EnvSource = Readonly<Record<string, string | undefined>>;
@@ -59,3 +66,4 @@ export function parseEnv<S extends z.ZodObject>(schema: S, source: EnvSource = p
 
 export const loadApiEnv = (): ApiEnv => parseEnv(apiEnvSchema);
 export const loadMigrationEnv = (): MigrationEnv => parseEnv(migrationEnvSchema);
+export const loadCliEnv = (): CliEnv => parseEnv(cliEnvSchema);

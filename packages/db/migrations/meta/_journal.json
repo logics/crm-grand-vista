@@ -43,6 +43,13 @@
       "when": 1792009864360,
       "tag": "0005_permission_scope_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792017510773,
+      "tag": "0006_audit_log_platform_rows",
+      "breakpoints": true
     }
   ]
 }

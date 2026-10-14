@@ -125,6 +125,12 @@ describe('wrapper de transação', () => {
       expect(tenant).toBe(tenantB);
     });
 
+    it('no caminho do CLI, aplica a empresa só quando informada', async () => {
+      // Sem empresa, a variável é nula — ou vazia, se a conexão já carregou uma.
+      expect([null, '']).toContain(await db.semTenant({ reason: 'cli' }, activeTenant));
+      expect(await db.semTenant({ reason: 'cli', tenantId: tenantB }, activeTenant)).toBe(tenantB);
+    });
+
     it('no caminho do super admin, não retorna linhas de duas empresas', async () => {
       const rows = await db.semTenant({ reason: 'super_admin', tenantId: tenantB }, (tx) =>
         tx.select().from(accessProfiles),

@@ -35,3 +35,22 @@ export const tenantIsolationPolicy = () =>
     using: belongsToActiveTenant,
     withCheck: belongsToActiveTenant,
   });
+
+// A mesma comparação, com o nulo contando como valor: sem empresa ativa, só as
+// linhas sem empresa; com ela, só as dela. É o que separa a ação de plataforma
+// (marcar super admin) de toda empresa — nenhuma transação de empresa a lê nem
+// a grava, e nenhuma transação sem empresa lê ou grava a de uma empresa.
+const belongsToActiveTenantOrPlatform = sql`tenant_id is not distinct from nullif(current_setting('app.tenant_id', true), '')::uuid`;
+
+/**
+ * Policy de isolamento de tabela cujo `tenant_id` aceita nulo para ação de
+ * plataforma — só `audit_log`, pela lista nominal da varredura de schema.
+ */
+export const tenantOrPlatformIsolationPolicy = () =>
+  pgPolicy('tenant_isolation', {
+    as: 'permissive',
+    for: 'all',
+    to: 'public',
+    using: belongsToActiveTenantOrPlatform,
+    withCheck: belongsToActiveTenantOrPlatform,
+  });
