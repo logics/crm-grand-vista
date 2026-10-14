@@ -13,6 +13,7 @@ import {
   createTenant,
   createUserWithPassword,
 } from './support/fixtures.js';
+import { loginAs } from './support/http.js';
 
 const env = loadApiEnv();
 
@@ -29,24 +30,32 @@ interface Sample {
   body?: unknown;
 }
 
+/** Quem tenta descobrir a flag manda a flag: a resposta não pode ecoá-la. */
+const FLAG_PROBE = { is_super_admin: true, isSuperAdmin: true };
+
 /**
  * Uma requisição válida por rota, chaveada por `MÉTODO caminho` como o Hono a
- * registra. Rota nova entra aqui com um corpo que a faça responder 2xx.
+ * registra. Rota nova entra aqui com um corpo que a faça responder 2xx. As
+ * rotas de empresa usam o slug da empresa da varredura.
  */
-const SAMPLES: Record<string, (actor: Actor) => Sample> = {
+const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'GET /health': () => ({ path: '/health' }),
   'POST /auth/login': ({ credentials }) => ({
     path: '/auth/login',
     body: {
       email: credentials?.email ?? 'ninguem@teste.local',
       password: credentials?.password ?? 'senha-qualquer',
-      // Quem tenta descobrir a flag manda a flag: a resposta não pode ecoá-la.
-      is_super_admin: true,
-      isSuperAdmin: true,
+      ...FLAG_PROBE,
     },
   }),
   'POST /auth/logout': () => ({ path: '/auth/logout' }),
   'GET /auth/session': () => ({ path: '/auth/session' }),
+  'GET /e/:tenant/users': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/users` }),
+  'PATCH /e/:tenant/users/:id': ({ credentials }, tenantSlug) => ({
+    // Cada um altera o próprio usuário; o anônimo aponta para um id qualquer.
+    path: `/e/${tenantSlug}/users/${credentials?.id ?? '00000000-0000-7000-8000-000000000000'}`,
+    body: { name: credentials?.name ?? 'Ninguém', ...FLAG_PROBE },
+  }),
 };
 
 /** A flag em qualquer grafia: `is_super_admin`, `isSuperAdmin`, `super-admin`. */
@@ -63,9 +72,11 @@ describe('varredura das respostas da API', () => {
   ].sort();
 
   const actors: Actor[] = [{ label: 'anônimo', credentials: null }];
+  let tenantSlug: string;
 
   beforeAll(async () => {
     const tenant = await createTenant(db, 'varredura');
+    tenantSlug = tenant.slug;
     // Os nomes não dizem quem tem a flag: a varredura procura a palavra na resposta.
     const commonUser = await createUserWithPassword(db, 'Bruno Corretor');
     const superAdmin = await createUserWithPassword(db, 'Ana Gestora', { isSuperAdmin: true });
@@ -86,15 +97,8 @@ describe('varredura das respostas da API', () => {
   afterAll(() => pool.end());
 
   /** Sessão nova por requisição: a rota de logout não derruba a amostra seguinte. */
-  const cookieFor = async ({ credentials }: Actor): Promise<string | null> => {
-    if (!credentials) return null;
-    const response = await app.request('/auth/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
-    });
-    return response.headers.getSetCookie().map((cookie) => cookie.split(';')[0]).join('; ');
-  };
+  const cookieFor = async ({ credentials }: Actor): Promise<string | null> =>
+    credentials ? loginAs(app, credentials) : null;
 
   const call = async (route: string, sample: Sample, actor: Actor) => {
     const method = route.slice(0, route.indexOf(' '));
@@ -126,7 +130,7 @@ describe('varredura das respostas da API', () => {
     for (const route of routes) {
       for (const actor of actors) {
         // Rota sem amostra já falha o teste acima; aqui ela conta como não respondida.
-        const sample = SAMPLES[route]?.(actor);
+        const sample = SAMPLES[route]?.(actor, tenantSlug);
         if (!sample) continue;
         const { status, text } = await call(route, sample, actor);
 

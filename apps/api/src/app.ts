@@ -4,6 +4,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Auth } from './modules/auth/auth.js';
 import { createAuthRoutes } from './modules/auth/routes.js';
+import { createUsersRoutes } from './modules/users/routes.js';
+import { createTenantContext, TENANT_PARAM, type TenantEnv } from './tenant-context.js';
 
 interface AppDependencies {
   auth: Auth;
@@ -11,13 +13,21 @@ interface AppDependencies {
   env: Pick<ApiEnv, 'WEB_URL'>;
 }
 
-// Router raiz. Cada módulo de negócio (`src/modules/<nome>`) se registra aqui.
+// Router raiz. Fora de `/e/:tenant/` ficam só a saúde e a autenticação; cada
+// módulo de negócio (`src/modules/<nome>`) se registra em `tenantRoutes`.
 export function createApp({ auth, db, env }: AppDependencies) {
+  // A resolução da empresa vem antes de qualquer rota e vale para todas: não
+  // há como registrar um módulo aqui sem passar por ela.
+  const tenantRoutes = new Hono<TenantEnv>()
+    .use(createTenantContext({ auth, db }))
+    .route('/users', createUsersRoutes());
+
   return new Hono()
     // O front roda em outra origem e manda o cookie de sessão: só ela é aceita.
     .use(cors({ origin: env.WEB_URL, credentials: true }))
     .get('/health', (c) => c.json({ status: 'ok' }))
-    .route('/auth', createAuthRoutes({ auth, db }));
+    .route('/auth', createAuthRoutes({ auth, db }))
+    .route(`/e/:${TENANT_PARAM}`, tenantRoutes);
 }
 
 export type AppType = ReturnType<typeof createApp>;

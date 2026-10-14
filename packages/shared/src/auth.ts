@@ -10,12 +10,14 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-/** Empresa vinculada ao usuário logado. O slug é o que vai na URL (`/e/<empresa>/...`). */
+/** Empresa vinculada ao usuário logado. O slug é o que vai na URL (`/e/<tenant>/...`). */
 export const sessionTenantSchema = z.object({
   slug: z.string(),
   name: z.string(),
   /** A empresa pré-selecionada no login. No máximo uma por usuário. */
   isDefault: z.boolean(),
+  /** Bloqueada (em geral, assinatura não paga): aparece na lista, mas não abre. */
+  blocked: z.boolean(),
 });
 
 export type SessionTenant = z.infer<typeof sessionTenantSchema>;
@@ -33,3 +35,15 @@ export type Session = z.infer<typeof sessionSchema>;
  * dois diria a quem tenta quais e-mails têm conta.
  */
 export const INVALID_CREDENTIALS_MESSAGE = 'E-mail ou senha inválidos.';
+
+/**
+ * Uma mensagem só para "a empresa não existe" e "você não tem vínculo com ela":
+ * distinguir os dois diria a quem varre slugs quais empresas usam a plataforma.
+ */
+export const TENANT_NOT_FOUND_MESSAGE = 'Você não tem acesso a esta empresa, ou ela não existe.';
+
+/**
+ * Empresa bloqueada, para quem tem vínculo com ela. Não diz o motivo: quem
+ * trata da assinatura é o responsável pela empresa, não cada usuário.
+ */
+export const TENANT_BLOCKED_MESSAGE = 'O acesso a esta empresa está bloqueado. Procure o responsável por ela.';

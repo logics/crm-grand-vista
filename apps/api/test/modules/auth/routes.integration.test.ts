@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../../src/app.js';
 import { createAuth } from '../../../src/modules/auth/auth.js';
 import { createMembership, createTenant, createUserWithPassword } from '../../support/fixtures.js';
+import { cookiesOf } from '../../support/http.js';
 
 const env = loadApiEnv();
 
@@ -34,10 +35,6 @@ describe('rotas de autenticação', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-
-  /** O par `nome=valor` de cada cookie emitido, pronto para o header `Cookie`. */
-  const cookiesOf = (response: Response): string =>
-    response.headers.getSetCookie().map((cookie) => cookie.split(';')[0]).join('; ');
 
   const currentSession = (cookie?: string) =>
     app.request('/auth/session', { headers: cookie ? { cookie } : {} });
@@ -82,8 +79,8 @@ describe('rotas de autenticação', () => {
       expect(await response.json()).toEqual({
         user: { id: user.id, name: user.name, email: user.email, image: null },
         tenants: expect.arrayContaining([
-          { slug: defaultTenant.slug, name: defaultTenant.name, isDefault: true },
-          { slug: otherTenant.slug, name: otherTenant.name, isDefault: false },
+          { slug: defaultTenant.slug, name: defaultTenant.name, isDefault: true, blocked: false },
+          { slug: otherTenant.slug, name: otherTenant.name, isDefault: false, blocked: false },
         ]),
       });
     });
@@ -158,8 +155,8 @@ describe('rotas de autenticação', () => {
       expect(body.user).toEqual({ id: user.id, name: user.name, email: user.email, image: null });
       // A padrão vem primeiro; só as empresas do próprio usuário aparecem.
       expect(body.tenants).toEqual([
-        { slug: defaultTenant.slug, name: defaultTenant.name, isDefault: true },
-        { slug: otherTenant.slug, name: otherTenant.name, isDefault: false },
+        { slug: defaultTenant.slug, name: defaultTenant.name, isDefault: true, blocked: false },
+        { slug: otherTenant.slug, name: otherTenant.name, isDefault: false, blocked: false },
       ]);
     });
 

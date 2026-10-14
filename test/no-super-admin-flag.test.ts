@@ -10,7 +10,13 @@ import { describe, expect, it } from 'vitest';
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const SCANNED_DIRS = ['apps/api/src', 'apps/web/src', 'packages/shared/src', 'packages/ui/src'];
 /** Arquivos que leem a flag de propósito. Nenhum deles devolve usuário. */
-const ALLOWED: readonly string[] = [];
+const ALLOWED: readonly string[] = [
+  // Resolução da empresa ativa: o super admin entra sem vínculo.
+  'apps/api/src/modules/auth/service.ts',
+  'apps/api/src/tenant-context.ts',
+  // Regra provisória de edição de usuário, até a permissão efetiva (#11).
+  'apps/api/src/modules/users/routes.ts',
+];
 const CODE_FILE = /\.(?:[cm]?[jt]sx?)$/;
 const FLAG = /is_?super_?admin/i;
 

@@ -33,7 +33,7 @@ O documento de escopo (`Escopo CRM.md`, na raiz do projeto, revisão de 24/07/20
 | Qualidade | **TDD** — unitários mockados + integração + E2E |
 | Runtime | **Node 22 LTS + pnpm**. Bun avaliado e recusado: o gerenciador de aplicações do aaPanel é construído em torno de Node/PM2, e sair dele custaria o SSL, o backup e o deploy que motivaram usar processo nativo |
 | Hospedagem | API em **processo nativo no VPS com aaPanel**, Postgres em servidor próprio na **mesma rede privada**, build no **CI** com artefato enviado por SSH, frontend no **Netlify**, mídia no R2 |
-| Empresa ativa | **Contexto da requisição**, via slug na URL (`/e/<empresa>/...`) — nunca filtro de módulo. Ver ADR 0002 |
+| Empresa ativa | **Contexto da requisição**, via slug na URL (`/e/<tenant>/...`) — nunca filtro de módulo. Ver ADR 0002 |
 | Venda | **Entidade própria** (`sales`), uma linha por fazenda vendida; a comissão pertence à venda, não à oportunidade. Ver ADR 0001 |
 | Impostos | **Catálogo configurável por tenant** (nome + alíquota vigente); a comissão incide sobre o **valor líquido**, e cada venda congela as alíquotas da época |
 | Precificação da fazenda | **Modo reais ou sacas** — guardada na natureza em que foi definida; o equivalente da outra é sempre calculado |
@@ -243,7 +243,7 @@ Nunca usar `crm_owner`, `postgres`, nem qualquer papel com `BYPASSRLS` na string
 
 ### Empresa ativa: contexto, não filtro
 
-A empresa ativa vem do **slug na URL** (`/e/<empresa>/fazendas/123`), e a URL **pede** uma empresa — nunca autoriza. O fluxo por requisição é: resolver o slug, verificar o vínculo do usuário logado, e só então aplicar o `SET LOCAL`. Sem vínculo, **404 e não 403** — um 403 confirmaria que aquela empresa existe, permitindo varrer slugs e descobrir a carteira de clientes da plataforma. Na tela isso não precisa ser hostil: "Você não tem acesso a esta empresa, ou ela não existe", seguido da lista das empresas que ele acessa.
+A empresa ativa vem do **slug na URL** (`/e/<tenant>/farms/123`), e a URL **pede** uma empresa — nunca autoriza. O fluxo por requisição é: resolver o slug, verificar o vínculo do usuário logado, e só então aplicar o `SET LOCAL`. Sem vínculo, **404 e não 403** — um 403 confirmaria que aquela empresa existe, permitindo varrer slugs e descobrir a carteira de clientes da plataforma. Na tela isso não precisa ser hostil: "Você não tem acesso a esta empresa, ou ela não existe", seguido da lista das empresas que ele acessa.
 
 Não existe seletor de empresa dentro dos filtros de nenhum módulo. Um filtro de empresa implicaria que a consulta pode atravessar empresas e que só o filtro a contém — exatamente a consulta que vaza. Troca-se o contexto num único lugar, na topbar, e vale para toda a aplicação. Quem tem acesso a uma empresa só nunca vê seletor algum; quem tem a várias define a empresa padrão no perfil, pré-selecionada no login. Ver ADR 0002.
 
