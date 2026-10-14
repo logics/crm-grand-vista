@@ -36,6 +36,13 @@
       "when": 1792008373354,
       "tag": "0004_tenants_blocked",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792009864360,
+      "tag": "0005_permission_scope_triggers",
+      "breakpoints": true
     }
   ]
 }
