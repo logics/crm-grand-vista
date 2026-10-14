@@ -1,6 +1,6 @@
 // Dados de apoio da suíte de integração da API. O banco de teste é zerado a
 // cada execução, mas não entre arquivos: e-mails e slugs são únicos.
-import { accounts, memberships, tenants, users, uuidv7, type Database } from '@crm/db';
+import { accessProfiles, accounts, memberships, tenants, userProfiles, users, uuidv7, type Database } from '@crm/db';
 import { hashPassword } from 'better-auth/crypto';
 
 interface CreatedUser {
@@ -59,4 +59,20 @@ export async function createMembership(
   await db.semTenant({ reason: 'cli' }, (tx) =>
     tx.insert(memberships).values({ userId, tenantId, isDefault: options.isDefault ?? false }),
   );
+}
+
+/** Cria um perfil de acesso na empresa e o vincula ao usuário. */
+export async function createLinkedAccessProfile(
+  db: Database,
+  tenantId: string,
+  userId: string,
+  name: string,
+): Promise<{ id: string; name: string }> {
+  return db.withTenant(tenantId, async (tx) => {
+    const [profile] = await tx.insert(accessProfiles).values({ tenantId, name }).returning({ id: accessProfiles.id });
+    if (!profile) throw new Error(`O perfil de acesso "${name}" não foi criado.`);
+
+    await tx.insert(userProfiles).values({ tenantId, userId, profileId: profile.id });
+    return { id: profile.id, name };
+  });
 }
