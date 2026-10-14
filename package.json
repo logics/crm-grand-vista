@@ -16,7 +16,9 @@
     "test:e2e": "playwright test",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
-    "db:migrate": "pnpm --filter @crm/db migrate"
+    "db:migrate": "pnpm --filter @crm/db migrate",
+    "tenant:provision": "pnpm --filter @crm/api provision-tenant",
+    "super-admin": "pnpm --filter @crm/api super-admin"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",

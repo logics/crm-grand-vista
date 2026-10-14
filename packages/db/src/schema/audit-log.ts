@@ -1,5 +1,5 @@
 import { bigint, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { tenantIsolationPolicy } from './tenant-scope.js';
+import { tenantOrPlatformIsolationPolicy } from './tenant-scope.js';
 import { tenants } from './tenants.js';
 import { users } from './users.js';
 
@@ -13,7 +13,8 @@ export const auditLog = pgTable(
   {
     // `bigint` identity, e não UUIDv7: alto volume, e nunca aparece em URL.
     id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-    // Nulo para ação de plataforma — por isso não é o `tenantId()` das demais.
+    // Nulo para ação de plataforma — por isso não é o `tenantId()` das demais,
+    // nem a policy é a delas: a linha sem empresa só existe fora de empresa.
     tenantId: uuid('tenant_id').references(() => tenants.id),
     entity: text('entity').notNull(),
     entityId: text('entity_id').notNull(),
@@ -31,6 +32,6 @@ export const auditLog = pgTable(
     index().on(table.tenantId, table.entity, table.entityId, table.createdAt.desc()),
     index().on(table.tenantId, table.createdAt.desc()),
     index().on(table.tenantId, table.changeId),
-    tenantIsolationPolicy(),
+    tenantOrPlatformIsolationPolicy(),
   ],
 );

@@ -27,6 +27,13 @@ export interface FieldChange {
 /** Colunas que mudam a cada escrita por construção e só fariam ruído no log. */
 const IGNORED_FIELDS: ReadonlySet<string> = new Set(['created_at', 'updated_at']);
 
+/**
+ * Colunas que só entram em linha de plataforma (`tenant_id` nulo). No histórico
+ * de uma empresa — que vira resposta de API — a flag de super admin o revelaria
+ * a quem o lê; a marcação, pelo CLI, é ação de plataforma e fica registrada lá.
+ */
+const PLATFORM_ONLY_FIELDS: ReadonlySet<string> = new Set(['is_super_admin']);
+
 /** Todo tipo vira `text`; a formatação legível vem dos metadados de campo. */
 export function toAuditText(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -87,7 +94,9 @@ export function auditedWrites(tx: Transaction, actor: AuditActor): AuditedWrites
     before: Record<string, unknown> | null,
     after: Record<string, unknown> | null,
   ) => {
-    const changes = diffRecords(byColumnName(table, before), byColumnName(table, after));
+    const changes = diffRecords(byColumnName(table, before), byColumnName(table, after)).filter(
+      (change) => actor.tenantId === null || !PLATFORM_ONLY_FIELDS.has(change.field),
+    );
     if (changes.length === 0) return;
     await tx.insert(auditLog).values(
       changes.map((change) => ({

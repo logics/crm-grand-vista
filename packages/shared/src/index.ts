@@ -24,3 +24,10 @@ export {
 export type { LoginInput, Session, SessionTenant } from './auth.js';
 export { PERMISSION_CATALOG } from './permissions.js';
 export type { Permission, PermissionCode, PermissionScope } from './permissions.js';
+export {
+  RESERVED_TENANT_SLUGS,
+  TENANT_SLUG_MAX_LENGTH,
+  TENANT_SLUG_MIN_LENGTH,
+  tenantNameSchema,
+  tenantSlugSchema,
+} from './tenant.js';

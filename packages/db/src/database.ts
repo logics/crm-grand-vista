@@ -15,11 +15,13 @@ export type Transaction = Parameters<Parameters<Orm['transaction']>[0]>[0];
 /**
  * Os três casos legítimos de falar com o banco fora de `withTenant()`. No
  * caminho do super admin a empresa inspecionada é obrigatória — nunca um
- * curinga —, para que ele veja uma empresa por vez como qualquer usuário.
+ * curinga —, para que ele veja uma empresa por vez como qualquer usuário. No do
+ * CLI ela é opcional: o provisionamento escreve os dados de uma empresa na mesma
+ * transação que a cria, antes de haver vínculo que a valide.
  */
 export type SemTenantContext =
   | { reason: 'login' }
-  | { reason: 'cli' }
+  | { reason: 'cli'; tenantId?: string }
   | { reason: 'super_admin'; tenantId: string };
 
 export interface Database {
@@ -67,7 +69,9 @@ export function createDatabase(pool: pg.Pool): Database {
     },
 
     async semTenant(context, fn) {
-      if (context.reason !== 'super_admin') return transaction(null, fn);
+      if (context.reason === 'login' || (context.reason === 'cli' && context.tenantId === undefined)) {
+        return transaction(null, fn);
+      }
 
       assertTenantId(context.tenantId);
       return transaction(context.tenantId, fn);

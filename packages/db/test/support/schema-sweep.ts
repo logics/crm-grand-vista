@@ -24,13 +24,18 @@ export const TABLES_OUTSIDE_RLS: readonly string[] = [
 
 /**
  * Tabelas de negócio cujo `tenant_id` aceita nulo — também nominal. Em
- * `audit_log` o nulo é ação de plataforma, que a policy esconde da aplicação.
+ * `audit_log` o nulo é ação de plataforma, que a policy só mostra e só aceita
+ * fora de empresa: nenhuma transação de empresa a lê nem a grava.
  */
 export const TABLES_WITH_NULLABLE_TENANT_ID: readonly string[] = ['audit_log'];
 
 /** O predicado de `tenantIsolationPolicy()`, como o Postgres 18 o devolve em `pg_get_expr`. */
 export const TENANT_PREDICATE =
   "(tenant_id = (NULLIF(current_setting('app.tenant_id'::text, true), ''::text))::uuid)";
+
+/** O de `tenantOrPlatformIsolationPolicy()`, exigido das tabelas com `tenant_id` nulo. */
+export const TENANT_OR_PLATFORM_PREDICATE =
+  "(NOT (tenant_id IS DISTINCT FROM (NULLIF(current_setting('app.tenant_id'::text, true), ''::text))::uuid))";
 
 /** Conexão avulsa ou pool: a varredura só precisa consultar. */
 type Queryable = pg.ClientBase | pg.Pool;
@@ -106,13 +111,15 @@ export async function listBusinessTables(client: Queryable): Promise<string[]> {
 function violationsOf(table: TableInfo): string[] {
   const violations: string[] = [];
   const { tenantId, policies } = table;
+  const nullableTenantId = TABLES_WITH_NULLABLE_TENANT_ID.includes(table.name);
+  const predicate = nullableTenantId ? TENANT_OR_PLATFORM_PREDICATE : TENANT_PREDICATE;
 
   if (!tenantId) {
     violations.push('sem tenant_id');
   } else {
     if (tenantId.type !== 'uuid') violations.push(`tenant_id é ${tenantId.type}, não uuid`);
     if (!tenantId.referencesTenants) violations.push('tenant_id sem chave estrangeira para tenants');
-    if (!tenantId.notNull && !TABLES_WITH_NULLABLE_TENANT_ID.includes(table.name)) {
+    if (!tenantId.notNull && !nullableTenantId) {
       violations.push('tenant_id aceita nulo');
     }
   }
@@ -130,8 +137,8 @@ function violationsOf(table: TableInfo): string[] {
   } else {
     if (!policy.permissive || policy.command !== '*') violations.push('a policy não é PERMISSIVE FOR ALL');
     if (!policy.toPublic) violations.push('a policy não vale para PUBLIC');
-    if (policy.using !== TENANT_PREDICATE) violations.push('USING não é o predicado de isolamento');
-    if (policy.withCheck !== TENANT_PREDICATE) violations.push('WITH CHECK não é o predicado de isolamento');
+    if (policy.using !== predicate) violations.push('USING não é o predicado de isolamento');
+    if (policy.withCheck !== predicate) violations.push('WITH CHECK não é o predicado de isolamento');
   }
 
   return violations;
