@@ -9,10 +9,8 @@ import {
   type AuditedWrites,
   type Transaction,
 } from '@crm/db';
-import type { PermissionCode } from '@crm/shared';
+import type { DataScope, PermissionCode, PermissionModule } from '@crm/shared';
 import { asc, eq } from 'drizzle-orm';
-
-type DataScope = 'own' | 'all';
 
 interface CatalogPermission {
   code: string;
@@ -28,7 +26,7 @@ interface SeededAccessProfile {
    * Escopo de dados nos módulos em que o perfil concede alguma permissão.
    * Módulo não listado fica com `all`.
    */
-  ownScopeModules?: readonly string[];
+  ownScopeModules?: readonly PermissionModule[];
 }
 
 const BROKER_PERMISSIONS: ReadonlySet<PermissionCode> = new Set([
@@ -105,7 +103,7 @@ export async function seedAccessProfiles(
         tenantId,
         profileId: profile.id,
         module,
-        scope: (ownScopeModules.includes(module) ? 'own' : 'all') satisfies DataScope,
+        scope: (ownScopeModules.includes(module as PermissionModule) ? 'own' : 'all') satisfies DataScope,
       })),
     );
   }

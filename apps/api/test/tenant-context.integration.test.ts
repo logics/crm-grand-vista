@@ -182,7 +182,8 @@ describe('resolução da empresa ativa', () => {
       const response = await listTeam(south.slug, cookie);
 
       expect(response.status).toBe(200);
-      expect(appliedTenants).toEqual([south.id]);
+      // A da permissão efetiva e a do handler: as duas com a empresa do slug.
+      expect(appliedTenants).toEqual([south.id, south.id]);
 
       const { users } = (await response.json()) as TeamResponse;
       expect(users).toEqual([expect.objectContaining({ id: member.id, accessProfiles: [expect.objectContaining({ name: 'Perfil do Sul' })] })]);

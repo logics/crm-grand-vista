@@ -5,6 +5,7 @@ import { INVALID_CREDENTIALS_MESSAGE, loginSchema, serializeUser, type Session }
 import { zValidator } from '@hono/zod-validator';
 import { APIError } from 'better-auth/api';
 import { Hono } from 'hono';
+import { noPermissionRequired } from '../../authorization/route-access.js';
 import type { Auth } from './auth.js';
 import { listUserTenants, recordLogin } from './service.js';
 import { forwardCookies, readSession, unauthenticated } from './session.js';
@@ -21,7 +22,7 @@ export function createAuthRoutes({ auth, db }: AuthRoutesDependencies) {
   });
 
   return new Hono()
-    .post('/login', zValidator('json', loginSchema), async (c) => {
+    .post('/login', noPermissionRequired, zValidator('json', loginSchema), async (c) => {
       const signIn = await auth.api
         .signInEmail({ body: c.req.valid('json'), headers: c.req.raw.headers, returnHeaders: true })
         .catch((error: unknown) => {
@@ -39,14 +40,14 @@ export function createAuthRoutes({ auth, db }: AuthRoutesDependencies) {
       forwardCookies(c, signIn.headers);
       return c.json(await sessionOf(signIn.response.user), 200);
     })
-    .post('/logout', async (c) => {
+    .post('/logout', noPermissionRequired, async (c) => {
       // Apaga a linha de `sessions`: o cookie guardado por terceiros deixa de valer.
       const { headers } = await auth.api.signOut({ headers: c.req.raw.headers, returnHeaders: true });
 
       forwardCookies(c, headers);
       return c.body(null, 204);
     })
-    .get('/session', async (c) => {
+    .get('/session', noPermissionRequired, async (c) => {
       const session = await readSession(auth, c);
       if (!session) return unauthenticated(c);
 

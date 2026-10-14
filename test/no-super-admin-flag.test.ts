@@ -14,8 +14,8 @@ const ALLOWED: readonly string[] = [
   // Resolução da empresa ativa: o super admin entra sem vínculo.
   'apps/api/src/modules/auth/service.ts',
   'apps/api/src/tenant-context.ts',
-  // Regra provisória de edição de usuário, até a permissão efetiva (#11).
-  'apps/api/src/modules/users/routes.ts',
+  // Resolução da permissão efetiva: o único curto-circuito de permissão e escopo.
+  'apps/api/src/authorization/service.ts',
   // O único caminho que altera a flag: o CLI de super admin.
   'apps/api/src/provisioning/super-admin.ts',
 ];

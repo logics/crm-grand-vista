@@ -136,7 +136,10 @@ const MODULES = {
 } as const satisfies Record<string, ModuleDefinition>;
 
 type Modules = typeof MODULES;
-type ModuleName = keyof Modules & string;
+
+/** Módulo do catálogo — a unidade do escopo de dados. */
+export type PermissionModule = keyof Modules & string;
+type ModuleName = PermissionModule;
 
 /** Código `<modulo>.<acao>` de toda permissão do catálogo. */
 export type PermissionCode = {
@@ -161,3 +164,21 @@ export const PERMISSION_CATALOG: readonly Permission[] = Object.entries(MODULES)
       description,
     })),
 );
+
+/** Todos os módulos do catálogo, na ordem em que são declarados. */
+export const PERMISSION_MODULES = Object.keys(MODULES) as PermissionModule[];
+
+/**
+ * Escopo de dados de um perfil de acesso num módulo: `own` enxerga só os
+ * registros de que o usuário é o corretor responsável — não ter o perfil de
+ * acesso Corretor —, `all` enxerga os de todos. Com vários perfis, vale o mais
+ * amplo.
+ */
+export const DATA_SCOPES = ['own', 'all'] as const;
+export type DataScope = (typeof DATA_SCOPES)[number];
+
+/**
+ * Recusa de permissão. É 403, não 404: o usuário sabe que a ação existe, e
+ * dizer que ele não pode executá-la é informação útil, não vazamento.
+ */
+export const FORBIDDEN_MESSAGE = 'Você não tem permissão para esta ação.';

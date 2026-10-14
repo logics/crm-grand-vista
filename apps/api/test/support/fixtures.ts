@@ -1,7 +1,20 @@
 // Dados de apoio da suíte de integração da API. O banco de teste é zerado a
 // cada execução, mas não entre arquivos: e-mails e slugs são únicos.
-import { accessProfiles, accounts, memberships, tenants, userProfiles, users, uuidv7, type Database } from '@crm/db';
+import {
+  accessProfiles,
+  accounts,
+  memberships,
+  profileDataScopes,
+  profilePermissions,
+  tenants,
+  userProfiles,
+  users,
+  uuidv7,
+  type Database,
+} from '@crm/db';
+import type { DataScope, PermissionCode, PermissionModule } from '@crm/shared';
 import { hashPassword } from 'better-auth/crypto';
+import { and, eq } from 'drizzle-orm';
 
 interface CreatedUser {
   id: string;
@@ -61,18 +74,43 @@ export async function createMembership(
   );
 }
 
-/** Cria um perfil de acesso na empresa e o vincula ao usuário. */
+interface AccessProfileContent {
+  permissions?: readonly PermissionCode[];
+  dataScopes?: Partial<Record<PermissionModule, DataScope>>;
+}
+
+/**
+ * Cria um perfil de acesso na empresa, com as permissões e os escopos de dados
+ * dados, e o vincula ao usuário. Sem conteúdo, o perfil não concede nada.
+ */
 export async function createLinkedAccessProfile(
   db: Database,
   tenantId: string,
   userId: string,
   name: string,
+  { permissions = [], dataScopes = {} }: AccessProfileContent = {},
 ): Promise<{ id: string; name: string }> {
   return db.withTenant(tenantId, async (tx) => {
     const [profile] = await tx.insert(accessProfiles).values({ tenantId, name }).returning({ id: accessProfiles.id });
     if (!profile) throw new Error(`O perfil de acesso "${name}" não foi criado.`);
+    const profileId = profile.id;
 
-    await tx.insert(userProfiles).values({ tenantId, userId, profileId: profile.id });
-    return { id: profile.id, name };
+    if (permissions.length > 0) {
+      await tx.insert(profilePermissions).values(permissions.map((permissionCode) => ({ tenantId, profileId, permissionCode })));
+    }
+    const scopes = Object.entries(dataScopes);
+    if (scopes.length > 0) {
+      await tx.insert(profileDataScopes).values(scopes.map(([module, scope]) => ({ tenantId, profileId, module, scope })));
+    }
+
+    await tx.insert(userProfiles).values({ tenantId, userId, profileId });
+    return { id: profileId, name };
   });
+}
+
+/** Desfaz o vínculo do perfil de acesso com o usuário, sem apagar o perfil. */
+export async function unlinkAccessProfile(db: Database, tenantId: string, userId: string, profileId: string) {
+  await db.withTenant(tenantId, (tx) =>
+    tx.delete(userProfiles).where(and(eq(userProfiles.userId, userId), eq(userProfiles.profileId, profileId))),
+  );
 }
