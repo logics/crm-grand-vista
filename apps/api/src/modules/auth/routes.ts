@@ -1,21 +1,17 @@
 // Rotas sem empresa: login, logout e sessão corrente. São as únicas fora de
-// `/e/:empresa/` — login legitimamente ainda não tem empresa.
+// `/e/:tenant/` — login legitimamente ainda não tem empresa.
 import type { Database } from '@crm/db';
 import { INVALID_CREDENTIALS_MESSAGE, loginSchema, serializeUser, type Session } from '@crm/shared';
 import { zValidator } from '@hono/zod-validator';
 import { APIError } from 'better-auth/api';
-import { Hono, type Context } from 'hono';
+import { Hono } from 'hono';
 import type { Auth } from './auth.js';
 import { listUserTenants, recordLogin } from './service.js';
+import { forwardCookies, readSession, unauthenticated } from './session.js';
 
 interface AuthRoutesDependencies {
   auth: Auth;
   db: Database;
-}
-
-/** Repassa ao navegador os cookies que o Better Auth emitiu ou mandou apagar. */
-function forwardCookies(c: Context, headers: Headers): void {
-  for (const cookie of headers.getSetCookie()) c.header('Set-Cookie', cookie, { append: true });
 }
 
 export function createAuthRoutes({ auth, db }: AuthRoutesDependencies) {
@@ -51,16 +47,9 @@ export function createAuthRoutes({ auth, db }: AuthRoutesDependencies) {
       return c.body(null, 204);
     })
     .get('/session', async (c) => {
-      const { headers, response: session } = await auth.api.getSession({
-        headers: c.req.raw.headers,
-        returnHeaders: true,
-      });
+      const session = await readSession(auth, c);
+      if (!session) return unauthenticated(c);
 
-      if (!session) {
-        return c.json({ error: { code: 'unauthenticated', message: 'Sessão ausente ou expirada.' } }, 401);
-      }
-
-      forwardCookies(c, headers);
       return c.json(await sessionOf(session.user), 200);
     });
 }

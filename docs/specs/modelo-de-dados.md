@@ -36,7 +36,7 @@ Estas tabelas **não** carregam policy por tenant. O vínculo usuário↔empresa
 
 | Tabela | Fase | Colunas distintivas |
 |---|---|---|
-| `tenants` | 0 | `slug` text UNIQUE (vai na URL), `name`, `legal_name`, `tax_id`, `active` |
+| `tenants` | 0 | `slug` text UNIQUE (vai na URL), `name`, `legal_name`, `tax_id`, `blocked boolean NOT NULL DEFAULT false` (assinatura não paga: só o super admin entra) |
 | `users` | 0 | Better Auth, mais `is_super_admin boolean NOT NULL DEFAULT false` — marcada só por CLI, removida de toda serialização — e `last_login_at timestamptz` nulo, gravado a cada login bem-sucedido (nulo para quem nunca entrou; `sessions` não serve de histórico, porque o logout apaga a linha) |
 | `sessions`, `accounts`, `verifications` | 0 | Forma da biblioteca |
 | `memberships` | 0 | `user_id`, `tenant_id`, `is_default boolean`. UNIQUE `(user_id, tenant_id)`; índice único parcial em `(user_id) WHERE is_default` garante no máximo uma empresa padrão por usuário |

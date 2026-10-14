@@ -41,7 +41,7 @@ As rotas de autenticação passam pelo caminho `semTenant()` da spec de banco �
 
 ### Resolução da empresa ativa
 
-A empresa vem do **slug no caminho**: `/e/<empresa>/fazendas/123`. A URL **pede** uma empresa, nunca autoriza. O fluxo por requisição, nesta ordem, sem atalho:
+A empresa vem do **slug no caminho**: `/e/<tenant>/farms/123`. A URL **pede** uma empresa, nunca autoriza. O fluxo por requisição, nesta ordem, sem atalho:
 
 1. resolver o slug para uma empresa
 2. verificar o **vínculo** do usuário logado com ela
@@ -56,6 +56,19 @@ Sem vínculo, a resposta é **404**. Um 403 confirmaria que aquela empresa exist
 Por isso **slug inexistente e slug sem acesso produzem resposta idêntica** — mesmo status, mesmo corpo, mesma mensagem. Distinguir os dois no corpo da resposta recria o vazamento que o 404 fecha, com mais passos.
 
 Na tela isso não precisa ser hostil: "Você não tem acesso a esta empresa, ou ela não existe", seguido da lista das empresas que ele acessa — que ele tem direito de ver, porque são as dele.
+
+O **super admin** é a exceção: não precisa de vínculo e nunca recebe o 404 de uma empresa que existe. O passo 2 vira "vínculo, **ou** super admin"; sem vínculo, o contexto é aplicado por `semTenant({ reason: 'super_admin', tenantId })`, com a empresa do slug. Slug inexistente continua 404 para ele também.
+
+### Empresa bloqueada
+
+`tenants.blocked = true` — em geral, assinatura não paga. Os dados ficam intactos, mas **ninguém da empresa entra nela** até o desbloqueio:
+
+- quem tem vínculo recebe **403** com `code: 'tenant_blocked'` e uma mensagem que não diz o motivo. A verificação vem **depois** do vínculo: quem é da empresa já sabe que ela existe, e para quem não é, bloqueada continua sendo o mesmo 404 de slug inexistente
+- o **super admin** entra normalmente. O **AdminMaster**, quando existir, também — pela permissão de plataforma, não por exceção nova aqui
+- a lista de empresas da sessão continua trazendo a bloqueada, com `blocked: true`, para a topbar e a tela de entrada mostrarem o porquê em vez de sumir com ela
+- ela não aparece como opção em nenhum combobox de cadastro novo que dependa de empresa
+
+Bloquear e desbloquear é do CLI de provisionamento até a gestão de empresas pela interface (Fase 3).
 
 ### Troca de empresa
 
@@ -91,11 +104,11 @@ Validação do slug: minúsculas, números e hífen, sem hífen no início ou fi
 
 Forma, não assinatura — os tipos saem do RPC do Hono, e os schemas Zod da borda são a fonte da validação e da documentação OpenAPI.
 
-**Sem empresa**, sob `semTenant()`: login, logout, sessão corrente. A sessão corrente devolve o usuário serializado e **a lista das empresas vinculadas**, com a padrão marcada — é o que a topbar e a tela de "sem acesso" consomem.
+**Sem empresa**, sob `semTenant()`: login, logout, sessão corrente. A sessão corrente devolve o usuário serializado e **a lista das empresas vinculadas**, com a padrão e as bloqueadas marcadas — é o que a topbar e a tela de "sem acesso" consomem.
 
-**Com empresa**, sob `/e/:empresa/`: tudo o mais. O middleware de resolução roda antes de qualquer handler e não é opcional por rota — rota de negócio registrada fora de `/e/:empresa/` é bug, e a spec de permissões entrega a varredura de rotas que o detecta.
+**Com empresa**, sob `/e/:tenant/`: tudo o mais. Caminhos e parâmetros de rota em inglês (`/e/:tenant/users`); o texto da tela é que é em português. O middleware de resolução roda antes de qualquer handler e não é opcional por rota — rota de negócio registrada fora de `/e/:tenant/` é bug, e a spec de permissões entrega a varredura de rotas que o detecta.
 
-Status: 401 sem sessão válida; **404** para slug inexistente ou sem vínculo, com corpo idêntico nos dois casos.
+Status: 401 sem sessão válida; **403** (`tenant_blocked`) para empresa bloqueada, só a quem tem vínculo; **404** para slug inexistente ou sem vínculo, com corpo idêntico nos dois casos — exceto para o super admin, que só recebe 404 de slug inexistente.
 
 ## Telas e componentes
 
@@ -111,7 +124,7 @@ Consome de `packages/ui`: `Input`, `Button`, `Field`, `EmptyState`, `TopBar`. N�
 
 1. Login com credencial válida cria sessão; inválida devolve 401 **sem** distinguir e-mail de senha.
 2. Usuário **sem vínculo** acessando o slug de outra empresa recebe **404** — testado por **listagem e por ID direto**.
-3. Slug inexistente e slug sem vínculo devolvem **status e corpo idênticos**.
+3. Slug inexistente e slug sem vínculo devolvem **status e corpo idênticos**. Super admin sem vínculo entra em qualquer empresa existente, pelo `semTenant()` com a empresa inspecionada.
 4. Usuário com vínculo acessa normalmente, e o wrapper de transação recebeu a empresa certa.
 5. Duas sessões simultâneas em duas empresas diferentes não interferem uma na outra.
 6. `is_super_admin` **não aparece em nenhuma resposta da API, para nenhum papel** — teste que varre as respostas procurando a chave, não que verifica rota por rota.

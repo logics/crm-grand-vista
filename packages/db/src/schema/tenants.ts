@@ -11,6 +11,10 @@ export const tenants = pgTable('tenants', {
   name: text('name').notNull(),
   legalName: text('legal_name'),
   taxId: text('tax_id'),
-  active: boolean('active').notNull().default(true),
+  /**
+   * Bloqueada — em geral, assinatura não paga. Os dados ficam intactos, mas só
+   * o super admin entra nela até o desbloqueio.
+   */
+  blocked: boolean('blocked').notNull().default(false),
   ...timestamps,
 });

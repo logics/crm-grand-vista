@@ -11,7 +11,11 @@ A corretora que usa o sistema — o tenant. Toda tabela de negócio pertence a e
 _Avoid_: "organização", "cliente" no sentido de tenant (cliente, no domínio, é o comprador)
 
 **Empresa ativa**:
-A empresa sob a qual a requisição corrente é executada. Vem do slug na URL (`/e/<empresa>/...`), é validada contra o vínculo do usuário logado e aplicada via `SET LOCAL app.tenant_id` antes de qualquer consulta. É **contexto, nunca filtro**: não existe seletor de empresa dentro dos filtros de nenhum módulo. Ver ADR 0002.
+A empresa sob a qual a requisição corrente é executada. Vem do slug na URL (`/e/<tenant>/...`), é validada contra o vínculo do usuário logado e aplicada via `SET LOCAL app.tenant_id` antes de qualquer consulta. É **contexto, nunca filtro**: não existe seletor de empresa dentro dos filtros de nenhum módulo. Ver ADR 0002.
+
+**Empresa bloqueada**:
+Empresa com `tenants.blocked = true` — em geral, assinatura não paga. Os dados ficam intactos, mas **ninguém da empresa entra nela** até o desbloqueio: quem tem vínculo recebe "acesso bloqueado"; quem não tem, o mesmo 404 de sempre. Só o super admin (e, quando existir, o AdminMaster) entra. Continua na lista de empresas do usuário, marcada como bloqueada, e não aparece como opção nos comboboxes de cadastro novo que dependem de empresa.
+_Avoid_: empresa inativa; tratar como empresa excluída
 
 **Vínculo**:
 A ligação entre um usuário e uma empresa que ele pode acessar (`memberships`). É o que *define* a pertinência — por isso a tabela fica fora do RLS: filtrá-la por empresa seria circular. Um usuário com vários vínculos marca um como padrão, pré-selecionado no login.

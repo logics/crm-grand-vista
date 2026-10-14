@@ -13,5 +13,12 @@ export {
   userSchema,
 } from './user.js';
 export type { AccessProfileRef, TeamMember, UpdateUserInput, User } from './user.js';
-export { INVALID_CREDENTIALS_MESSAGE, loginSchema, sessionSchema, sessionTenantSchema } from './auth.js';
+export {
+  INVALID_CREDENTIALS_MESSAGE,
+  TENANT_BLOCKED_MESSAGE,
+  TENANT_NOT_FOUND_MESSAGE,
+  loginSchema,
+  sessionSchema,
+  sessionTenantSchema,
+} from './auth.js';
 export type { LoginInput, Session, SessionTenant } from './auth.js';
