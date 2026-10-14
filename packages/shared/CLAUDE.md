@@ -8,5 +8,5 @@ Schemas Zod, tipos, metadados de campo e constantes usados pela API e pelo front
 
 - `src/env.ts` é o **único** arquivo do projeto que lê o ambiente do processo. Variável nova entra no schema dali e no `.env.example`, comentada. Um teste (`test/no-process-env.test.ts`) falha se outro arquivo ler o ambiente.
 - O módulo de ambiente é exportado só em `@crm/shared/env`, nunca pelo índice: o front importa o índice, e no navegador não há `process`.
-- `src/user.ts` tem o **único** serializador de usuário (`serializeUser`): é o único caminho pelo qual um usuário atravessa a borda HTTP. Campo público novo entra em `userSchema`; `is_super_admin` nunca.
+- `src/user.ts` tem os **únicos** serializadores de usuário: `serializeUser` e, para listagem de equipe e seletor de responsável, `serializeTeamMember` (que passa por `serializeUser`). São o único caminho pelo qual um usuário atravessa a borda HTTP. Campo público novo entra em `userSchema`; `is_super_admin` nunca. Rota que altera usuário valida o corpo com `updateUserSchema`, que descarta em silêncio o que não é editável.
 - Tudo aqui precisa rodar no navegador e no Node: sem I/O, sem dependência de Node no índice.
