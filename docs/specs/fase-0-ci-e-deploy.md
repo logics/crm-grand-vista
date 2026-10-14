@@ -66,7 +66,7 @@ Falhar o boot é o comportamento desejado: o painel mantém o processo anterior,
 
 ### Deploy do front
 
-Netlify a partir de `main`, com `base = "apps/web"` e instalação na raiz do workspace. Variáveis de build no painel do Netlify, nunca no repositório. Redirecionamento de SPA configurado — sem ele, abrir `/e/<empresa>/fazendas/123` direto devolve 404 do CDN, e o link compartilhado por WhatsApp, que é o motivo de a empresa estar na URL, não funciona.
+Netlify a partir de `main`, com `base = "apps/web"` e instalação na raiz do workspace. Variáveis de build no painel do Netlify, nunca no repositório. Redirecionamento de SPA configurado — sem ele, abrir `/e/<tenant>/farms/123` direto devolve 404 do CDN, e o link compartilhado por WhatsApp, que é o motivo de a empresa estar na URL, não funciona.
 
 ### Segredos
 
@@ -90,7 +90,7 @@ O "hello world" autenticado, que é o teste de ponta a ponta da fase inteira:
 
 1. acessar a raiz sem sessão → login
 2. autenticar → redirecionamento para a empresa padrão do vínculo
-3. `/e/<empresa>/` exibindo nome do usuário, nome da empresa e seletor de empresa quando houver mais de um vínculo
+3. `/e/<tenant>/` exibindo nome do usuário, nome da empresa e seletor de empresa quando houver mais de um vínculo
 4. logout → volta ao login
 
 Consome de `packages/ui`: `TopBar`, `SidebarNav`, `Button`, `Wordmark`. Não cria componente novo.
@@ -109,7 +109,7 @@ A marca aparece pelo `Wordmark`, **somente tipográfico**: o logotipo vetorial d
 8. A API **recusa subir** com string de conexão apontando para papel superusuário, com `BYPASSRLS` ou dono de tabela — testado forçando a configuração.
 9. O endpoint de saúde responde em produção e **não** revela nome de banco, papel ou host.
 10. Em produção: login → empresa resolvida pelo slug → nome do usuário e da empresa na tela → logout. Teste **Playwright** rodando contra o ambiente publicado.
-11. Abrir `/e/<empresa>/` direto na URL, sem navegar, funciona (redirecionamento de SPA configurado).
+11. Abrir `/e/<tenant>/` direto na URL, sem navegar, funciona (redirecionamento de SPA configurado).
 12. Nenhum segredo no repositório — verificado por varredura, não por inspeção visual.
 13. `pnpm build` gera os artefatos de produção sem erro, e `pnpm dev` sobe o ambiente local completo.
 

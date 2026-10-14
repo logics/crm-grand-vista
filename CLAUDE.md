@@ -8,7 +8,7 @@ Toda a comunicação deste projeto é em **português brasileiro (pt-BR)**: resp
 
 A regra no código é por natureza do texto, não por arquivo:
 
-- **Nomes em inglês, sempre** — variáveis, funções, classes, tipos, constantes, arquivos de código, tabelas, colunas, aliases de SQL, chaves de config. Ex.: `createPool`, `InvalidEnvError`, `roles.integration.test.ts`, `access_profiles`.
+- **Nomes em inglês, sempre** — variáveis, funções, classes, tipos, constantes, arquivos de código, caminhos de rota e parâmetros de URL (API e front: `/e/:tenant/users`, `/e/<tenant>/farms/123`), tabelas, colunas, aliases de SQL, chaves de config. Ex.: `createPool`, `InvalidEnvError`, `roles.integration.test.ts`, `access_profiles`.
 - **Texto informativo em pt-BR** — comentários, docs, descrições de teste (`it('nomeia a variável ausente')`), mensagens de erro e de log, textos de UI, mensagens de commit.
 
 Termos de domínio seguem o glossário (`CONTEXT.md`): o rótulo visível em português, o identificador em inglês (`tenant_id` no código, "empresa" na tela).

@@ -56,7 +56,7 @@ Declarativo na rota. O handler só executa se a permissão efetiva contiver o c�
 
 **Negar por padrão.** Rota sem permissão declarada é erro, não rota pública. Para isso esta spec entrega uma **varredura do registro de rotas** que falha o CI se qualquer rota não declarar explicitamente ou uma permissão, ou o marcador nominal de rota pública. É o mesmo princípio da varredura de schema da spec de banco: a regra precisa falhar sozinha daqui a seis meses, quando houver duzentas rotas e ninguém lembrar dela.
 
-A varredura também verifica que toda rota de negócio está registrada sob `/e/:empresa/` — o complemento que a spec de autenticação deixou aqui.
+A varredura também verifica que toda rota de negócio está registrada sob `/e/:tenant/` — o complemento que a spec de autenticação deixou aqui.
 
 ### Escopo de dados
 
@@ -118,7 +118,7 @@ Nenhuma tela. A única consequência visual na Fase 0 é o menu e os botões res
 8. Os três perfis semeados nascem com o conteúdo desta spec, e o Admin contém **todas** as permissões de empresa do catálogo.
 9. Revogar um perfil de um usuário surte efeito **na requisição seguinte**, sem novo login.
 10. Super admin passa por permissão e escopo sem nada vinculado a ele.
-11. **Varredura de rotas:** o CI falha se alguma rota não declarar permissão nem marcador de rota pública, ou se alguma rota de negócio estiver fora de `/e/:empresa/`.
+11. **Varredura de rotas:** o CI falha se alguma rota não declarar permissão nem marcador de rota pública, ou se alguma rota de negócio estiver fora de `/e/:tenant/`.
 12. A sincronização do catálogo é idempotente, e permissão removida do código **não desaparece** do banco.
 13. Mudanças em perfis e vínculos aparecem em `audit_log`.
 14. `tsc --noEmit` limpo; migrations aplicam de banco zerado.
