@@ -3,9 +3,12 @@
 // vínculo, e só então o contexto — e handler nenhum alcança o banco sem ela.
 // O super admin dispensa o vínculo: entra em qualquer empresa que exista, pelo
 // caminho nominal `semTenant()`, com a empresa inspecionada — nunca um curinga.
+// Por último, a permissão efetiva: resolvida aqui, uma vez por requisição.
 import type { Database, Transaction } from '@crm/db';
 import { TENANT_BLOCKED_MESSAGE, TENANT_NOT_FOUND_MESSAGE } from '@crm/shared';
 import { createMiddleware } from 'hono/factory';
+import type { EffectiveAccess } from './authorization/effective-access.js';
+import { resolveEffectiveAccess } from './authorization/service.js';
 import type { Auth } from './modules/auth/auth.js';
 import { resolveTenantAccess, type ActiveTenant } from './modules/auth/service.js';
 import { readSession, unauthenticated } from './modules/auth/session.js';
@@ -18,13 +21,13 @@ export interface TenantEnv {
   Variables: {
     /** Id do usuário logado, com vínculo verificado na empresa ativa. */
     userId: string;
-    /**
-     * Atravessa as verificações de empresa e permissão. Só para decidir acesso
-     * — nunca entra em resposta. Lido aqui até a resolução da permissão
-     * efetiva (#11) concentrar o curto-circuito.
-     */
-    isSuperAdmin: boolean;
     tenant: ActiveTenant;
+    /**
+     * Permissão efetiva e escopo de dados na empresa ativa, desta requisição.
+     * As rotas a consultam por `requirePermission` e `dataScopeClause`
+     * (`src/authorization/`), nunca pela flag de quem passa por tudo.
+     */
+    access: EffectiveAccess;
     /**
      * `withTenant()` já preso à empresa ativa: o handler não escolhe — nem
      * erra — a empresa da transação.
@@ -57,12 +60,15 @@ export function createTenantContext({ auth, db }: TenantContextDependencies) {
       return c.json({ error: { code: 'tenant_blocked', message: TENANT_BLOCKED_MESSAGE } }, 403);
     }
 
-    c.set('userId', session.user.id);
-    c.set('isSuperAdmin', isSuperAdmin);
+    const userId = session.user.id;
+    const withTenant: TenantEnv['Variables']['withTenant'] = (fn) =>
+      linked ? db.withTenant(tenant.id, fn) : db.semTenant({ reason: 'super_admin', tenantId: tenant.id }, fn);
+
+    c.set('userId', userId);
     c.set('tenant', tenant);
-    c.set('withTenant', (fn) =>
-      linked ? db.withTenant(tenant.id, fn) : db.semTenant({ reason: 'super_admin', tenantId: tenant.id }, fn),
-    );
+    c.set('withTenant', withTenant);
+    // Não vem da sessão: revogar um perfil de acesso vale já na próxima requisição.
+    c.set('access', await resolveEffectiveAccess({ userId, isSuperAdmin, withTenant }));
     return next();
   });
 }

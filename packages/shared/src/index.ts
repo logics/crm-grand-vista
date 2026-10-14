@@ -22,8 +22,8 @@ export {
   sessionTenantSchema,
 } from './auth.js';
 export type { LoginInput, Session, SessionTenant } from './auth.js';
-export { PERMISSION_CATALOG } from './permissions.js';
-export type { Permission, PermissionCode, PermissionScope } from './permissions.js';
+export { DATA_SCOPES, FORBIDDEN_MESSAGE, PERMISSION_CATALOG, PERMISSION_MODULES } from './permissions.js';
+export type { DataScope, Permission, PermissionCode, PermissionModule, PermissionScope } from './permissions.js';
 export {
   RESERVED_TENANT_SLUGS,
   TENANT_SLUG_MAX_LENGTH,
