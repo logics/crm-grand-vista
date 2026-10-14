@@ -22,3 +22,5 @@ export {
   sessionTenantSchema,
 } from './auth.js';
 export type { LoginInput, Session, SessionTenant } from './auth.js';
+export { PERMISSION_CATALOG } from './permissions.js';
+export type { Permission, PermissionCode, PermissionScope } from './permissions.js';
