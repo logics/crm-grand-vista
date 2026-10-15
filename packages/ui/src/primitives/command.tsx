@@ -24,7 +24,10 @@ export function CommandInput({ className, ...props }: ComponentProps<typeof Comm
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          'h-control-height w-full bg-transparent text-sm text-text-body outline-none placeholder:text-text-faint',
+          // sem o anel global de `:focus-visible` (`base.css`): no campo de busca
+          // ele sairia cortado pelas bordas do painel; o cursor já marca o foco
+          'h-control-height w-full bg-transparent text-sm text-text-body outline-none focus-visible:shadow-none',
+          'placeholder:text-text-faint',
           disabledControl,
           className,
         )}
