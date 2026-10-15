@@ -1,9 +1,6 @@
 // Receitas de classe que mais de um primitivo usa. Um ajuste visual de foco,
 // campo ou superfície flutuante muda aqui e vale para todos.
 
-/** Espessura de traço dos ícones Lucide, a mesma do `Icon` do export. */
-export const iconStroke = 1.5;
-
 /** Anel dourado de foco do teclado (`--ring-focus`). */
 export const focusRing = 'outline-none focus-visible:shadow-ring-focus';
 
@@ -22,6 +19,18 @@ export const fieldSurface = [
   'data-[state=open]:bg-surface-card data-[state=open]:inset-ring-brand-accent data-[state=open]:shadow-ring-focus',
   'aria-invalid:inset-ring-status-danger-fg aria-invalid:focus-visible:shadow-ring-danger',
   disabledControl,
+].join(' ');
+
+/**
+ * A mesma superfície de `fieldSurface`, numa moldura em volta do campo (o
+ * `Input` com ícone, prefixo e sufixo): reage a `focus-within` e ao
+ * `aria-invalid` do filho. As duas mudam juntas.
+ */
+export const fieldFrameSurface = [
+  'bg-surface-sunken text-text-body inset-ring inset-ring-transparent transition-control',
+  'focus-within:bg-surface-card focus-within:inset-ring-brand-accent focus-within:shadow-ring-focus',
+  'has-[[aria-invalid=true]]:inset-ring-status-danger-fg has-[[aria-invalid=true]]:focus-within:shadow-ring-danger',
+  'has-disabled:cursor-not-allowed has-disabled:opacity-45',
 ].join(' ');
 
 /** Altura e texto de campo, por tamanho. */
@@ -57,3 +66,10 @@ export const listLabel = 'gv-eyebrow block px-4 py-2';
 
 /** Filete entre grupos de uma lista em painel flutuante. */
 export const listSeparator = '-mx-2 my-2 h-px bg-border-subtle';
+
+/** Fundo e texto dos botões, com o hover; `Button` e `IconButton` compartilham as que coincidem. */
+export const controlTone = {
+  primary: 'bg-brand-primary text-brand-on-primary shadow-primary enabled:hover:bg-brand-primary-hover',
+  soft: 'bg-surface-sunken text-text-body enabled:hover:bg-surface-muted',
+  ghost: 'bg-transparent text-text-muted enabled:hover:bg-surface-sunken enabled:hover:text-text-body',
+} as const;

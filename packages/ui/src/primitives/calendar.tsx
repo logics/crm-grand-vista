@@ -1,19 +1,18 @@
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { type ChevronProps, DayButton, type DayButtonProps, DayPicker } from 'react-day-picker';
 import { ptBR } from 'react-day-picker/locale/pt-BR';
+import { Icon } from '../components/icon.js';
 import { cn } from '../lib/cn.js';
-import { disabledControl, focusRing, iconStroke } from '../lib/styles.js';
+import { disabledControl, focusRing } from '../lib/styles.js';
 
 // Calendário do shadcn sobre o react-day-picker: grade com setas, PageUp/PageDown
 // entre meses, Home/End na semana, rótulos em português. É a base do
 // `DateRangePicker` (com o Popover), que pertence à spec do módulo que o usar.
 
-const chevrons = { left: ChevronLeft, right: ChevronRight, up: ChevronUp, down: ChevronDown } as const;
+const chevrons = { left: 'chevron-left', right: 'chevron-right', up: 'chevron-up', down: 'chevron-down' } as const;
 
 function CalendarChevron({ orientation = 'left', className }: ChevronProps) {
-  const Icon = chevrons[orientation];
-  return <Icon className={cn('size-6', className)} strokeWidth={iconStroke} />;
+  return <Icon name={chevrons[orientation]} size="md" className={className} />;
 }
 
 const navButton = cn(
