@@ -4,8 +4,7 @@
     "noEmit": false,
     "rootDir": "src",
     "outDir": "dist",
-    "customConditions": [],
-    "types": []
+    "customConditions": []
   },
   "include": ["src"]
 }

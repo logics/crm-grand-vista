@@ -8,10 +8,11 @@ import { beforeAll, describe, expect, it } from 'vitest';
 const srcDir = fileURLToPath(new URL('../src/', import.meta.url));
 const tokensDir = `${srcDir}tokens/`;
 
+const withoutComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+
 /** Declarações `--nome: valor` de um trecho de CSS, na ordem em que aparecem. */
 function declarations(css: string): [name: string, value: string][] {
-  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  return [...withoutComments.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+?)\s*(?=;|\})/g)].map(([, name, value]) => [
+  return [...withoutComments(css).matchAll(/(--[\w-]+)\s*:\s*([^;{}]+?)\s*(?=;|\})/g)].map(([, name, value]) => [
     name!,
     value!,
   ]);
@@ -23,6 +24,12 @@ const tokensByFile = new Map(
 );
 const tokens = new Map([...tokensByFile.values()].flatMap((fileTokens) => [...fileTokens]));
 const namesIn = (file: string) => [...tokensByFile.get(file)!.keys()].map((name) => name.slice(2));
+
+/** Tokens de um arquivo com o prefixo dado, como `[nome, sufixo]`: `size-h1` → `['size-h1', 'h1']`. */
+const tokensWithPrefix = (file: string, prefix: string): [name: string, suffix: string][] =>
+  namesIn(file)
+    .filter((name) => name.startsWith(prefix))
+    .map((name) => [name, name.slice(prefix.length)]);
 
 let build: (candidates: string[]) => string;
 
@@ -69,8 +76,7 @@ describe('tokens', () => {
 
   it('carrega a fonte antes de qualquer outra regra', () => {
     const css = build([]);
-    const firstRule = css
-      .replace(/\/\*[\s\S]*?\*\//g, '')
+    const firstRule = withoutComments(css)
       .trimStart()
       .replace(/^@layer [\w, ]+;\s*/, '');
     expect(firstRule.startsWith('@import url("https://fonts.googleapis.com/')).toBe(true);
@@ -114,19 +120,19 @@ describe('tema do Tailwind', () => {
     expect(rule(`font-${role}`)).toContain(`font-family: var(--text-${role}-font)`);
   });
 
-  const sizes = namesIn('typography.css').filter((name) => name.startsWith('size-'));
-  it.each(sizes)('tamanho --%s', (name) => {
-    expect(rule(`text-${name.slice('size-'.length)}`)).toContain(`font-size: var(--${name})`);
+  const sizes = tokensWithPrefix('typography.css', 'size-');
+  it.each(sizes)('tamanho --%s', (name, suffix) => {
+    expect(rule(`text-${suffix}`)).toContain(`font-size: var(--${name})`);
   });
 
-  const lineHeights = namesIn('typography.css').filter((name) => name.startsWith('lh-'));
-  it.each(lineHeights)('entrelinha --%s', (name) => {
-    expect(rule(`leading-${name.slice('lh-'.length)}`)).toContain(`line-height: var(--${name})`);
+  const lineHeights = tokensWithPrefix('typography.css', 'lh-');
+  it.each(lineHeights)('entrelinha --%s', (name, suffix) => {
+    expect(rule(`leading-${suffix}`)).toContain(`line-height: var(--${name})`);
   });
 
-  const weights = namesIn('typography.css').filter((name) => name.startsWith('weight-'));
-  it.each(weights)('peso --%s', (name) => {
-    expect(rule(`font-${name.slice('weight-'.length)}`)).toContain(`font-weight: var(--${name})`);
+  const weights = tokensWithPrefix('typography.css', 'weight-');
+  it.each(weights)('peso --%s', (name, suffix) => {
+    expect(rule(`font-${suffix}`)).toContain(`font-weight: var(--${name})`);
   });
 
   const trackings = namesIn('typography.css').filter((name) => name.startsWith('tracking-'));
@@ -134,9 +140,8 @@ describe('tema do Tailwind', () => {
     expect(rule(name)).toContain(`letter-spacing: var(--${name})`);
   });
 
-  const spaces = namesIn('spacing.css').filter((name) => name.startsWith('space-'));
-  it.each(spaces)('escala de espaço --%s', (name) => {
-    const step = name.slice('space-'.length);
+  const spaces = tokensWithPrefix('spacing.css', 'space-');
+  it.each(spaces)('escala de espaço --%s', (name, step) => {
     expect(rule(`p-${step}`)).toContain(`padding: var(--${name})`);
     expect(rule(`gap-${step}`)).toContain(`gap: var(--${name})`);
   });
@@ -156,8 +161,8 @@ describe('tema do Tailwind', () => {
     expect(build([`@max-${name}:p-6`])).toContain(`@container (width < ${width})`);
   });
 
-  it.each(namesIn('radius.css'))('raio --%s', (name) => {
-    expect(rule(`rounded-${name.slice('radius-'.length)}`)).toContain(`border-radius: var(--${name})`);
+  it.each(tokensWithPrefix('radius.css', 'radius-'))('raio --%s', (name, suffix) => {
+    expect(rule(`rounded-${suffix}`)).toContain(`border-radius: var(--${name})`);
   });
 
   // `shadow-none` é utilitário fixo do Tailwind, com o mesmo efeito do token.
@@ -179,9 +184,9 @@ describe('tema do Tailwind', () => {
     expect(rule(name)).toContain(`transition-timing-function: var(--${name})`);
   });
 
-  const durations = namesIn('motion.css').filter((name) => name.startsWith('dur-'));
-  it.each(durations)('duração --%s', (name) => {
-    expect(rule(`duration-${name.slice('dur-'.length)}`)).toContain(`transition-duration: var(--${name})`);
+  const durations = tokensWithPrefix('motion.css', 'dur-');
+  it.each(durations)('duração --%s', (name, suffix) => {
+    expect(rule(`duration-${suffix}`)).toContain(`transition-duration: var(--${name})`);
   });
 
   it('o reset e a transição genérica usam os tokens como padrão', () => {
