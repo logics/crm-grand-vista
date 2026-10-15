@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 import '../support/dom.js';
-import { render } from '@testing-library/react';
-import { beforeAll, describe, expect, it } from 'vitest';
 import {
   Calendar,
   Checkbox,
@@ -39,23 +37,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../src/index.js';
-import { compileStyles, hasRule } from '../support/tailwind.js';
-
-// O tema padrão do Tailwind não é importado: classe fora dos tokens (`p-14`,
-// `text-2xl`, `bg-red-500`) não gera CSS e falha em silêncio, com o componente
-// sem estilo. Aqui cada primitivo é renderizado aberto, em cada variante, e
-// toda classe que aparece no DOM tem de gerar regra na folha compilada.
-
-/** Classes que não são utilitários: marcadores de grupo, classes de base dos tokens, as que o react-day-picker e o Lucide põem sozinhos. */
-const notUtility = /^(?:group(?:\/[\w-]+)?|peer|gv-[\w-]+|rdp-[\w-]+|lucide(?:-[\w-]+)?)$/;
-
-function classesInDocument(): string[] {
-  const classes = new Set<string>();
-  for (const element of document.querySelectorAll('[class]')) {
-    for (const className of element.classList) if (!notUtility.test(className)) classes.add(className);
-  }
-  return [...classes].sort();
-}
+import { describeEveryClassGeneratesCss } from '../support/classes.js';
 
 const october2026 = new Date(2026, 9, 1);
 
@@ -172,19 +154,4 @@ const primitives = {
   'Calendar único': () => <Calendar mode="single" defaultMonth={october2026} selected={new Date(2026, 9, 20)} />,
 };
 
-let build: (candidates: string[]) => string;
-
-beforeAll(async () => {
-  build = await compileStyles();
-});
-
-describe('classes dos primitivos', () => {
-  it.each(Object.entries(primitives))('%s: toda classe gera CSS com o tema dos tokens', (_, Primitive) => {
-    render(<Primitive />);
-    const classes = classesInDocument();
-    expect(classes.length).toBeGreaterThan(0);
-    const css = build(classes);
-    const missing = classes.filter((className) => !hasRule(css, className));
-    expect(missing).toEqual([]);
-  });
-});
+describeEveryClassGeneratesCss('classes dos primitivos', primitives);

@@ -28,6 +28,12 @@
   --color-brand-accent-ink: var(--brand-accent-ink);
   --color-brand-on-primary: var(--brand-on-primary);
   --color-brand-on-accent: var(--brand-on-accent);
+  --color-brand-wordmark-name: var(--brand-wordmark-name);
+  --color-brand-wordmark-rule: var(--brand-wordmark-rule);
+  --color-brand-wordmark-descriptor: var(--brand-wordmark-descriptor);
+  --color-brand-wordmark-name-on-inverse: var(--brand-wordmark-name-on-inverse);
+  --color-brand-wordmark-rule-on-inverse: var(--brand-wordmark-rule-on-inverse);
+  --color-brand-wordmark-descriptor-on-inverse: var(--brand-wordmark-descriptor-on-inverse);
 
   /* --- Cor: superfícies --- */
   --color-surface-page: var(--surface-page);

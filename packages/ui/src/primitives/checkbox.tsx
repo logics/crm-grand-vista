@@ -1,7 +1,8 @@
-import { Check, Minus } from 'lucide-react';
 import { Checkbox as CheckboxPrimitive } from 'radix-ui';
 import type { ComponentProps } from 'react';
+import { Icon } from '../components/icon.js';
 import { cn } from '../lib/cn.js';
+import { useFieldControl } from '../lib/field-control.js';
 import { disabledControl, focusRing } from '../lib/styles.js';
 
 // Caixa de seleção do shadcn sobre o Radix (`role="checkbox"`, Espaço alterna,
@@ -9,10 +10,11 @@ import { disabledControl, focusRing } from '../lib/styles.js';
 // (`Checkbox.jsx`): caixa verde com check branco. Move os checklists de due
 // diligence e os filtros de múltipla escolha.
 
-/** Traço mais grosso que o `iconStroke`: o check de 12px some com traço fino sobre o verde. */
+/** Traço mais grosso que o do `Icon`: o check de 12px some com traço fino sobre o verde. */
 const checkStroke = 2.5;
 
 export function Checkbox({ className, ...props }: ComponentProps<typeof CheckboxPrimitive.Root>) {
+  const control = useFieldControl(props);
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"
@@ -28,11 +30,11 @@ export function Checkbox({ className, ...props }: ComponentProps<typeof Checkbox
         disabledControl,
         className,
       )}
-      {...props}
+      {...control}
     >
       <CheckboxPrimitive.Indicator data-slot="checkbox-indicator" className="group/indicator flex">
-        <Check className="size-5 group-data-[state=indeterminate]/indicator:hidden" strokeWidth={checkStroke} />
-        <Minus className="hidden size-5 group-data-[state=indeterminate]/indicator:block" strokeWidth={checkStroke} />
+        <Icon name="check" size="xs" strokeWidth={checkStroke} className="group-data-[state=indeterminate]/indicator:hidden" />
+        <Icon name="minus" size="xs" strokeWidth={checkStroke} className="hidden group-data-[state=indeterminate]/indicator:block" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

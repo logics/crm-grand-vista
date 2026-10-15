@@ -1,8 +1,8 @@
 import { Command as CommandPrimitive } from 'cmdk';
-import { Search } from 'lucide-react';
 import type { ComponentProps } from 'react';
+import { Icon } from '../components/icon.js';
 import { cn } from '../lib/cn.js';
-import { disabledControl, iconStroke, listItem, listLabel, listSeparator } from '../lib/styles.js';
+import { disabledControl, listItem, listLabel, listSeparator } from '../lib/styles.js';
 
 // Lista filtrável do shadcn sobre o cmdk: setas e Enter navegam e escolhem,
 // digitar filtra. Com o Popover, é a base do `AsyncCombobox`.
@@ -20,7 +20,7 @@ export function Command({ className, ...props }: ComponentProps<typeof CommandPr
 export function CommandInput({ className, ...props }: ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div data-slot="command-input-wrapper" className="flex items-center gap-4 border-b border-border-subtle px-5">
-      <Search className="size-6 shrink-0 text-text-faint" strokeWidth={iconStroke} />
+      <Icon name="search" size="md" className="text-text-faint" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(

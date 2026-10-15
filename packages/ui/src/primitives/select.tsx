@@ -1,7 +1,8 @@
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Select as SelectPrimitive } from 'radix-ui';
 import type { ComponentProps } from 'react';
+import { Icon } from '../components/icon.js';
 import { cn } from '../lib/cn.js';
+import { useFieldControl } from '../lib/field-control.js';
 import {
   disabledControl,
   type FieldSize,
@@ -9,7 +10,6 @@ import {
   fieldSurface,
   floatingOffset,
   floatingSurface,
-  iconStroke,
   listItem,
   listLabel,
   listSeparator,
@@ -27,6 +27,7 @@ export const SelectValue = SelectPrimitive.Value;
 export type SelectTriggerProps = ComponentProps<typeof SelectPrimitive.Trigger> & { size?: FieldSize };
 
 export function SelectTrigger({ className, children, size = 'md', ...props }: SelectTriggerProps) {
+  const control = useFieldControl(props);
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
@@ -37,11 +38,11 @@ export function SelectTrigger({ className, children, size = 'md', ...props }: Se
         'data-placeholder:text-text-faint [&>span]:truncate',
         className,
       )}
-      {...props}
+      {...control}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDown className="size-6 shrink-0 text-text-faint" strokeWidth={iconStroke} />
+        <Icon name="chevron-down" size="md" className="text-text-faint" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -52,7 +53,7 @@ const scrollButton = 'flex cursor-default items-center justify-center py-2 text-
 export function SelectScrollUpButton({ className, ...props }: ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
   return (
     <SelectPrimitive.ScrollUpButton data-slot="select-scroll-up" className={cn(scrollButton, className)} {...props}>
-      <ChevronUp className="size-6" strokeWidth={iconStroke} />
+      <Icon name="chevron-up" size="md" />
     </SelectPrimitive.ScrollUpButton>
   );
 }
@@ -67,7 +68,7 @@ export function SelectScrollDownButton({
       className={cn(scrollButton, className)}
       {...props}
     >
-      <ChevronDown className="size-6" strokeWidth={iconStroke} />
+      <Icon name="chevron-down" size="md" />
     </SelectPrimitive.ScrollDownButton>
   );
 }
@@ -121,7 +122,7 @@ export function SelectItem({ className, children, ...props }: ComponentProps<typ
     >
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator className="absolute right-4 flex items-center text-brand-primary">
-        <Check className="size-6" strokeWidth={iconStroke} />
+        <Icon name="check" size="md" />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>
   );

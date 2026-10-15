@@ -1,6 +1,7 @@
 import { Switch as SwitchPrimitive } from 'radix-ui';
 import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn.js';
+import { useFieldControl } from '../lib/field-control.js';
 import { disabledControl, focusRing } from '../lib/styles.js';
 
 // Interruptor do shadcn sobre o Radix (`role="switch"`, Espaço alterna). Do
@@ -8,6 +9,7 @@ import { disabledControl, focusRing } from '../lib/styles.js';
 // Efeito imediato — nunca acompanha botão Salvar.
 
 export function Switch({ className, ...props }: ComponentProps<typeof SwitchPrimitive.Root>) {
+  const control = useFieldControl(props);
   return (
     <SwitchPrimitive.Root
       data-slot="switch"
@@ -20,7 +22,7 @@ export function Switch({ className, ...props }: ComponentProps<typeof SwitchPrim
         disabledControl,
         className,
       )}
-      {...props}
+      {...control}
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"

@@ -61,6 +61,15 @@
 --brand-on-primary:var(--gv-white);
 --brand-on-accent:var(--gv-green-900);
 
+/* Assinatura tipográfica (Wordmark): cores próprias da marca, fora dos papéis
+   de interface. Sobre superfície clara, e "-on-inverse" sobre verde ou foto. */
+--brand-wordmark-name:var(--gv-green-800);
+--brand-wordmark-rule:var(--gv-gold-500);
+--brand-wordmark-descriptor:var(--gv-gold-700);
+--brand-wordmark-name-on-inverse:var(--gv-sand-100);
+--brand-wordmark-rule-on-inverse:color-mix(in srgb, var(--gv-sand-100) 45%, transparent);
+--brand-wordmark-descriptor-on-inverse:var(--gv-gold-300);
+
 --surface-page:var(--gv-canvas);
 --surface-card:var(--gv-white);
 --surface-sunken:var(--gv-ink-50);

@@ -1,8 +1,8 @@
-import { X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type { ComponentProps } from 'react';
+import { Icon } from '../components/icon.js';
 import { cn } from '../lib/cn.js';
-import { focusRing, iconStroke } from '../lib/styles.js';
+import { focusRing } from '../lib/styles.js';
 
 // Diálogo do shadcn sobre o Radix: foco preso, retorno de foco ao gatilho,
 // Escape, trava de rolagem e ARIA vêm do Radix. Do export (`Dialog.jsx`) vem só
@@ -82,7 +82,7 @@ export function DialogContent({
               focusRing,
             )}
           >
-            <X className="size-6" strokeWidth={iconStroke} />
+            <Icon name="x" size="md" />
             <span className="sr-only">Fechar</span>
           </DialogPrimitive.Close>
         )}

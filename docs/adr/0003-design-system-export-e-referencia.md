@@ -20,4 +20,4 @@ Nomes dos componentes importados são reconciliados com o glossário em `CONTEXT
 
 `ui_kits/site` é o site público de captação, fora do escopo desta fase, e fica arquivado como referência sem virar código.
 
-Os primitivos vindos do shadcn mantêm a **API do Radix** (partes compostas), não a dos `.jsx` do export: do export vêm aparência e variantes. As regras de props do `_adherence.oxlintrc.json` que descreviam a API do export para esses primitivos foram removidas — ver "Divisão de camadas" em `docs/specs/design-system.md`.
+Os primitivos vindos do shadcn mantêm a **API do Radix** (partes compostas), não a dos `.jsx` do export: do export vêm aparência e variantes. As regras de props do `_adherence.oxlintrc.json` que descreviam a API do export para esses primitivos foram removidas, e também as listas de props aceitas dos componentes de apresentação, que barravam atributos nativos (`onClick`, `aria-*`); as regras de valor de variante ficam — ver "Divisão de camadas" em `docs/specs/design-system.md`.
