@@ -4,7 +4,7 @@
 
 ## Objetivo
 
-Transformar `design-system-export/` — o dump do Claude Design com o design system da Grand Vista — em `packages/ui`, o Design System de produção do projeto. O export é **referência visual e fonte dos tokens, não código de produção**.
+Transformar o export do Claude Design — o dump com o design system da Grand Vista, versionado no commit `f85ca62` e apagado ao fim desta trilha — em `packages/ui`, o Design System de produção do projeto. O export é **referência visual e fonte dos tokens, não código de produção**.
 
 ## Vocabulário
 
@@ -40,7 +40,7 @@ Não há componentes duplicados: cada componente aparece uma vez só. Não exist
 | `ui_kits/data.js` | Dados de exemplo compartilhados pelos dois kits | Preservar junto dos kits, para que renderizem |
 | `assets/` | `logo-fachada-grandvista.jpeg`, `logo-placa-grandvista.png` | Mover para `packages/ui`. **Não existe vetor** — ver "Marca" abaixo |
 | `uploads/` | Fonte original dos assets, `monty-01..10.webp`, logo duplicada, cópia do escopo | Preservar apenas as imagens que alguma referência usa; descartar duplicatas |
-| `_adherence.oxlintrc.json` (31KB) | Config de aderência ao DS, formato **oxlint** | **Vira a config de lint do projeto** (`.oxlintrc.json`). O projeto não tem nenhuma hoje, então não há config na qual integrar. O import das referências (`design-system/`, `design-system-export/`) é barrado por ela; `test/lint-adherence.test.ts` prova cada regra contra arquivos lintados de verdade |
+| `_adherence.oxlintrc.json` (31KB) | Config de aderência ao DS, formato **oxlint** | **Vira a config de lint do projeto** (`.oxlintrc.json`). O projeto não tem nenhuma hoje, então não há config na qual integrar. O import da referência (`design-system/`) é barrado por ela; `test/lint-adherence.test.ts` prova cada regra contra arquivos lintados de verdade |
 | `SKILL.md` | Descritor de skill (`grand-vista-design`, user-invocable) | Instalar como skill em `.claude/skills/grand-vista-design/` (link para `.agents/skills/`, como as demais), apontando para `design-system/referencia/`. Faz qualquer agente que mexa em UI carregar as regras de marca automaticamente. `test/grand-vista-design-skill.test.ts` falha se um caminho citado deixar de existir |
 | `readme.md` | Fundamentos de conteúdo, marca, voz, casing, vocabulário | Preservar como `design-system/referencia/README.md`. É a fonte das regras de redação de UI |
 | `styles.css` | Folha que as referências HTML consomem | Preservar junto das referências |
@@ -106,8 +106,8 @@ Não existe logotipo vetorial — só raster. O `readme.md` do export é explíc
 - `packages/ui` compila com `tsc --noEmit` limpo; nenhum arquivo `.jsx` restante
 - Storybook sobe e cada componente exibe suas variantes e estados
 - Os 237 tokens estão disponíveis como variáveis CSS e consumidos pelo tema do Tailwind
-- Nenhum componente de `packages/ui` importa de `design-system-export/` nem de `design-system/referencia/`
-- As referências HTML abrem no navegador e renderizam sozinhas, com `design-system-export/` já apagada
+- Nenhum componente de `packages/ui` importa de `design-system/referencia/`
+- As referências HTML abrem no navegador e renderizam sozinhas, com o export já apagado
 - A config oxlint de aderência roda no CI
 - Nenhum componente novo usa estilo inline onde um token serve
 - A skill `grand-vista-design` está instalada e aponta para caminhos que existem
@@ -128,7 +128,7 @@ Não existe logotipo vetorial — só raster. O `readme.md` do export é explíc
 4. Componentes de apresentação reescritos em TSX, já com os nomes reconciliados
 5. Storybook, config oxlint, skill instalada
 6. Ajustar caminhos das referências e **verificar que renderizam**
-7. **Só então** apagar `design-system-export/`, em commit separado
+7. **Só então** apagar o export, em commit separado
 
 O export está versionado em git (commit `f85ca62`), então erro de triagem é recuperável — mas a exclusão só acontece depois do passo 6 verificado.
 

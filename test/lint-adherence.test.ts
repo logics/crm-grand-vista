@@ -39,10 +39,6 @@ const violations: Record<string, { source: string; expected: RegExp }> = {
     source: `import { Button } from '../../design-system/referencia/componentes/core/Button.jsx';\nexport { Button };`,
     expected: /referência visual/i,
   },
-  'import do export do Claude Design': {
-    source: `import { FarmCard } from '../design-system-export/components/data/FarmCard.jsx';\nexport { FarmCard };`,
-    expected: /referência visual/i,
-  },
 };
 
 const conforming: Record<string, string> = {

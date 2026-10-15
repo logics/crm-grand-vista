@@ -176,7 +176,7 @@ Requisito de primeira classe, não acabamento. `packages/ui` concentra tokens (c
 
 ### O export do Claude Design
 
-`design-system-export/` é o design system da Grand Vista produzido no Claude Design: 170 arquivos com 237 tokens CSS, 31 componentes React, 22 páginas HTML de referência visual e dois kits de tela. Está versionado no repositório — entrou antes de qualquer triagem justamente para que a reorganização seja reversível.
+O export é o design system da Grand Vista produzido no Claude Design: 170 arquivos com 237 tokens CSS, 31 componentes React, 22 páginas HTML de referência visual e dois kits de tela. Entrou versionado no repositório (commit `f85ca62`) antes de qualquer triagem, justamente para que a reorganização fosse reversível. Triado para `design-system/referencia/` e `packages/ui`, foi apagado depois (#18) e segue recuperável pelo histórico do git.
 
 É **referência visual e fonte dos tokens, não código de produção** (ADR 0003). A divisão:
 
@@ -424,7 +424,7 @@ Em seguida, as specs por módulo escritas contra esse modelo.
 
 Monorepo pnpm com Turborepo, Docker Compose com Postgres 18 (mesma major version de produção, fixada por tag exata), Drizzle com migrations, Better Auth com organizations, **motor de permissões granulares** com os perfis de acesso Admin/Gestor/Corretor semeados e o escopo de plataforma desenhado, flag `is_super_admin` e seu script de CLI, provisionamento de tenant por CLI, **RLS ativo e testado** com o teste de schema que falha o CI, resolução de empresa por slug na URL, wrapper de transação que exige tenant, wrapper de auditoria, infraestrutura de testes (Vitest, banco de teste em container, Playwright), CI rodando os testes, deploy contínuo com um "hello world" autenticado.
 
-**Design System:** triagem do `design-system-export` para `packages/ui` — tokens, primitivos shadcn reestilizados, os componentes de apresentação reescritos em TSX, Storybook, e a config oxlint de aderência virando a config de lint do projeto. Isso acontece depois do scaffold do monorepo, que é o que cria a pasta de destino.
+**Design System:** triagem do export do Claude Design para `packages/ui` — tokens, primitivos shadcn reestilizados, os componentes de apresentação reescritos em TSX, Storybook, e a config oxlint de aderência virando a config de lint do projeto. Isso acontece depois do scaffold do monorepo, que é o que cria a pasta de destino.
 
 A migração do Postgres para a mesma rede privada acontece **antes** desta fase, para que o pipeline seja montado contra o endereço definitivo.
 
@@ -506,4 +506,4 @@ Nesta ordem:
 
 As specs das Fases 1–5 são escritas quando a fase chegar, contra o modelo de dados que já está fechado.
 
-Os tokens de marca já vêm resolvidos do `design-system-export`. A pendência de design que resta é o **logotipo vetorial**, que não bloqueia nada: enquanto não chegar, a marca aparece pelo `Wordmark`, só tipográfico, e o monograma não deve ser aproximado.
+Os tokens de marca já vêm resolvidos do export do Claude Design. A pendência de design que resta é o **logotipo vetorial**, que não bloqueia nada: enquanto não chegar, a marca aparece pelo `Wordmark`, só tipográfico, e o monograma não deve ser aproximado.
