@@ -9,7 +9,7 @@ describe('AuditTimeline', () => {
     render(
       <AuditTimeline
         items={[
-          { id: 'b', title: 'Preço pedido alterado', date: '24/07 · 09h00', author: 'Milson Sousa' },
+          { id: 'b', title: 'Preço pedido alterado', date: '24/07 · 09h00', author: 'Rafael Tavares' },
           { id: 'a', title: 'Fazenda cadastrada', date: '12/03 · 14h30', author: 'Renata Carvalho', icon: 'plus' },
         ]}
       />,
@@ -18,7 +18,7 @@ describe('AuditTimeline', () => {
     expect(entries).toHaveLength(2);
     expect(within(entries[0]!).getByText('Preço pedido alterado')).toBeInTheDocument();
     expect(within(entries[0]!).getByText('24/07 · 09h00')).toBeInTheDocument();
-    expect(within(entries[0]!).getByText('Milson Sousa')).toBeInTheDocument();
+    expect(within(entries[0]!).getByText('Rafael Tavares')).toBeInTheDocument();
     expect(within(entries[1]!).getByText('Fazenda cadastrada')).toBeInTheDocument();
   });
 

@@ -1,0 +1,4 @@
+/* A folha que as aplicações importam, mais as classes de layout das stories:
+   o `@source` de `src/styles.css` só enxerga `src/`. */
+@import "../src/styles.css";
+@source "../stories";

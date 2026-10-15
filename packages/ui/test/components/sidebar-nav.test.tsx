@@ -38,7 +38,7 @@ describe('SidebarNav', () => {
   });
 
   it('rodapé com o usuário', () => {
-    render(<SidebarNav items={items} footer={<span>Milson Sousa</span>} />);
-    expect(screen.getByText('Milson Sousa')).toBeInTheDocument();
+    render(<SidebarNav items={items} footer={<span>Rafael Tavares</span>} />);
+    expect(screen.getByText('Rafael Tavares')).toBeInTheDocument();
   });
 });

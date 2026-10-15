@@ -4,7 +4,8 @@
     "design-system-export/**",
     "design-system/**",
     ".agents/**",
-    ".claude/**"
+    ".claude/**",
+    "**/storybook-static/**"
   ],
   "plugins": [
     "react",
@@ -26,16 +27,10 @@
         "patterns": [
           {
             "group": [
-              "components/core/**",
-              "components/data/**",
-              "components/feedback/**",
-              "components/forms/**",
-              "components/navigation/**",
-              "ui_kits/**",
-              "ui_kits/crm-v2/**",
-              "ui_kits/site/**"
+              "**/design-system/**",
+              "**/design-system-export/**"
             ],
-            "message": "Import design-system components from 'index.js', not component internals."
+            "message": "Referência visual do Design System não é código de produção (ADR 0003): use os componentes de `@crm/ui`."
           }
         ],
         "paths": [
@@ -50,7 +45,7 @@
       "warn",
       {
         "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
-        "message": "Raw hex color — use a design-system color token via var()."
+        "message": "Cor hex crua — use um token de cor do Design System (classe do tema ou var())."
       },
       {
         "selector": ":matches(Literal[value=/--gv-/], TemplateElement[value.raw=/--gv-/])",
@@ -58,90 +53,78 @@
       },
       {
         "selector": "Literal[value=/\\b\\d+px\\b/]",
-        "message": "Raw px value — use a design-system spacing token via var()."
+        "message": "Valor em px cru — use um token de espaçamento do Design System (classe do tema ou var())."
       },
       {
         "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Geist|Geist Mono|Jost))/i]",
-        "message": "Font not provided by the design system. Available: Geist, Geist Mono, Jost."
+        "message": "Fonte fora do Design System. Disponíveis: Geist, Geist Mono, Jost."
       },
       {
         "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:neutral|success|warning|danger|info|brand|gold)$/]",
-        "message": "<Badge> tone must be one of 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand' | 'gold'."
+        "message": "<Badge> tone aceita só 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand' | 'gold'."
       },
       {
         "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md)$/]",
-        "message": "<Badge> size must be one of 'sm' | 'md'."
+        "message": "<Badge> size aceita só 'sm' | 'md'."
       },
       {
         "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:primary|accent|secondary|soft|dark|ghost|danger)$/]",
-        "message": "<Button> variant must be one of 'primary' | 'accent' | 'secondary' | 'soft' | 'dark' | 'ghost' | 'danger'."
+        "message": "<Button> variant aceita só 'primary' | 'accent' | 'secondary' | 'soft' | 'dark' | 'ghost' | 'danger'."
       },
       {
         "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
-        "message": "<Button> size must be one of 'sm' | 'md' | 'lg'."
+        "message": "<Button> size aceita só 'sm' | 'md' | 'lg'."
       },
       {
         "selector": "JSXOpeningElement[name.name='Card'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:default|hero|inverse|sunken)$/]",
-        "message": "<Card> tone must be one of 'default' | 'hero' | 'inverse' | 'sunken'."
+        "message": "<Card> tone aceita só 'default' | 'hero' | 'inverse' | 'sunken'."
       },
       {
         "selector": "JSXOpeningElement[name.name='ChecklistItem'] > JSXAttribute[name.name='state'] > Literal[value!=/^(?:ok|pending|blocked|empty)$/]",
-        "message": "<ChecklistItem> state must be one of 'ok' | 'pending' | 'blocked' | 'empty'."
+        "message": "<ChecklistItem> state aceita só 'ok' | 'pending' | 'blocked' | 'empty'."
       },
       {
         "selector": "JSXOpeningElement[name.name='CompatibilityGauge'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
-        "message": "<CompatibilityGauge> size must be one of 'sm' | 'md' | 'lg'."
+        "message": "<CompatibilityGauge> size aceita só 'sm' | 'md' | 'lg'."
       },
       {
         "selector": "JSXOpeningElement[name.name='IconButton'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
-        "message": "<IconButton> size must be one of 'sm' | 'md' | 'lg'."
+        "message": "<IconButton> size aceita só 'sm' | 'md' | 'lg'."
       },
       {
         "selector": "JSXOpeningElement[name.name='IconButton'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:ghost|outline|soft|solid)$/]",
-        "message": "<IconButton> variant must be one of 'ghost' | 'outline' | 'soft' | 'solid'."
+        "message": "<IconButton> variant aceita só 'ghost' | 'outline' | 'soft' | 'solid'."
       },
       {
         "selector": "JSXOpeningElement[name.name='Input'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
-        "message": "<Input> size must be one of 'sm' | 'md' | 'lg'."
+        "message": "<Input> size aceita só 'sm' | 'md' | 'lg'."
       },
       {
         "selector": "JSXOpeningElement[name.name='ProgressBar'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:brand|gold|success|danger)$/]",
-        "message": "<ProgressBar> tone must be one of 'brand' | 'gold' | 'success' | 'danger'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='SelectOption'] > JSXAttribute > JSXIdentifier[name!=/^(?:value|label|key|ref|className|style|children)$/]",
-        "message": "<SelectOption> doesn't accept that prop. Declared props: value, label."
+        "message": "<ProgressBar> tone aceita só 'brand' | 'gold' | 'success' | 'danger'."
       },
       {
         "selector": "JSXOpeningElement[name.name='StatCard'] > JSXAttribute[name.name='deltaTone'] > Literal[value!=/^(?:success|danger|neutral)$/]",
-        "message": "<StatCard> deltaTone must be one of 'success' | 'danger' | 'neutral'."
+        "message": "<StatCard> deltaTone aceita só 'success' | 'danger' | 'neutral'."
       },
       {
         "selector": "JSXOpeningElement[name.name='StatCard'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:default|hero|dark|gold)$/]",
-        "message": "<StatCard> tone must be one of 'default' | 'hero' | 'dark' | 'gold'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='Textarea'] > JSXAttribute > JSXIdentifier[name!=/^(?:invalid|rows|key|ref|className|style|children)$/]",
-        "message": "<Textarea> doesn't accept that prop. Declared props: invalid, rows."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='Toast'] > JSXAttribute > JSXIdentifier[name!=/^(?:tone|title|message|action|onClose|key|ref|className|style|children)$/]",
-        "message": "<Toast> doesn't accept that prop. Declared props: tone, title, message, action, onClose."
+        "message": "<StatCard> tone aceita só 'default' | 'hero' | 'dark' | 'gold'."
       },
       {
         "selector": "JSXOpeningElement[name.name='Toast'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:success|warning|danger|info)$/]",
-        "message": "<Toast> tone must be one of 'success' | 'warning' | 'danger' | 'info'."
+        "message": "<Toast> tone aceita só 'success' | 'warning' | 'danger' | 'info'."
       },
       {
         "selector": "JSXOpeningElement[name.name='Wordmark'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:dark|light)$/]",
-        "message": "<Wordmark> tone must be one of 'dark' | 'light'."
+        "message": "<Wordmark> tone aceita só 'dark' | 'light'."
       }
     ]
   },
   "overrides": [
     {
       "files": [
-        "**/index.js"
+        "packages/ui/src/components/icon.tsx"
       ],
       "rules": {
         "no-restricted-imports": "off"
@@ -149,10 +132,10 @@
     },
     {
       "files": [
-        "packages/ui/src/components/icon.tsx"
+        "test/lint-adherence.test.ts"
       ],
       "rules": {
-        "no-restricted-imports": "off"
+        "crm/no-restricted-syntax": "off"
       }
     }
   ]

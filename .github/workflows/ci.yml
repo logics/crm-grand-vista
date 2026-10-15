@@ -62,3 +62,8 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # Prova que a vitrine do Design System compila com as stories de cada
+      # componente; o render de cada story já foi exercitado nos testes unitários.
+      - name: Storybook
+        run: pnpm --filter @crm/ui build-storybook
