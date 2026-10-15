@@ -59,6 +59,16 @@ Os estilos inline do export **não atravessam**: não suportam media query, cont
 
 `ui_kits/crm-v2/ui.jsx` é uma implementação **paralela** (`A2Btn`, `A2Icon`, classes `a2-*`) que não importa nada de `components/` e carrega ícones de CDN. Não é uma versão alternativa dos componentes: é andaime de protótipo. Ler para extrair decisões de layout, nunca portar.
 
+## Tema do Tailwind
+
+Tailwind 4, configurado em CSS. A aplicação importa uma folha só, `@crm/ui/styles.css`: tokens, reset (preflight), `base.css` dos tokens na camada `base` e o tema, `packages/ui/src/theme.css`.
+
+- **O tema padrão do Tailwind não é importado.** Paleta, escala, fontes e raios vêm só dos tokens; classe fora deles (`text-2xl`, `bg-red-500`, `p-14`) não gera CSS.
+- **O tema não escreve valor:** cada entrada é `var(--token)`. A exceção são as faixas responsivas (`--bp-rail`, `--bp-mobile`), copiadas literalmente porque media query e container query não leem `var()`. Um teste amarra a cópia ao token.
+- **Classe = prefixo do utilitário + nome do token:** `bg-surface-card`, `border-border-subtle`, `text-status-danger-fg`, `bg-stage-3`, `rounded-card`, `shadow-sm`, `shadow-ring-focus`, `bg-gradient-hero`, `ease-standard`, `transition-control`. Para as escalas, o prefixo do token cai: `p-6` usa `--space-6`, `text-h1` usa `--size-h1`, `leading-snug` usa `--lh-snug`, `font-semibold` usa `--weight-semibold`, `duration-fast` usa `--dur-fast`, e `max-rail:`/`@max-rail:` usam `--bp-rail`.
+- **Cuidado: `text-body` é tamanho (`--size-body`); `text-text-body` é cor (`--text-body`).** O mesmo vale para os demais tokens `--text-*` de cor.
+- A paleta crua (`--gv-*`) e os apelidos `--a2-*` do kit crm-v2 continuam como variável CSS, mas não viram utilitário: componente usa os apelidos semânticos.
+
 ## Renomeação para o glossário
 
 Fazer **na importação**, enquanto nada consome os componentes. Tabela fechada — não inferir outras:
