@@ -1,0 +1,25 @@
+/* Folha única do Design System: tokens, reset, estilo de base e o tema do
+   Tailwind. A aplicação importa só ela (`@crm/ui/styles.css`).
+
+   O tema padrão do Tailwind (`tailwindcss/theme.css`) fica de fora de propósito:
+   paleta, escala e fontes vêm só dos tokens, e classe fora deles não gera CSS. */
+@layer theme, base, components, utilities;
+
+/* Primeiro: carrega o @import da webfont, que precisa preceder qualquer regra. */
+@import "./tokens/fonts.css";
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/radius.css";
+@import "./tokens/elevation.css";
+@import "./tokens/motion.css";
+@import "./tokens/admin-v2.css";
+
+@import "tailwindcss/preflight.css" layer(base);
+@import "./tokens/base.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@import "./theme.css";
+
+/* Os componentes do pacote vivem fora da raiz da aplicação que os consome. */
+@source "./";

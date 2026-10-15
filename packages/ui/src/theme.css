@@ -1,0 +1,226 @@
+/* Tema do Tailwind sobre os tokens de `./tokens/`.
+
+   Regra de nome: a classe é o prefixo do utilitário seguido do nome do token
+   (`bg-surface-card` → `--surface-card`, `rounded-card` → `--radius-card`,
+   `p-6` → `--space-6`). O valor nunca é escrito aqui: tudo aponta para um token,
+   e mudar a marca é editar `./tokens/`.
+
+   `inline` grava `var(--token)` direto no utilitário; `reference` impede que o
+   Tailwind redeclare as variáveis no :root — muitas têm o mesmo nome do token
+   (`--radius-sm`, `--shadow-sm`, `--font-sans`, `--ease-out`) e o redeclarar
+   criaria referência circular.
+
+   A paleta crua (`--gv-*`) e os apelidos `--a2-*` do kit crm-v2 continuam
+   disponíveis como variável CSS, mas não viram utilitário: componente usa os
+   apelidos semânticos. `--shadow-none` também fica de fora: `shadow-none` é
+   utilitário fixo do Tailwind, com o mesmo efeito. */
+@theme inline reference {
+  /* --- Cor: marca --- */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-primary-active: var(--brand-primary-active);
+  --color-brand-primary-2: var(--brand-primary-2);
+  --color-brand-primary-soft: var(--brand-primary-soft);
+  --color-brand-primary-tint: var(--brand-primary-tint);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-hover: var(--brand-accent-hover);
+  --color-brand-accent-soft: var(--brand-accent-soft);
+  --color-brand-accent-ink: var(--brand-accent-ink);
+  --color-brand-on-primary: var(--brand-on-primary);
+  --color-brand-on-accent: var(--brand-on-accent);
+
+  /* --- Cor: superfícies --- */
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-surface-accent-soft: var(--surface-accent-soft);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-selected: var(--surface-selected);
+  --color-scrim-modal: var(--scrim-modal);
+
+  /* --- Cor: texto --- */
+  --color-text-heading: var(--text-heading);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-on-inverse: var(--text-on-inverse);
+  --color-text-link: var(--text-link);
+  --color-text-link-hover: var(--text-link-hover);
+
+  /* --- Cor: bordas e foco --- */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-accent: var(--border-accent);
+  --color-border-inverse: var(--border-inverse);
+  --color-focus-ring: var(--focus-ring);
+
+  /* --- Cor: status --- */
+  --color-status-success-fg: var(--status-success-fg);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-warning-fg: var(--status-warning-fg);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-danger-fg: var(--status-danger-fg);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-info-fg: var(--status-info-fg);
+  --color-status-info-bg: var(--status-info-bg);
+
+  /* --- Cor: etapas do funil --- */
+  --color-stage-1: var(--stage-1);
+  --color-stage-2: var(--stage-2);
+  --color-stage-3: var(--stage-3);
+  --color-stage-4: var(--stage-4);
+  --color-stage-5: var(--stage-5);
+  --color-stage-6: var(--stage-6);
+  --color-stage-7: var(--stage-7);
+  --color-stage-8: var(--stage-8);
+  --color-stage-9: var(--stage-9);
+  --color-stage-10: var(--stage-10);
+
+  /* --- Tipografia --- */
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-body: var(--text-body-font);
+  --font-heading: var(--text-heading-font);
+  --font-data: var(--text-data-font);
+  --font-brand: var(--text-brand-font);
+
+  --text-hero: var(--size-hero);
+  --text-display: var(--size-display);
+  --text-h1: var(--size-h1);
+  --text-h2: var(--size-h2);
+  --text-h3: var(--size-h3);
+  --text-lg: var(--size-lg);
+  --text-body: var(--size-body);
+  --text-sm: var(--size-sm);
+  --text-xs: var(--size-xs);
+  --text-micro: var(--size-micro);
+  --text-label: var(--size-label);
+
+  --leading-tight: var(--lh-tight);
+  --leading-snug: var(--lh-snug);
+  --leading-normal: var(--lh-normal);
+  --leading-relaxed: var(--lh-relaxed);
+
+  --font-weight-light: var(--weight-light);
+  --font-weight-regular: var(--weight-regular);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+  --font-weight-bold: var(--weight-bold);
+
+  --tracking-brand: var(--tracking-brand);
+  --tracking-eyebrow: var(--tracking-eyebrow);
+  --tracking-wide: var(--tracking-wide);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-tight: var(--tracking-tight);
+  --tracking-heading: var(--tracking-heading);
+  --tracking-display: var(--tracking-display);
+
+  /* --- Espaçamento: escala --- */
+  --spacing-0: var(--space-0);
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-7: var(--space-7);
+  --spacing-8: var(--space-8);
+  --spacing-9: var(--space-9);
+  --spacing-10: var(--space-10);
+  --spacing-11: var(--space-11);
+  --spacing-12: var(--space-12);
+  --spacing-13: var(--space-13);
+
+  /* --- Espaçamento: medidas da casca --- */
+  --spacing-gap-shell: var(--gap-shell);
+  --spacing-gap-shell-mobile: var(--gap-shell-mobile);
+  --spacing-gutter-card: var(--gutter-card);
+  --spacing-gutter-card-mobile: var(--gutter-card-mobile);
+  --spacing-gutter-section: var(--gutter-section);
+  --spacing-gutter-page: var(--gutter-page);
+  --spacing-row-height: var(--row-height);
+  --spacing-row-height-dense: var(--row-height-dense);
+  --spacing-control-height: var(--control-height);
+  --spacing-control-height-sm: var(--control-height-sm);
+  --spacing-control-height-lg: var(--control-height-lg);
+  --spacing-hit-target: var(--hit-target);
+  --spacing-sidebar-width: var(--sidebar-width);
+  --spacing-sidebar-width-collapsed: var(--sidebar-width-collapsed);
+  --spacing-topbar-height: var(--topbar-height);
+  --spacing-tabbar-height: var(--tabbar-height);
+  --spacing-content-max: var(--content-max);
+
+  /* --- Raio --- */
+  --radius-none: var(--radius-none);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-sheet: var(--radius-sheet);
+  --radius-pill: var(--radius-pill);
+  --radius-card: var(--radius-card);
+  --radius-card-mobile: var(--radius-card-mobile);
+  --radius-control: var(--radius-control);
+  --radius-input: var(--radius-input);
+  --radius-nav: var(--radius-nav);
+  --radius-media: var(--radius-media);
+
+  /* --- Elevação --- */
+  --shadow-hairline: var(--shadow-hairline);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-primary: var(--shadow-primary);
+  --shadow-hero: var(--shadow-hero);
+  --shadow-nav-active: var(--shadow-nav-active);
+  --shadow-inset-top: var(--shadow-inset-top);
+  --shadow-ring-focus: var(--ring-focus);
+  --shadow-ring-danger: var(--ring-danger);
+
+  --background-image-scrim-bottom: var(--scrim-bottom);
+  --background-image-scrim-flat: var(--scrim-flat);
+  --background-image-gradient-hero: var(--gradient-hero);
+  --background-image-gradient-gold: var(--gradient-gold);
+
+  /* --- Movimento --- */
+  --ease-standard: var(--ease-standard);
+  --ease-out: var(--ease-out);
+  --ease-in: var(--ease-in);
+
+  --transition-duration-instant: var(--dur-instant);
+  --transition-duration-fast: var(--dur-fast);
+  --transition-duration-normal: var(--dur-normal);
+  --transition-duration-slow: var(--dur-slow);
+}
+
+/* Lidos pelo preflight e pelos utilitários de transição em tempo de execução,
+   por isso declarados no :root (sem `reference`). Nomes não colidem com tokens. */
+@theme inline {
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-mono);
+  --default-transition-duration: var(--dur-fast);
+  --default-transition-timing-function: var(--ease-standard);
+}
+
+/* Faixas responsivas (`max-rail:`, `max-mobile:`) e suas versões de container
+   (`@max-rail:`). Media query e container query não leem var(), então o valor
+   repete `--bp-*` de `./tokens/spacing.css` — o teste do tema amarra os dois. */
+@theme reference {
+  --breakpoint-rail: 1180px;
+  --breakpoint-mobile: 760px;
+  --container-rail: 1180px;
+  --container-mobile: 760px;
+}
+
+@utility transition-control {
+  transition: var(--transition-control);
+}

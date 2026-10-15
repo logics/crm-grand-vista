@@ -8,16 +8,20 @@
       "@crm/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./styles.css": "./src/styles.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@crm/shared": "workspace:*"
+    "@crm/shared": "workspace:*",
+    "tailwindcss": "4.3.3"
   },
   "devDependencies": {
+    "@tailwindcss/node": "4.3.3",
+    "@types/node": "22.20.5",
     "@types/react": "19.3.0",
     "react": "19.3.0",
     "typescript": "6.0.3"
