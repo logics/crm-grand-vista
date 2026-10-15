@@ -13,6 +13,7 @@ Design System: tokens, primitivos shadcn reestilizados e componentes de domínio
 - Todo glifo passa pelo `Icon` (`src/components/icon.tsx`), que tem o registro de nomes; glifo novo entra lá. Importar `lucide-react` fora dele é erro de lint.
 - Controle de formulário novo lê `useFieldControl` (`src/lib/field-control.ts`), para que o `Field` o nomeie e descreva.
 - Medida fora das escalas sai da soma de tokens (`size-[calc(var(--space-6)+var(--space-1))]`), com comentário dizendo o valor do export.
-- Receitas de classe compartilhadas (foco, campo, superfície flutuante, item de lista) em `src/lib/styles.ts`; junção de classes sempre por `cn` (`src/lib/cn.ts`), que conhece as escalas dos tokens.
+- Receitas de classe compartilhadas (foco, campo, superfície flutuante, item de lista, cartão que sobe no hover) em `src/lib/styles.ts`; junção de classes sempre por `cn` (`src/lib/cn.ts`), que conhece as escalas dos tokens.
+- Elemento que não é `<button>` mas abre algo (cartão, linha de tabela) usa `pressable` (`src/lib/pressable.ts`), que o torna focável e acionável por Enter e Espaço.
 - Classe fora dos tokens não gera CSS e falha em silêncio: `test/primitives/classes.test.tsx` e `test/components/classes.test.tsx` renderizam cada primitivo e componente, em cada variante, e exigem regra para toda classe (`test/support/classes.tsx`). Primitivo ou componente novo entra lá.
 - As regras de aderência ao DS estão no `.oxlintrc.json` da raiz (cor hex crua, paleta crua `--gv-*`, px cru, fonte fora do DS, valores de variante de cada componente) e rodam em `pnpm lint`.

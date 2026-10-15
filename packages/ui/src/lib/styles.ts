@@ -73,3 +73,13 @@ export const controlTone = {
   soft: 'bg-surface-sunken text-text-body enabled:hover:bg-surface-muted',
   ghost: 'bg-transparent text-text-muted enabled:hover:bg-surface-sunken enabled:hover:text-text-body',
 } as const;
+
+/** Destaque ou prioridade: anel dourado fino por dentro (1px no lugar do 1,5px do export, sem meio pixel). */
+export const accentRing = 'inset-ring inset-ring-brand-accent/55';
+
+/**
+ * Cartão que leva a algum lugar: sobe um pixel ao passar o mouse. A sombra do
+ * hover fica com cada cartão, porque depende do tom da superfície.
+ */
+export const liftOnHover =
+  'cursor-pointer transition-[box-shadow,translate] duration-normal ease-standard hover:-translate-y-px';

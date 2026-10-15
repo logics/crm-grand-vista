@@ -1,5 +1,6 @@
 import { type ComponentProps, type ReactNode, useId } from 'react';
 import { cn } from '../lib/cn.js';
+import { clampPercent } from '../lib/percent.js';
 
 // Trilho fino em pílula (`ProgressBar.jsx` do export): conclusão da due
 // diligence, meta de vendas, ocupação do funil.
@@ -29,8 +30,6 @@ export type ProgressBarProps = ComponentProps<'div'> & {
   height?: keyof typeof progressHeight;
 };
 
-const clamp = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0);
-
 export function ProgressBar({
   className,
   value,
@@ -42,7 +41,7 @@ export function ProgressBar({
   ...props
 }: ProgressBarProps) {
   const labelId = useId();
-  const percent = clamp(value);
+  const percent = clampPercent(value);
   return (
     <div data-slot="progress-bar" className={cn('flex flex-col gap-3', className)} {...props}>
       {(label || valueLabel) && (
