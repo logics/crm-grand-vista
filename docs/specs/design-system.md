@@ -55,6 +55,10 @@ Não há componentes duplicados: cada componente aparece uma vez só. Não exist
 | Apresentação e domínio: `FarmCard`, `StatCard`, `CompatibilityGauge`, `Wordmark`, `SidebarNav`, `TopBar`, `StageStepper`, `Badge`, `Tag`, `ProgressBar`, `EmptyState`, `AuditTimeline`, `SpecList`, `Icon`, `IconButton`, `Card`, `Field`, `SearchBar`, `OpportunityCard`, `KanbanBoard`, `ChecklistPanel` | **Escritos à mão em TSX + Tailwind**, usando o `.jsx` do export como referência visual e o `.prompt.md` como especificação de comportamento |
 | `components/*.jsx` do export | **Nunca importados** |
 
+A **API** dos primitivos é a do shadcn/Radix, em partes compostas (`Dialog` + `DialogTrigger` + `DialogContent` + `DialogTitle`…, `Checkbox` com `checked`/`onCheckedChange`), não a do export (`<Dialog title footer onClose>`, `<Checkbox label onChange>`). Do export vêm a aparência e as variantes (`sheet` no diálogo, `segmented`/`underline` nas abas). Por isso as regras de props de `Dialog`, `Checkbox`, `Switch` e `TabItem` saíram da config oxlint de aderência: descreviam a API do export, e as props do Radix são verificadas pelo TypeScript. Rótulo e descrição ao lado de `Checkbox` e `Switch` (o `label`/`description` do export) ficam com quem compõe o campo — o `Field`. Combobox e DatePicker não são primitivos à parte: chegam como composição (Command + Popover, Calendar + Popover) no `AsyncCombobox` e no `DateRangePicker`, nas specs dos módulos que os usam.
+
+Os primitivos usam os glifos do `lucide-react` direto (o mesmo conjunto Lucide do `Icon` do export). Quando o `Icon` existir em `packages/ui`, os primitivos passam a usá-lo, para que a fonte dos glifos troque num lugar só.
+
 Os estilos inline do export **não atravessam**: não suportam media query, container query, pseudo-classe nem tema escuro. O próprio kit `crm-v2` do export abandonou inline em favor de um arquivo CSS.
 
 `ui_kits/crm-v2/ui.jsx` é uma implementação **paralela** (`A2Btn`, `A2Icon`, classes `a2-*`) que não importa nada de `components/` e carrega ícones de CDN. Não é uma versão alternativa dos componentes: é andaime de protótipo. Ler para extrair decisões de layout, nunca portar.

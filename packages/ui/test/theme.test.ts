@@ -1,11 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { compile } from '@tailwindcss/node';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { classSelector, compileStyles, srcDir } from './support/tailwind.js';
 
-// Exercita a folha que as aplicações importam (`@crm/ui/styles.css`), compilada
-// pelo mesmo compilador que o plugin do Vite usa.
-const srcDir = fileURLToPath(new URL('../src/', import.meta.url));
+// Exercita a folha que as aplicações importam (`@crm/ui/styles.css`).
 const tokensDir = `${srcDir}tokens/`;
 
 const withoutComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -34,17 +31,13 @@ const tokensWithPrefix = (file: string, prefix: string): [name: string, suffix: 
 let build: (candidates: string[]) => string;
 
 beforeAll(async () => {
-  const compiler = await compile(readFileSync(`${srcDir}styles.css`, 'utf8'), {
-    base: srcDir,
-    onDependency: () => {},
-  });
-  build = (candidates) => compiler.build(candidates);
+  build = await compileStyles();
 });
 
 /** A regra gerada para uma classe, ou `undefined` se o tema não a conhece. */
 function rule(className: string): string | undefined {
   const css = build([className]);
-  const selector = `.${className.replace(/[:@]/g, (char) => `\\${char}`)} {`;
+  const selector = `${classSelector(className)} {`;
   const start = css.indexOf(selector);
   if (start === -1) return undefined;
   return css.slice(start, css.indexOf('}', start) + 1);
