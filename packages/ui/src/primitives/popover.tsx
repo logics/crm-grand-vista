@@ -5,7 +5,8 @@ import { floatingOffset, floatingSurface } from '../lib/styles.js';
 
 // Popover do shadcn sobre o Radix: posicionamento que desvia da borda, Escape e
 // clique fora fecham, foco volta ao gatilho. É a base do `AsyncCombobox`
-// (com o Command) e do `DateRangePicker` (com o Calendar).
+// (com o Command) e do `DateRangePicker` (com o Calendar). A largura é a do
+// conteúdo; quem compõe define a sua.
 
 export const Popover = PopoverPrimitive.Root;
 export const PopoverTrigger = PopoverPrimitive.Trigger;
@@ -26,7 +27,7 @@ export function PopoverContent({
         sideOffset={sideOffset}
         className={cn(
           floatingSurface,
-          'w-[18rem] p-6 outline-none origin-(--radix-popover-content-transform-origin)',
+          'p-6 outline-none origin-(--radix-popover-content-transform-origin)',
           className,
         )}
         {...props}

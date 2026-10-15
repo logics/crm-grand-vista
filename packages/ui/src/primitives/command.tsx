@@ -38,7 +38,7 @@ export function CommandList({ className, ...props }: ComponentProps<typeof Comma
   return (
     <CommandPrimitive.List
       data-slot="command-list"
-      className={cn('max-h-[18rem] scroll-py-2 overflow-x-hidden overflow-y-auto p-2', className)}
+      className={cn('max-h-[calc(7*var(--control-height))] scroll-py-2 overflow-x-hidden overflow-y-auto p-2', className)}
       {...props}
     />
   );

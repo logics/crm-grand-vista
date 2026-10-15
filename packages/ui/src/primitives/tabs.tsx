@@ -17,10 +17,12 @@ const listVariant = {
   underline: 'flex gap-7 border-b border-border-subtle',
 } as const;
 
+/** Altura das abas na variante `segmented`; a `underline` tem altura única. */
+export type TabsSize = 'sm' | 'md';
+
 export type TabsListProps = ComponentProps<typeof TabsPrimitive.List> & {
   variant?: keyof typeof listVariant;
-  /** Altura das abas na variante `segmented`. */
-  size?: 'sm' | 'md';
+  size?: TabsSize;
 };
 
 export function TabsList({ className, variant = 'segmented', size = 'md', ...props }: TabsListProps) {

@@ -19,7 +19,8 @@ export function DialogOverlay({ className, ...props }: ComponentProps<typeof Dia
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        'fixed inset-0 z-50 bg-scrim-modal backdrop-blur-[0.125rem]',
+        // desfoque de 2px do export (`--space-1`): não há token de desfoque
+        'fixed inset-0 z-50 bg-scrim-modal backdrop-blur-[var(--space-1)]',
         'motion-safe:data-[state=open]:animate-fade-in motion-safe:data-[state=closed]:animate-fade-out',
         className,
       )}
@@ -31,7 +32,8 @@ export function DialogOverlay({ className, ...props }: ComponentProps<typeof Dia
 const contentVariant = {
   center: [
     'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl',
-    'w-[calc(100%-2*var(--space-8))] max-w-[32.5rem] max-h-[calc(100%-2*var(--space-8))]',
+    // 520px do export (13 × --control-height): não há token de largura de diálogo
+    'w-[calc(100%-2*var(--space-8))] max-w-[calc(13*var(--control-height))] max-h-[calc(100%-2*var(--space-8))]',
     'motion-safe:data-[state=open]:animate-pop-in motion-safe:data-[state=closed]:animate-pop-out',
   ].join(' '),
   sheet: [

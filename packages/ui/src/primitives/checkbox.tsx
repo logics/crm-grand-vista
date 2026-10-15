@@ -18,6 +18,8 @@ export function Checkbox({ className, ...props }: ComponentProps<typeof Checkbox
       data-slot="checkbox"
       className={cn(
         'peer inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs',
+        // contorno de 1px em --border-strong, no lugar do 1,5px em --border-default do export:
+        // mesmo peso visual, sem meio pixel (que o lint de aderência barra)
         'bg-surface-card text-brand-on-primary inset-ring inset-ring-border-strong transition-control',
         'data-[state=checked]:bg-brand-primary data-[state=checked]:inset-ring-transparent',
         'data-[state=indeterminate]:bg-brand-primary data-[state=indeterminate]:inset-ring-transparent',

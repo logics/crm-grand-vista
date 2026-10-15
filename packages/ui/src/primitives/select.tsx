@@ -72,25 +72,19 @@ export function SelectScrollDownButton({
   );
 }
 
-/**
- * Lista de opções. `popper` (padrão) abre abaixo do gatilho, com a largura
- * dele; `item-aligned` sobrepõe o gatilho com a opção escolhida, como o select
- * nativo do macOS.
- */
+/** Lista de opções: abre abaixo do gatilho (ou acima, sem espaço), com a largura dele. */
 export function SelectContent({
   className,
   children,
-  position = 'popper',
   sideOffset = floatingOffset,
   ...props
-}: ComponentProps<typeof SelectPrimitive.Content>) {
-  const popper = position === 'popper';
+}: Omit<ComponentProps<typeof SelectPrimitive.Content>, 'position'>) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
-        position={position}
-        sideOffset={popper ? sideOffset : undefined}
+        position="popper"
+        sideOffset={sideOffset}
         className={cn(
           floatingSurface,
           'relative max-h-(--radix-select-content-available-height) min-w-(--radix-select-trigger-width)',
@@ -100,7 +94,7 @@ export function SelectContent({
         {...props}
       >
         <SelectScrollUpButton />
-        <SelectPrimitive.Viewport className={cn('p-2', popper && 'w-full min-w-(--radix-select-trigger-width)')}>
+        <SelectPrimitive.Viewport className="w-full min-w-(--radix-select-trigger-width) p-2">
           {children}
         </SelectPrimitive.Viewport>
         <SelectScrollDownButton />
