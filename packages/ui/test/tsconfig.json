@@ -2,7 +2,7 @@
   // Os testes rodam no Node; `src/` é código de browser e não enxerga os tipos do Node.
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
   "include": ["."]
 }

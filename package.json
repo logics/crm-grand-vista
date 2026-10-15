@@ -9,6 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "storybook": "pnpm --filter @crm/ui storybook",
     "typecheck": "turbo run typecheck && tsc -p tsconfig.json",
     "lint": "oxlint --deny-warnings",
     "test": "vitest run --project unit",

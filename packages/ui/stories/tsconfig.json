@@ -1,0 +1,12 @@
+{
+  // Stories e a config do Storybook: não vão para o build de `src/` nem geram
+  // declarações, então o tipo inferido do `meta` não precisa ser nomeável.
+  // O `main.ts` roda no Node.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node", "vite/client"]
+  },
+  "include": [".", "../.storybook"]
+}

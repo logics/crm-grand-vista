@@ -110,6 +110,9 @@ const glyphs = {
 
 export type IconName = keyof typeof glyphs;
 
+/** Nomes do registro, na ordem em que aparecem; a vitrine do Storybook os lista. */
+export const iconNames = Object.keys(glyphs) as IconName[];
+
 /** Traço da marca. Não se misturam espessuras numa mesma tela. */
 const iconStroke = 1.5;
 
