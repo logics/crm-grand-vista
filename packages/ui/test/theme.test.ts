@@ -60,8 +60,9 @@ describe('tokens', () => {
 
   it('todas as variáveis declaradas nos tokens chegam à folha compilada', () => {
     // 237 linhas de declaração no export; `admin-v2.css` agrupa várias por
-    // linha, o que dá 250 variáveis. Mais as 6 cores do Wordmark (`colors.css`).
-    expect(tokens.size).toBe(256);
+    // linha, o que dá 250 variáveis. Mais as 6 cores do Wordmark e as 3 faixas
+    // de compatibilidade (`colors.css`).
+    expect(tokens.size).toBe(259);
     const compiled = declarations(build([]));
     const compiledNames = new Set(compiled.map(([name]) => name));
     for (const name of tokens.keys()) expect(compiledNames, name).toContain(name);

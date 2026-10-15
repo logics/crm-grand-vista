@@ -117,4 +117,10 @@
 --stage-8:var(--gv-green-600);
 --stage-9:var(--gv-success-600);
 --stage-10:var(--gv-green-800);
+
+/* Faixas de compatibilidade (CompatibilityGauge): >= 80 alta, 55-79 média,
+   abaixo disso baixa. */
+--compatibility-high:var(--gv-success-600);
+--compatibility-medium:var(--gv-gold-600);
+--compatibility-low:var(--gv-ink-400);
 }

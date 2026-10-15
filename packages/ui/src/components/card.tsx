@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
+import { accentRing, liftOnHover } from '../lib/styles.js';
 
 // Superfície flutuante sem borda, unidade básica de toda tela (`Card.jsx` do
 // export): branca, raio de 20, sombra muito suave sobre a pedra, cabeçalho sem
@@ -60,12 +61,8 @@ export function Card({
       className={cn(
         'min-w-0 overflow-hidden rounded-card max-mobile:rounded-card-mobile',
         toneClasses.surface,
-        // 1px no lugar do 1,5px do export: sem meio pixel (que o lint de aderência barra)
-        accent && 'inset-ring inset-ring-brand-accent/55',
-        interactive && [
-          'cursor-pointer transition-[box-shadow,translate] duration-normal ease-standard hover:-translate-y-px',
-          toneClasses.hover,
-        ],
+        accent && accentRing,
+        interactive && [liftOnHover, toneClasses.hover],
         className,
       )}
       {...props}

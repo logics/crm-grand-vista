@@ -65,14 +65,6 @@
         "message": "Font not provided by the design system. Available: Geist, Geist Mono, Jost."
       },
       {
-        "selector": "JSXOpeningElement[name.name='ActivityItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:kind|title|date|detail|author|key|ref|className|style|children)$/]",
-        "message": "<ActivityItem> doesn't accept that prop. Declared props: kind, title, date, detail, author."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='ActivityItem'] > JSXAttribute[name.name='kind'] > Literal[value!=/^(?:visita|reuniao|ligacao|mensagem|email|nota|sistema)$/]",
-        "message": "<ActivityItem> kind must be one of 'visita' | 'reuniao' | 'ligacao' | 'mensagem' | 'email' | 'nota' | 'sistema'."
-      },
-      {
         "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:neutral|success|warning|danger|info|brand|gold)$/]",
         "message": "<Badge> tone must be one of 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand' | 'gold'."
       },
@@ -93,32 +85,12 @@
         "message": "<Card> tone must be one of 'default' | 'hero' | 'inverse' | 'sunken'."
       },
       {
-        "selector": "JSXOpeningElement[name.name='ChecklistItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|meta|state|badge|action|key|ref|className|style|children)$/]",
-        "message": "<ChecklistItem> doesn't accept that prop. Declared props: label, meta, state, badge, action."
-      },
-      {
         "selector": "JSXOpeningElement[name.name='ChecklistItem'] > JSXAttribute[name.name='state'] > Literal[value!=/^(?:ok|pending|blocked|empty)$/]",
         "message": "<ChecklistItem> state must be one of 'ok' | 'pending' | 'blocked' | 'empty'."
       },
       {
-        "selector": "JSXOpeningElement[name.name='DataTableColumn'] > JSXAttribute > JSXIdentifier[name!=/^(?:key|label|align|width|mono|strong|muted|wrap|sorted|render|key|ref|className|style|children)$/]",
-        "message": "<DataTableColumn> doesn't accept that prop. Declared props: key, label, align, width, mono, strong, muted, wrap, sorted, render."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='DataTableColumn'] > JSXAttribute[name.name='align'] > Literal[value!=/^(?:left|right|center)$/]",
-        "message": "<DataTableColumn> align must be one of 'left' | 'right' | 'center'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='DataTableColumn'] > JSXAttribute[name.name='sorted'] > Literal[value!=/^(?:asc|desc)$/]",
-        "message": "<DataTableColumn> sorted must be one of 'asc' | 'desc'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='DealCard'] > JSXAttribute > JSXIdentifier[name!=/^(?:client|farm|value|probability|owner|nextAction|overdue|key|ref|className|style|children)$/]",
-        "message": "<DealCard> doesn't accept that prop. Declared props: client, farm, value, probability, owner, nextAction, overdue."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='FarmSpec'] > JSXAttribute > JSXIdentifier[name!=/^(?:icon|value|key|ref|className|style|children)$/]",
-        "message": "<FarmSpec> doesn't accept that prop. Declared props: icon, value."
+        "selector": "JSXOpeningElement[name.name='CompatibilityGauge'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
+        "message": "<CompatibilityGauge> size must be one of 'sm' | 'md' | 'lg'."
       },
       {
         "selector": "JSXOpeningElement[name.name='IconButton'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
@@ -133,40 +105,12 @@
         "message": "<Input> size must be one of 'sm' | 'md' | 'lg'."
       },
       {
-        "selector": "JSXOpeningElement[name.name='MatchScore'] > JSXAttribute > JSXIdentifier[name!=/^(?:value|size|showLabel|key|ref|className|style|children)$/]",
-        "message": "<MatchScore> doesn't accept that prop. Declared props: value, size, showLabel."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='MatchScore'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
-        "message": "<MatchScore> size must be one of 'sm' | 'md' | 'lg'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='PipelineColumn'] > JSXAttribute > JSXIdentifier[name!=/^(?:stage|index|count|total|children|key|ref|className|style|children)$/]",
-        "message": "<PipelineColumn> doesn't accept that prop. Declared props: stage, index, count, total, children."
-      },
-      {
         "selector": "JSXOpeningElement[name.name='ProgressBar'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:brand|gold|success|danger)$/]",
         "message": "<ProgressBar> tone must be one of 'brand' | 'gold' | 'success' | 'danger'."
       },
       {
         "selector": "JSXOpeningElement[name.name='SelectOption'] > JSXAttribute > JSXIdentifier[name!=/^(?:value|label|key|ref|className|style|children)$/]",
         "message": "<SelectOption> doesn't accept that prop. Declared props: value, label."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='SidebarItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|icon|badge|section|key|ref|className|style|children)$/]",
-        "message": "<SidebarItem> doesn't accept that prop. Declared props: id, label, icon, badge, section."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='SpecItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|value|mono|key|ref|className|style|children)$/]",
-        "message": "<SpecItem> doesn't accept that prop. Declared props: label, value, mono."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='StageStepper'] > JSXAttribute > JSXIdentifier[name!=/^(?:stages|current|onSelect|compact|key|ref|className|style|children)$/]",
-        "message": "<StageStepper> doesn't accept that prop. Declared props: stages, current, onSelect, compact."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='StatCard'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|value|unit|delta|deltaTone|icon|rows|footnote|tone|key|ref|className|style|children)$/]",
-        "message": "<StatCard> doesn't accept that prop. Declared props: label, value, unit, delta, deltaTone, icon, rows, footnote, tone."
       },
       {
         "selector": "JSXOpeningElement[name.name='StatCard'] > JSXAttribute[name.name='deltaTone'] > Literal[value!=/^(?:success|danger|neutral)$/]",
@@ -187,10 +131,6 @@
       {
         "selector": "JSXOpeningElement[name.name='Toast'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:success|warning|danger|info)$/]",
         "message": "<Toast> tone must be one of 'success' | 'warning' | 'danger' | 'info'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='TopBar'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|breadcrumb|search|actions|key|ref|className|style|children)$/]",
-        "message": "<TopBar> doesn't accept that prop. Declared props: title, breadcrumb, search, actions."
       },
       {
         "selector": "JSXOpeningElement[name.name='Wordmark'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:dark|light)$/]",

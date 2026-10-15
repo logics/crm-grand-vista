@@ -1,4 +1,9 @@
 import {
+  ArrowDown,
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpRight,
   Bell,
   CalendarClock,
   Check,
@@ -6,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  CircleAlert,
   Clock,
   Columns3,
   Download,
@@ -35,6 +41,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Tractor,
+  TriangleAlert,
   TrendingUp,
   Upload,
   UserRoundCog,
@@ -52,6 +59,13 @@ import { cn } from '../lib/cn.js';
 
 /** Glifos disponíveis, pelo nome kebab-case do Lucide. Glifo novo entra aqui. */
 const glyphs = {
+  'alert-circle': CircleAlert,
+  'alert-triangle': TriangleAlert,
+  'arrow-down': ArrowDown,
+  'arrow-down-right': ArrowDownRight,
+  'arrow-right': ArrowRight,
+  'arrow-up': ArrowUp,
+  'arrow-up-right': ArrowUpRight,
   bell: Bell,
   'calendar-clock': CalendarClock,
   check: Check,

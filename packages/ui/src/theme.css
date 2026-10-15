@@ -87,6 +87,11 @@
   --color-stage-9: var(--stage-9);
   --color-stage-10: var(--stage-10);
 
+  /* --- Cor: faixas de compatibilidade --- */
+  --color-compatibility-high: var(--compatibility-high);
+  --color-compatibility-medium: var(--compatibility-medium);
+  --color-compatibility-low: var(--compatibility-low);
+
   /* --- Tipografia --- */
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
