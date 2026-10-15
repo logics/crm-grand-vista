@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button, ChecklistItem, ChecklistPanel } from '../src/index.js';
+import { constrained } from './support/layout.js';
 
 const meta = {
   title: 'Domínio/ChecklistPanel',
   component: ChecklistPanel,
   args: { title: 'Due diligence jurídica', done: 2, total: 5 },
-  decorators: [(Story) => <div className="max-w-[calc(12*var(--space-10))]">{Story()}</div>],
+  decorators: [constrained('xl')],
 } satisfies Meta<typeof ChecklistPanel>;
 
 export default meta;

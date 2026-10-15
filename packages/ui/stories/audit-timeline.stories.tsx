@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AuditTimeline } from '../src/index.js';
+import { constrained } from './support/layout.js';
 
 const meta = {
   title: 'Domínio/AuditTimeline',
   component: AuditTimeline,
-  decorators: [(Story) => <div className="max-w-[calc(12*var(--space-10))]">{Story()}</div>],
+  decorators: [constrained('xl')],
 } satisfies Meta<typeof AuditTimeline>;
 
 export default meta;

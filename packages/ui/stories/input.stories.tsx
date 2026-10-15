@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Input } from '../src/index.js';
-import { Stack } from './support/layout.js';
+import { constrained, Stack } from './support/layout.js';
 
 const meta = {
   title: 'Primitivos/Input',
   component: Input,
   args: { placeholder: 'Nome da fazenda', size: 'md', 'aria-label': 'Nome da fazenda' },
-  decorators: [(Story) => <div className="max-w-[calc(8*var(--space-10))]">{Story()}</div>],
+  decorators: [constrained('md')],
 } satisfies Meta<typeof Input>;
 
 export default meta;

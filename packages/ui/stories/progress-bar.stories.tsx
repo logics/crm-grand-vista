@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ProgressBar } from '../src/index.js';
-import { Stack } from './support/layout.js';
+import { constrained, Stack } from './support/layout.js';
 
 const meta = {
   title: 'Dados/ProgressBar',
   component: ProgressBar,
   args: { value: 58, label: 'Due diligence', valueLabel: '7 de 12', tone: 'brand', height: 'md' },
-  decorators: [(Story) => <div className="max-w-[calc(9*var(--space-10))]">{Story()}</div>],
+  decorators: [constrained('lg')],
 } satisfies Meta<typeof ProgressBar>;
 
 export default meta;

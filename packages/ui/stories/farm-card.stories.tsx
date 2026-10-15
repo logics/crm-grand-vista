@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import { FarmCard } from '../src/index.js';
-import { Grid } from './support/layout.js';
+import { constrained, Grid } from './support/layout.js';
 
 const meta = {
   title: 'Domínio/FarmCard',
@@ -27,7 +27,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Largura de uma coluna da grade de fazendas. */
-const narrow: Story['decorators'] = [(Story) => <div className="max-w-[calc(9*var(--space-10))]">{Story()}</div>];
+const narrow = [constrained('lg')];
 
 /** Sem foto, o espaço da imagem fica em areia: não se usa imagem genérica no lugar da fazenda. */
 export const SemFoto: Story = { name: 'Sem foto', decorators: narrow };

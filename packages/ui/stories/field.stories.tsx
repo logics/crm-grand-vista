@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Checkbox, Field, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from '../src/index.js';
-import { Stack } from './support/layout.js';
+import { constrained, Stack } from './support/layout.js';
 
 const meta = {
   title: 'Formulário/Field',
@@ -12,7 +12,7 @@ const meta = {
     orientation: 'vertical',
     children: <Input prefix="R$" placeholder="62.000" />,
   },
-  decorators: [(Story) => <div className="max-w-[calc(9*var(--space-10))]">{Story()}</div>],
+  decorators: [constrained('lg')],
 } satisfies Meta<typeof Field>;
 
 export default meta;

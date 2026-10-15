@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import { OpportunityCard } from '../src/index.js';
+import { constrained } from './support/layout.js';
 
 const meta = {
   title: 'Domínio/OpportunityCard',
@@ -14,7 +15,7 @@ const meta = {
     nextAction: 'Visita técnica · 28/07',
     onClick: fn(),
   },
-  decorators: [(Story) => <div className="max-w-[calc(7*var(--space-10))]">{Story()}</div>],
+  decorators: [constrained('sm')],
 } satisfies Meta<typeof OpportunityCard>;
 
 export default meta;

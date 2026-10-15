@@ -2,6 +2,8 @@
 // System vindas do export. Cada caso abaixo é um arquivo lintado de verdade,
 // pelo mesmo binário e pela mesma config do `pnpm lint`: o que deve ser barrado
 // tem de gerar o aviso esperado, e o uso correto não pode gerar nenhum.
+// Os casos contêm as violações como texto: por isso o `.oxlintrc.json` desliga
+// `crm/no-restricted-syntax` só para este arquivo.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
-const ADHERENCE_RULES = /^(?:crm\(no-restricted-syntax\)|eslint\(no-restricted-imports\))$/;
+const ADHERENCE_RULE_CODES = /^(?:crm\(no-restricted-syntax\)|eslint\(no-restricted-imports\))$/;
 
 type Diagnostic = { message: string; code: string; help?: string; filename: string };
 
@@ -81,7 +83,7 @@ beforeAll(() => {
   diagnosticsByCase = new Map(
     Object.keys(cases).map((name) => [
       name,
-      diagnostics.filter((diagnostic) => diagnostic.filename === fileFor(name) && ADHERENCE_RULES.test(diagnostic.code)),
+      diagnostics.filter((diagnostic) => diagnostic.filename === fileFor(name) && ADHERENCE_RULE_CODES.test(diagnostic.code)),
     ]),
   );
 });
