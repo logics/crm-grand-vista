@@ -53,6 +53,10 @@
         "message": "Raw hex color — use a design-system color token via var()."
       },
       {
+        "selector": ":matches(Literal[value=/--gv-/], TemplateElement[value.raw=/--gv-/])",
+        "message": "Paleta crua (--gv-*) — use o apelido semântico; cor nova ganha apelido em packages/ui/src/tokens/colors.css."
+      },
+      {
         "selector": "Literal[value=/\\b\\d+px\\b/]",
         "message": "Raw px value — use a design-system spacing token via var()."
       },

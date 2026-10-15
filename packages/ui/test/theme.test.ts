@@ -60,8 +60,8 @@ describe('tokens', () => {
 
   it('todas as variáveis declaradas nos tokens chegam à folha compilada', () => {
     // 237 linhas de declaração no export; `admin-v2.css` agrupa várias por
-    // linha, o que dá 250 variáveis.
-    expect(tokens.size).toBe(250);
+    // linha, o que dá 250 variáveis. Mais as 6 cores do Wordmark (`colors.css`).
+    expect(tokens.size).toBe(256);
     const compiled = declarations(build([]));
     const compiledNames = new Set(compiled.map(([name]) => name));
     for (const name of tokens.keys()) expect(compiledNames, name).toContain(name);
@@ -96,7 +96,7 @@ describe('tema do Tailwind', () => {
     expect(rule(`border-${name}`)).toContain(`border-color: var(--${name})`);
   });
 
-  it('a paleta crua (--gv-*) não vira utilitário: componentes usam os apelidos semânticos', () => {
+  it('a paleta crua não vira utilitário: componentes usam os apelidos semânticos', () => {
     expect(rule('bg-gv-green-700')).toBeUndefined();
     expect(rule('bg-green-700')).toBeUndefined();
   });

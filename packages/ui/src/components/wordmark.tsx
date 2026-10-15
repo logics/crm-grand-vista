@@ -8,13 +8,16 @@ import { cn } from '../lib/cn.js';
 // O monograma não é aproximado, redesenhado nem gerado aqui: onde iria o
 // logotipo, vai este componente, só com texto.
 //
-// As cores são as da marca, da paleta crua (`--gv-*`): verde 800 e dourados
-// 500/700 sobre fundo claro; areia 100 e dourado 300 sobre verde ou foto. Não há
-// apelido semântico para elas, e nenhum outro componente as usa.
+// As cores são as da assinatura (`--brand-wordmark-*`): verde e dourados sobre
+// fundo claro; areia e dourado claro sobre verde ou foto.
 
 const wordmarkTone = {
-  dark: { name: 'text-(color:--gv-green-800)', rule: 'bg-(--gv-gold-500)', descriptor: 'text-(color:--gv-gold-700)' },
-  light: { name: 'text-(color:--gv-sand-100)', rule: 'bg-(--gv-sand-100)/45', descriptor: 'text-(color:--gv-gold-300)' },
+  dark: { name: 'text-brand-wordmark-name', rule: 'bg-brand-wordmark-rule', descriptor: 'text-brand-wordmark-descriptor' },
+  light: {
+    name: 'text-brand-wordmark-name-on-inverse',
+    rule: 'bg-brand-wordmark-rule-on-inverse',
+    descriptor: 'text-brand-wordmark-descriptor-on-inverse',
+  },
 } as const;
 
 /** Corpo do nome, da escala tipográfica. Mínimo de 14 (`body`). */
