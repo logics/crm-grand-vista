@@ -18,7 +18,7 @@ const meta = {
       { section: 'Administração' },
       { id: 'perfis', label: 'Perfis de acesso', icon: 'user-round-cog' },
     ],
-    footer: <span className="text-xs text-text-faint">Milson Sousa</span>,
+    footer: <span className="text-xs text-text-faint">Rafael Tavares</span>,
   },
   decorators: [(Story) => <div className="flex h-[calc(16*var(--space-10))] bg-surface-page p-5">{Story()}</div>],
 } satisfies Meta<typeof SidebarNav>;

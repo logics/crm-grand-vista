@@ -43,7 +43,7 @@ describe('KanbanBoard', () => {
   });
 
   it('aceita outro nome acessível', () => {
-    render(<KanbanBoard aria-label="Funil de Milson" />);
-    expect(screen.getByRole('region', { name: 'Funil de Milson' })).toBeInTheDocument();
+    render(<KanbanBoard aria-label="Funil de Rafael" />);
+    expect(screen.getByRole('region', { name: 'Funil de Rafael' })).toBeInTheDocument();
   });
 });

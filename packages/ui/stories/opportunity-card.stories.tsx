@@ -11,7 +11,7 @@ const meta = {
     farm: 'Fazenda Três Barras',
     value: 'R$ 18,4 mi',
     probability: 75,
-    owner: 'Milson Sousa',
+    owner: 'Rafael Tavares',
     nextAction: 'Visita técnica · 28/07',
     onClick: fn(),
   },

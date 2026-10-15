@@ -3,12 +3,12 @@ import { initials } from '../../src/lib/initials.js';
 
 describe('initials', () => {
   it('primeira letra do primeiro e do último nome, em caixa-alta', () => {
-    expect(initials('Milson Sousa')).toBe('MS');
+    expect(initials('Rafael Tavares')).toBe('RT');
     expect(initials('renata de carvalho')).toBe('RC');
   });
 
   it('sigla já pronta passa como está', () => {
-    expect(initials('MS')).toBe('MS');
+    expect(initials('RT')).toBe('RT');
   });
 
   it('nome de uma palavra só dá as duas primeiras letras', () => {

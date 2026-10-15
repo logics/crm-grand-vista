@@ -38,7 +38,7 @@ export const Funil: Story = {
                 farm="Fazenda Três Barras"
                 value="R$ 18,4 mi"
                 probability={index * 10}
-                owner="Milson Sousa"
+                owner="Rafael Tavares"
                 nextAction="Visita técnica · 28/07"
                 overdue={index === 4}
               />

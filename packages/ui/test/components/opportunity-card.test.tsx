@@ -28,8 +28,8 @@ describe('OpportunityCard', () => {
   });
 
   it('corretor responsável vira iniciais, com o nome completo na dica', () => {
-    render(<OpportunityCard client="Bertoldi" owner="Milson Sousa" nextAction="Visita técnica · 28/07" />);
-    expect(screen.getByText('MS')).toHaveAttribute('title', 'Milson Sousa');
+    render(<OpportunityCard client="Bertoldi" owner="Rafael Tavares" nextAction="Visita técnica · 28/07" />);
+    expect(screen.getByText('RT')).toHaveAttribute('title', 'Rafael Tavares');
     expect(screen.getByText('Visita técnica · 28/07')).toBeInTheDocument();
   });
 

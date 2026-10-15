@@ -20,7 +20,7 @@ export const Historico: Story = {
         id: 3,
         title: 'Preço revisado',
         date: '24/07/2026, 14h30',
-        author: 'Milson Sousa',
+        author: 'Rafael Tavares',
         detail: 'Contraproposta do comprador aceita pelo proprietário.',
         changes: [
           { field: 'Preço pedido', from: 'R$ 18.000.000', to: 'R$ 16.400.000' },
@@ -35,12 +35,12 @@ export const Historico: Story = {
         author: 'Ana Prado',
         changes: [{ field: 'CAR', from: undefined, to: 'MG-3106200-…' }],
       },
-      { id: 1, title: 'Fazenda cadastrada', icon: 'plus', date: '02/07/2026, 17h45', author: 'Milson Sousa' },
+      { id: 1, title: 'Fazenda cadastrada', icon: 'plus', date: '02/07/2026, 17h45', author: 'Rafael Tavares' },
     ],
   },
 };
 
 export const EntradaUnica: Story = {
   name: 'Entrada única',
-  args: { items: [{ title: 'Fazenda cadastrada', icon: 'plus', date: '02/07/2026', author: 'Milson Sousa' }] },
+  args: { items: [{ title: 'Fazenda cadastrada', icon: 'plus', date: '02/07/2026', author: 'Rafael Tavares' }] },
 };
