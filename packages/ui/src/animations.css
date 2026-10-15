@@ -1,0 +1,67 @@
+/* Entrada e saída dos primitivos (diálogo, popover, lista do select), nos
+   tempos e curvas de `./tokens/motion.css`. O Radix espera o fim da animação
+   de saída (`data-state="closed"`) antes de desmontar o conteúdo.
+
+   Os componentes aplicam estas classes sob `motion-safe:`: com movimento
+   reduzido no sistema, o conteúdo aparece e some sem transição. */
+@keyframes gv-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes gv-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes gv-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes gv-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes gv-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes gv-sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@utility animate-fade-in {
+  animation: gv-fade-in var(--dur-normal) var(--ease-out);
+}
+
+@utility animate-fade-out {
+  animation: gv-fade-out var(--dur-fast) var(--ease-in);
+}
+
+@utility animate-pop-in {
+  animation: gv-pop-in var(--dur-normal) var(--ease-out);
+}
+
+@utility animate-pop-out {
+  animation: gv-pop-out var(--dur-fast) var(--ease-in);
+}
+
+@utility animate-sheet-in {
+  animation: gv-sheet-in var(--dur-slow) var(--ease-out);
+}
+
+@utility animate-sheet-out {
+  animation: gv-sheet-out var(--dur-normal) var(--ease-in);
+}

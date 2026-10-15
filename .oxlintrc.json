@@ -95,10 +95,6 @@
         "message": "<Card> tone must be one of 'default' | 'hero' | 'inverse' | 'sunken'."
       },
       {
-        "selector": "JSXOpeningElement[name.name='Checkbox'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|description|checked|disabled|onChange|key|ref|className|style|children)$/]",
-        "message": "<Checkbox> doesn't accept that prop. Declared props: label, description, checked, disabled, onChange."
-      },
-      {
         "selector": "JSXOpeningElement[name.name='ChecklistItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|meta|state|badge|action|key|ref|className|style|children)$/]",
         "message": "<ChecklistItem> doesn't accept that prop. Declared props: label, meta, state, badge, action."
       },
@@ -121,10 +117,6 @@
       {
         "selector": "JSXOpeningElement[name.name='DealCard'] > JSXAttribute > JSXIdentifier[name!=/^(?:client|farm|value|probability|owner|nextAction|overdue|key|ref|className|style|children)$/]",
         "message": "<DealCard> doesn't accept that prop. Declared props: client, farm, value, probability, owner, nextAction, overdue."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='Dialog'] > JSXAttribute > JSXIdentifier[name!=/^(?:open|title|eyebrow|footer|onClose|width|sheet|key|ref|className|style|children)$/]",
-        "message": "<Dialog> doesn't accept that prop. Declared props: open, title, eyebrow, footer, onClose, width, sheet."
       },
       {
         "selector": "JSXOpeningElement[name.name='EmptyState'] > JSXAttribute > JSXIdentifier[name!=/^(?:icon|title|description|action|compact|key|ref|className|style|children)$/]",
@@ -213,14 +205,6 @@
       {
         "selector": "JSXOpeningElement[name.name='StatCard'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:default|hero|dark|gold)$/]",
         "message": "<StatCard> tone must be one of 'default' | 'hero' | 'dark' | 'gold'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='Switch'] > JSXAttribute > JSXIdentifier[name!=/^(?:checked|disabled|label|onChange|key|ref|className|style|children)$/]",
-        "message": "<Switch> doesn't accept that prop. Declared props: checked, disabled, label, onChange."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='TabItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|icon|count|key|ref|className|style|children)$/]",
-        "message": "<TabItem> doesn't accept that prop. Declared props: id, label, icon, count."
       },
       {
         "selector": "JSXOpeningElement[name.name='Tag'] > JSXAttribute > JSXIdentifier[name!=/^(?:onRemove|icon|selected|key|ref|className|style|children)$/]",
