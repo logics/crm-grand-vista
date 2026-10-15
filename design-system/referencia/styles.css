@@ -1,0 +1,9 @@
+@import url("../../packages/ui/src/tokens/fonts.css");
+@import url("../../packages/ui/src/tokens/colors.css");
+@import url("../../packages/ui/src/tokens/typography.css");
+@import url("../../packages/ui/src/tokens/spacing.css");
+@import url("../../packages/ui/src/tokens/radius.css");
+@import url("../../packages/ui/src/tokens/elevation.css");
+@import url("../../packages/ui/src/tokens/motion.css");
+@import url("../../packages/ui/src/tokens/base.css");
+@import url("../../packages/ui/src/tokens/admin-v2.css");

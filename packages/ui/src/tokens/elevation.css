@@ -1,0 +1,22 @@
+:root{
+/* Cards are borderless: separation comes from these very soft, low-contrast shadows on the stone canvas */
+--shadow-none:none;
+--shadow-hairline:inset 0 0 0 1px var(--border-subtle);
+--shadow-xs:0 1px 2px rgba(20,27,23,.06),0 2px 8px -2px rgba(20,27,23,.08);
+--shadow-sm:0 1px 2px rgba(20,27,23,.04),0 6px 20px -10px rgba(20,27,23,.08);
+--shadow-md:0 1px 2px rgba(20,27,23,.05),0 12px 32px -12px rgba(20,27,23,.16);
+--shadow-lg:0 2px 6px rgba(20,27,23,.06),0 24px 56px -16px rgba(20,27,23,.24);
+--shadow-overlay:0 2px 6px rgba(20,27,23,.06),0 32px 72px -16px rgba(20,27,23,.3);
+--shadow-primary:inset 0 1px 0 rgba(255,255,255,.14),0 8px 18px -8px rgba(31,58,44,.6);
+--shadow-hero:0 18px 40px -18px rgba(31,58,44,.55);
+--shadow-nav-active:0 6px 14px -8px rgba(18,36,27,.7);
+--shadow-inset-top:inset 0 1px 0 rgba(255,255,255,.6);
+--ring-focus:0 0 0 3px rgba(196,154,78,.35);
+--ring-danger:0 0 0 3px rgba(178,58,43,.24);
+--scrim-modal:rgba(20,27,23,.28);
+/* Protection gradient for text over photography */
+--scrim-bottom:linear-gradient(to top,rgba(18,36,27,.86) 0%,rgba(18,36,27,.55) 38%,rgba(18,36,27,0) 100%);/* @kind other */
+--scrim-flat:linear-gradient(to top,rgba(18,36,27,.7),rgba(18,36,27,.2));/* @kind other */
+--gradient-hero:linear-gradient(150deg,#33604A 0%,#1F3A2C 60%,#152a1f 100%);/* @kind other */
+--gradient-gold:linear-gradient(150deg,#D6B478 0%,#C49A4E 55%,#A67C3A 100%);/* @kind other */
+}
