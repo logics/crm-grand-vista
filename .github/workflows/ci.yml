@@ -1,7 +1,14 @@
-# Verificação de todo pull request e de todo merge em `main`. As etapas rodam
-# em sequência e o job para na primeira que falhar. O nome do job é o status de
-# verificação obrigatório da proteção de `main`: renomeá-lo exige atualizar a
-# regra junto, ou o merge fica bloqueado esperando um check que não existe mais.
+# Verificação de todo pull request e de todo merge em `main`; no merge, também
+# o deploy de produção. As etapas rodam em sequência e cada job para na primeira
+# que falhar. O nome do job de verificação é o status obrigatório da proteção de
+# `main`: renomeá-lo exige atualizar a regra junto, ou o merge fica bloqueado
+# esperando um check que não existe mais.
+#
+# Deploy (só em push para `main`, depois da verificação verde): API primeiro —
+# migration, artefato, reinício (`tools/deploy/deploy-api.sh`) —, front depois,
+# para que ele nunca chame rota que a API no ar ainda não tem. Segredos e
+# variáveis ficam no environment `production` do GitHub; o inventário e a
+# rotação estão em `docs/deploy.md`.
 name: CI
 
 on:
@@ -9,10 +16,12 @@ on:
   push:
     branches: [main]
 
-# Um push novo no mesmo pull request torna a execução anterior irrelevante.
+# Um push novo no mesmo pull request torna a execução anterior irrelevante. Em
+# `main` nunca se cancela: interromper um deploy entre a migration e o
+# reinício deixaria produção num estado que ninguém escolheu.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -23,7 +32,25 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
+      # Histórico inteiro: a varredura de segredos lê todos os commits, não só o último.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Segredo que já entrou num commit continua no histórico mesmo apagado do
+      # arquivo; por isso a varredura é do histórico. Exceções em `.gitleaks.toml`.
+      # Binário fixado por versão e checksum, rodando direto no checkout.
+      - name: Varredura de segredos
+        env:
+          GITLEAKS_VERSION: 8.28.0
+          GITLEAKS_SHA256: a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
+        run: |
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$tarball"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --no-banner
 
       # Versão do pnpm vem do `packageManager` do package.json; a do Node, do `.nvmrc`.
       - uses: pnpm/action-setup@v6
@@ -63,7 +90,107 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Montado e verificado em todo pull request (sem teste, sem código-fonte,
+      # sem dependência de desenvolvimento, sem `design-system/`), para que um
+      # artefato inválido falhe aqui e não no deploy.
+      - name: Artefato da API
+        run: tools/deploy/build-api-artifact.sh "$RUNNER_TEMP/api" "$GITHUB_SHA"
+
+      # tar preserva os links simbólicos do node_modules do pnpm, que o
+      # upload-artifact sozinho perderia.
+      - name: Empacotar o artefato da API
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: tar -czf "$RUNNER_TEMP/api.tar.gz" -C "$RUNNER_TEMP" api
+
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: api
+          path: ${{ runner.temp }}/api.tar.gz
+          retention-days: 30
+
       # Prova que a vitrine do Design System compila com as stories de cada
       # componente; o render de cada story já foi exercitado nos testes unitários.
       - name: Storybook
         run: pnpm --filter @crm/ui build-storybook
+
+  deploy-api:
+    name: Deploy da API
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      # A migration roda a partir do próprio artefato, no Node do `.nvmrc`.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: api
+          path: ${{ runner.temp }}
+
+      - name: Extrair o artefato
+        run: tar -xzf "$RUNNER_TEMP/api.tar.gz" -C "$RUNNER_TEMP"
+
+      # A chave fica num arquivo só do runner; o known_hosts vem fixado na
+      # variável, nunca aceito na primeira conexão.
+      - name: Chave SSH de deploy
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_PORT: ${{ vars.DEPLOY_SSH_PORT || '22' }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CONFIG
+          Host *
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            Port $DEPLOY_SSH_PORT
+          CONFIG
+
+      - name: Migration, envio do artefato e reinício
+        env:
+          ARTIFACT_DIR: ${{ runner.temp }}/api
+          RELEASE: ${{ github.sha }}
+          DEPLOY_SSH_TARGET: ${{ vars.DEPLOY_SSH_TARGET }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          HEALTH_URL: ${{ vars.API_HEALTH_URL }}
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+        run: tools/deploy/deploy-api.sh
+
+  deploy-web:
+    name: Deploy do front
+    needs: deploy-api
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # O CLI roda o build do `netlify.toml` aqui no runner, com as variáveis de
+      # build lidas do painel do Netlify, e publica o resultado em produção.
+      - name: Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+        run: >-
+          npx --yes netlify-cli@27.10.2 deploy
+          --prod --context production --filter @crm/web --site "$NETLIFY_SITE_ID"

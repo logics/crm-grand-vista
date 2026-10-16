@@ -15,3 +15,6 @@ test-results/
 blob-report/
 
 .DS_Store
+
+# Gravado pelo deploy no artefato (`tools/deploy/build-api-artifact.sh`).
+apps/api/release.json

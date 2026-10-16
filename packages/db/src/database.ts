@@ -32,6 +32,8 @@ export interface Database {
    * alias nem wrapper em volta — o nome é o que a torna auditável por busca.
    */
   semTenant<T>(context: SemTenantContext, fn: (tx: Transaction) => Promise<T>): Promise<T>;
+  /** Confirma que o banco atende, sem tocar em tabela nenhuma. Para o endpoint de saúde. */
+  ping(): Promise<void>;
 }
 
 /** Consulta de negócio sem empresa definida é bug de isolamento, não caso de uso. */
@@ -75,6 +77,10 @@ export function createDatabase(pool: pg.Pool): Database {
 
       assertTenantId(context.tenantId);
       return transaction(context.tenantId, fn);
+    },
+
+    async ping() {
+      await pool.query('select 1');
     },
   };
 }

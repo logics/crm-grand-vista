@@ -44,6 +44,7 @@ describe('resolução da empresa ativa', () => {
       if (context.reason === 'super_admin') appliedTenants.push(`super_admin:${context.tenantId}`);
       return db.semTenant(context, fn);
     },
+    ping: () => db.ping(),
   };
   const app = createApp({ auth: createAuth({ db: recording, env }), db: recording, env });
 

@@ -1,0 +1,23 @@
+# Front no Netlify. O deploy de produção sai do CI (job "Deploy do front" em
+# `.github/workflows/ci.yml`), depois da API; as variáveis de build ficam no
+# painel do Netlify, nunca neste arquivo.
+[build]
+  base = "apps/web"
+  publish = "dist"
+  # Instala a partir da raiz do workspace: o front depende de pacotes do
+  # workspace (`@crm/ui`, `@crm/shared`), que só existem lá.
+  command = "pnpm --dir ../.. install --frozen-lockfile && pnpm build"
+
+[build.environment]
+  # Mesma versão do `.nvmrc` (um teste confere): o Netlify procura o `.nvmrc`
+  # no diretório base, não na raiz.
+  NODE_VERSION = "22.18.0"
+
+# Redirecionamento de SPA: toda rota sem arquivo estático entrega o
+# `index.html`, e o roteador do front resolve. Sem isto, abrir
+# `/e/<empresa>/farms/123` direto — o link compartilhado por WhatsApp — devolve
+# 404 do CDN. Status 200 é reescrita, não redirecionamento: a URL não muda.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
