@@ -53,7 +53,7 @@ Disparado pelo merge em `main`, **depois** do pipeline verde. Nesta ordem:
 
 Se a migration falhar, o deploy **para** e o processo antigo continua rodando com o código antigo contra o banco antigo. Enviar o código novo antes da migration produz a janela em que a aplicação consulta coluna que não existe, e é a razão da ordem.
 
-O artefato enviado contém só o que produção precisa: nada de dependência de desenvolvimento, nada de `design-system-export/`, nada de teste.
+O artefato enviado contém só o que produção precisa: nada de dependência de desenvolvimento, nada da referência visual em `design-system/`, nada de teste.
 
 ### Travas de boot em produção
 

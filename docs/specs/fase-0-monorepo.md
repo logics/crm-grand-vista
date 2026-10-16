@@ -74,7 +74,7 @@ Variáveis da Fase 0: string de conexão da aplicação (papel `crm_app`), strin
 
 ### Lint
 
-A config `_adherence.oxlintrc.json` do `design-system-export/` (formato **oxlint**) **vira** a config de lint do projeto — não há config existente na qual integrá-la. Mover e renomear aqui; as regras de aderência ao Design System só têm o que verificar quando `packages/ui` existir, e isso não impede a config de já estar no lugar e rodando.
+A config `_adherence.oxlintrc.json` do export do Claude Design (formato **oxlint**) **vira** a config de lint do projeto — não há config existente na qual integrá-la. Mover e renomear aqui; as regras de aderência ao Design System só têm o que verificar quando `packages/ui` existir, e isso não impede a config de já estar no lugar e rodando.
 
 ### Infraestrutura de testes
 
@@ -112,7 +112,7 @@ Num clone limpo, sem nada em cache:
 
 - Qualquer tabela, rota, componente ou tela — cada um tem sua spec
 - CI e deploy (`fase-0-ci-e-deploy.md`)
-- Triagem do `design-system-export` (`design-system.md`)
+- Triagem do export do Claude Design (`design-system.md`)
 - Qualquer configuração de container para produção: produção é processo nativo, por decisão fechada
 
 ## Depende de

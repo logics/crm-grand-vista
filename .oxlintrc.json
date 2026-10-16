@@ -1,7 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "ignorePatterns": [
-    "design-system-export/**",
     "design-system/**",
     ".agents/**",
     ".claude/**",
@@ -27,8 +26,7 @@
         "patterns": [
           {
             "group": [
-              "**/design-system/**",
-              "**/design-system-export/**"
+              "**/design-system/**"
             ],
             "message": "Referência visual do Design System não é código de produção (ADR 0003): use os componentes de `@crm/ui`."
           }

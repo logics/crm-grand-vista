@@ -12,7 +12,7 @@ const rootDir = fileURLToPath(new URL('.', import.meta.url));
 // carregar o que produção carrega.
 const conditions = ['@crm/source', ...defaultServerConditions.filter((condition) => condition !== 'module')];
 
-const ignored = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'design-system-export/**'];
+const ignored = ['**/node_modules/**', '**/dist/**', 'e2e/**'];
 
 export default defineConfig({
   resolve: { conditions },

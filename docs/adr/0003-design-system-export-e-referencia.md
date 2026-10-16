@@ -1,6 +1,6 @@
 # O export do Claude Design é referência visual, não código de produção
 
-`design-system-export/` traz 31 componentes React prontos, mas eles não são importados pelo projeto: são lidos como referência. Os componentes de produção são reescritos em TSX com Tailwind, os primitivos interativos vêm de shadcn/ui (que é Radix por baixo, copiado para dentro do repositório) e apenas os tokens atravessam quase literalmente — valor de token é dado, não código.
+O export do Claude Design (versionado no commit `f85ca62` e apagado depois da triagem) traz 31 componentes React prontos, mas eles não são importados pelo projeto: são lidos como referência. Os componentes de produção são reescritos em TSX com Tailwind, os primitivos interativos vêm de shadcn/ui (que é Radix por baixo, copiado para dentro do repositório) e apenas os tokens atravessam quase literalmente — valor de token é dado, não código.
 
 ## Considered Options
 
