@@ -14,7 +14,7 @@ Tudo em `.github/workflows/ci.yml`. No push para `main`:
    4. **confirmação**: o endpoint de saúde precisa responder `status: ok` com a versão do commit em até 2 minutos.
 3. **Deploy do front** — `netlify deploy --prod` no runner: build do `netlify.toml` com as variáveis lidas do painel do Netlify, publicado em produção. Vem depois da API para o front nunca chamar rota que a API no ar ainda não tem.
 
-Execuções em `main` não se cancelam umas às outras: um merge novo espera o deploy anterior terminar.
+Execuções em `main` não se cancelam: um deploy em andamento sempre termina. Merges que chegam durante ele esperam, e o GitHub guarda só o mais recente — os intermediários não são publicados um a um, o que é inofensivo, porque o mais recente os contém.
 
 ### Quando algo falha
 
@@ -22,7 +22,8 @@ Execuções em `main` não se cancelam umas às outras: um merge novo espera o d
 |---|---|---|
 | Qualquer passo da verificação | Nenhum deploy roda | Intocado |
 | Migration | O script para antes de enviar qualquer arquivo | Código antigo contra banco antigo — a migration roda em transação |
-| Envio ou webhook | O script para | `current` pode já apontar para o release novo; o processo no ar é o antigo até o próximo reinício. Rode o job de novo ou faça o rollback manual |
+| Envio | O script para antes de trocar `current` | Release anterior, com as migrations novas aplicadas |
+| Webhook | O script volta `current` para o release anterior | Release anterior, sem reinício |
 | Processo novo não sobe (trava de boot, env inválido, crash) | O script volta `current` para o release anterior e reinicia de novo | Release anterior, **com as migrations novas aplicadas** |
 
 O último caso é o motivo de toda migration ser **compatível com o código anterior** (expandir antes, contrair num deploy seguinte): o rollback volta o código, não o banco.

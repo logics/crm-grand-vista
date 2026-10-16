@@ -23,12 +23,13 @@ ${body}
 
 interface Scenario {
   migrateExit?: number;
+  webhookFails?: boolean;
   /** Versão que o endpoint de saúde responde depois do reinício. */
   healthVersion?: string;
   migrationUrl?: string;
 }
 
-function runDeploy({ migrateExit = 0, healthVersion = RELEASE, migrationUrl }: Scenario = {}) {
+function runDeploy({ migrateExit = 0, webhookFails = false, healthVersion = RELEASE, migrationUrl }: Scenario = {}) {
   const base = mkdtempSync(join(tmpdir(), 'deploy-'));
   const bin = join(base, 'bin');
   const artifact = join(base, 'artifact');
@@ -40,7 +41,11 @@ function runDeploy({ migrateExit = 0, healthVersion = RELEASE, migrationUrl }: S
     rsync: recorder('rsync'),
     curl: recorder(
       'curl',
-      `case "$*" in *health*) echo '{"status":"ok","version":"${healthVersion}","database":"ok"}' ;; esac`,
+      // Chaves fora da ordem do endpoint: a confirmação lê o JSON, não o texto.
+      `case "$*" in
+        *health*) echo '{"database":"ok","version":"${healthVersion}","status":"ok"}' ;;
+        *webhook*) exit ${webhookFails ? 22 : 0} ;;
+      esac`,
     ),
   };
   mkdirSync(bin);
@@ -120,6 +125,14 @@ describe('deploy da API', () => {
       'tunnel', 'migrate', 'close-tunnel', 'upload', 'activate', 'webhook', 'health', 'rollback', 'webhook',
     ]);
     expect(output).toContain(RELEASE);
+  });
+
+  it('volta ao release anterior quando o webhook do painel falha', () => {
+    const { status, calls, output } = runDeploy({ webhookFails: true });
+
+    expect(status).not.toBe(0);
+    expect(unique(steps(calls))).toEqual(['tunnel', 'migrate', 'close-tunnel', 'upload', 'activate', 'webhook', 'rollback']);
+    expect(output).toContain('webhook');
   });
 
   it('recusa migration que não aponte para o Postgres local do servidor', () => {

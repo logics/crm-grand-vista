@@ -12,7 +12,7 @@ const DATABASE_TIMEOUT_MS = 3_000;
 async function databaseResponds(db: Database): Promise<boolean> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('timeout')), DATABASE_TIMEOUT_MS);
+    timer = setTimeout(() => reject(new Error('O banco não respondeu a tempo.')), DATABASE_TIMEOUT_MS);
   });
   try {
     await Promise.race([db.ping(), timeout]);

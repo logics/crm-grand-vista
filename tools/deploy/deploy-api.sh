@@ -74,20 +74,35 @@ rsync -a --delete "$ARTIFACT_DIR/" "$DEPLOY_SSH_TARGET:$release_dir/"
 # `ln -sfn` + `mv -T` troca o link de uma vez: não há instante sem `current`.
 # O processo que está rodando não percebe — o Node já resolveu os caminhos reais.
 step "Ativando o release $RELEASE"
+# Re-executar o deploy do mesmo commit não sobrescreve o alvo do rollback com
+# o próprio release.
 ssh "$DEPLOY_SSH_TARGET" "set -e; cd '$DEPLOY_PATH'
-  if [ -L current ]; then readlink current > previous_release; fi
+  if [ -L current ] && [ \"\$(readlink current)\" != 'releases/$RELEASE' ]; then
+    readlink current > previous_release
+  fi
   ln -sfn 'releases/$RELEASE' current.next && mv -T current.next current
   ls -1dt releases/* | tail -n +$((keep_releases + 1)) | xargs -r rm -rf"
 
 # --- 3. Reinício -------------------------------------------------------------
 
-restart() {
-  # A URL do webhook carrega a chave de acesso do painel: nunca vai para o log.
-  curl -fsS --max-time 30 -X POST "$DEPLOY_WEBHOOK_URL" > /dev/null || fail "o webhook do painel não respondeu."
+# A URL do webhook carrega a chave de acesso do painel: nunca vai para o log.
+restart() { curl -fsS --max-time 30 -X POST "$DEPLOY_WEBHOOK_URL" > /dev/null; }
+
+# Volta `current` para o release anterior. Não deixa o link apontando para um
+# release não confirmado: o próximo reinício do painel o ativaria em silêncio.
+rollback() {
+  step "Voltando ao release anterior (rollback)"
+  ssh "$DEPLOY_SSH_TARGET" "set -e; cd '$DEPLOY_PATH'
+    [ -s previous_release ] || { echo 'Sem release anterior para voltar.' >&2; exit 1; }
+    ln -sfn \"\$(cat previous_release)\" current.next && mv -T current.next current" ||
+    fail "$1 Não há release anterior para voltar."
 }
 
 step "Reiniciando o processo pelo webhook do painel"
-restart
+if ! restart; then
+  rollback "o webhook do painel não respondeu."
+  fail "o webhook do painel não respondeu; o link voltou para o release anterior, e o processo no ar não foi reiniciado."
+fi
 
 # --- 4. Confirmação ----------------------------------------------------------
 
@@ -95,20 +110,20 @@ step "Esperando o endpoint de saúde responder $RELEASE"
 deadline=$(($(date +%s) + health_timeout))
 while true; do
   body=$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null || true)
-  case "$body" in
-    *'"status":"ok"'*'"version":"'"$RELEASE"'"'*)
-      step "Release $RELEASE no ar."
-      exit 0
-      ;;
-  esac
+  if node -e '
+    try {
+      const health = JSON.parse(process.argv[1]);
+      process.exit(health.status === "ok" && health.version === process.argv[2] ? 0 : 1);
+    } catch { process.exit(1); }
+  ' "$body" "$RELEASE"; then
+    step "Release $RELEASE no ar."
+    exit 0
+  fi
   [ "$(date +%s)" -ge "$deadline" ] && break
   sleep "$health_interval"
 done
 
-step "O release $RELEASE não respondeu em ${health_timeout}s; voltando ao anterior (rollback)"
-ssh "$DEPLOY_SSH_TARGET" "set -e; cd '$DEPLOY_PATH'
-  [ -s previous_release ] || { echo 'Sem release anterior para voltar.' >&2; exit 1; }
-  ln -sfn \"\$(cat previous_release)\" current.next && mv -T current.next current" ||
-  fail "o release $RELEASE não subiu e não há release anterior para voltar."
-restart
+step "O release $RELEASE não respondeu em ${health_timeout}s."
+rollback "o release $RELEASE não subiu."
+restart || fail "o release $RELEASE não subiu; o link voltou para o release anterior, mas o webhook não respondeu ao reiniciar."
 fail "o release $RELEASE não subiu; o link voltou para o release anterior e o processo foi reiniciado. As migrations já aplicadas permanecem."

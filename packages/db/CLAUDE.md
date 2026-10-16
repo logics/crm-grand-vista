@@ -10,8 +10,8 @@ Schema Drizzle e migrations: fonte única da verdade das tabelas.
 
 - Dois papéis do banco (`CONTEXT.md`): migrations rodam como `crm_owner` (`MIGRATION_DATABASE_URL`); a aplicação conecta como `crm_app` (`DATABASE_URL`). Nunca troque.
 - Pool sempre por `createPool()`, limitado a 10 conexões — a instância de produção é compartilhada.
-- A API recusa subir com papel que escapa do RLS (superusuário, `BYPASSRLS` ou dono de tabela, inclusive por herança): `assertApplicationRole(pool)` (`src/role-guard.ts`), chamada no boot de `apps/api/src/index.ts`. É a mesma regra de `test/roles.integration.test.ts`, valendo no processo que está rodando.
-- `Database.ping()` é a única consulta fora de `withTenant`/`semTenant`: um `select 1`, só para o endpoint de saúde.
+- A API recusa subir com papel que escapa do RLS (superusuário, `BYPASSRLS` ou dono de tabela, inclusive por herança): `assertApplicationRole(pool)` (`src/role-guard.ts`), chamada no boot de `apps/api/src/index.ts`. Os atributos e a posse de relação que `test/roles.integration.test.ts` prova no CI, valendo também no processo que está rodando; a posse de schema fica só no teste.
+- Fora de `createDatabase`, só duas consultas tocam o banco, e nenhuma lê dado: `assertApplicationRole` no boot e `Database.ping()` (um `select 1`) no endpoint de saúde.
 - `sql/public-schema.sql` é o estado do schema `public`, aplicado pelo init do container e pelo setup da integração. Grants por tabela vão na migration da tabela.
 - A aplicação só fala com o banco por `createDatabase(pool)`: `withTenant(tenantId, fn)` para consulta de negócio, `semTenant(context, fn)` para os três casos nominais (login, CLI, super admin). Não exporte o Drizzle nem crie alias de `semTenant`. O contexto de CLI aceita `tenantId` opcional: é como o provisionamento escreve os dados da empresa na transação que a cria.
 - Tabela de negócio usa `tenantId()` e `tenantIsolationPolicy()` de `src/schema/tenant-scope.ts`, e `id()`/`timestamps` de `src/schema/columns.ts`. O Drizzle não gera `FORCE ROW LEVEL SECURITY` nem grants: acrescente os dois à mão no fim da migration gerada, como em `migrations/0000_*.sql`.
