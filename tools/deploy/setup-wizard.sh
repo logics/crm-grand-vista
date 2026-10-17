@@ -338,9 +338,13 @@ API_URL=https://$API_DOMAIN
 WEB_URL=https://$WEB_DOMAIN
 PORT=$API_PORT
 ENV
-  chown $APP_USER:root "\$ENV_FILE"; chmod 400 "\$ENV_FILE"
   echo "Gravado \$ENV_FILE."
 fi
+# Sempre, também no .env que já existia: só o usuário da API lê.
+chown $APP_USER:root "\$ENV_FILE"; chmod 400 "\$ENV_FILE"
+chown root:$APP_USER $DEPLOY_PATH/shared; chmod 710 $DEPLOY_PATH/shared
+su -s /bin/sh $APP_USER -c "test -r \$ENV_FILE" || { echo "$APP_USER não lê \$ENV_FILE." >&2; exit 1; }
+! su -s /bin/sh $DEPLOY_USER -c "test -r \$ENV_FILE" || { echo "$DEPLOY_USER lê \$ENV_FILE." >&2; exit 1; }
 
 ls -la $DEPLOY_PATH $DEPLOY_PATH/shared
 echo "Pronto. Pode voltar ao wizard."
