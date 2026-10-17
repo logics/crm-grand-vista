@@ -1,7 +1,7 @@
 #!/bin/bash
-# Reinício da API em produção. Não roda daqui: o conteúdo vai colado na aba
-# Script do projeto CRMGrandVistaAPI no aaPanel, ligada ao webhook que
-# `deploy-api.sh` chama depois de trocar o link `current` (docs/deploy.md).
+# Reinício da API em produção. Não roda daqui: o conteúdo vai colado no hook
+# CRMGrandVistaAPI do app WebHook do aaPanel, que `deploy-api.sh` chama depois
+# de trocar o link `current` (docs/deploy.md).
 # Fica versionado para sobreviver a uma troca de servidor.
 #
 # O painel o executa como root. O PM2 da API é do usuário crmgv

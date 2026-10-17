@@ -73,7 +73,7 @@ No aaPanel, o **projeto PM2** da API (*Site → Node → Adicionar projeto Node 
 
 ### Reinício pelo deploy
 
-O PM2 da API é do usuário `crmgv` (`PM2_HOME=/home/crmgv/.pm2`), fora do alcance do `deploy`. O reinício passa pelo painel, que roda como root: no projeto PM2, **Git Manager** (sem repositório configurado), a aba **Script** tem o conteúdo de `tools/deploy/restart-api.sh`, e a aba **Webhook** dá a URL que vira o segredo `DEPLOY_WEBHOOK_URL`. O script fica versionado para não se perder numa troca de servidor: ao migrar, cole-o de novo e troque o segredo pela URL nova.
+O PM2 da API é do usuário `crmgv` (`PM2_HOME=/home/crmgv/.pm2`), fora do alcance do `deploy`. O reinício passa pelo painel, que roda como root: no app **WebHook** da loja do aaPanel (o Git Manager do projeto não serve, porque exige repositório), um hook `CRMGrandVistaAPI` com o conteúdo de `tools/deploy/restart-api.sh`; a URL dele (*Ver chave*, `.../hook?access_key=...`) é o segredo `DEPLOY_WEBHOOK_URL`. O script fica versionado para não se perder numa troca de servidor: ao migrar, cole-o de novo e troque o segredo pela URL nova.
 
 O script faz `pm2 delete` + `pm2 start` de dentro de `current`, não `pm2 restart`: o PM2 guarda o diretório de trabalho já resolvido (`releases/<commit>`), e um restart seguiria no release antigo.
 
