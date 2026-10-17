@@ -37,7 +37,7 @@ ssh deploy@<servidor>
 cd <DEPLOY_PATH>
 ls -1t releases/            # os 5 últimos releases ficam guardados
 ln -sfn releases/<commit> current.next && mv -T current.next current
-# depois: reiniciar pelo painel (ou pelo webhook)
+# depois: reiniciar pelo webhook (curl -X POST "<URL do webhook>") ou pelo painel
 ```
 
 ## O servidor
@@ -70,6 +70,12 @@ No aaPanel, o **projeto PM2** da API (*Site → Node → Adicionar projeto Node 
 - **arquivo de início:** `<DEPLOY_PATH>/current/dist/index.js`; **diretório:** `<DEPLOY_PATH>/current`; **Node:** v22.18.0; **instâncias:** 1; **usuário:** `crmgv`; **porta:** 3010 (3000 e 3001 já são de outros projetos); domínio `api.crmgv.logics.com.br`, com SSL Let's Encrypt;
 - **"Não instalar o node_module" marcado:** o artefato chega com as dependências; sem isso, o painel instalaria no servidor;
 - **variáveis ambientais vazias:** a API carrega o `shared/.env` no boot, pelo link no release (`loadEnvFileIfPresent`, em `apps/api/src/index.ts`). O arquivo tem as de `packages/shared/src/env.ts` — `DATABASE_URL` (papel `crm_app`, `localhost`), `BETTER_AUTH_SECRET`, `API_URL`, `WEB_URL`, `PORT`. Nunca `MIGRATION_DATABASE_URL`: a API não a lê.
+
+### Reinício pelo deploy
+
+O PM2 da API é do usuário `crmgv` (`PM2_HOME=/home/crmgv/.pm2`), fora do alcance do `deploy`. O reinício passa pelo painel, que roda como root: no projeto PM2, **Git Manager** (sem repositório configurado), a aba **Script** tem o conteúdo de `tools/deploy/restart-api.sh`, e a aba **Webhook** dá a URL que vira o segredo `DEPLOY_WEBHOOK_URL`. O script fica versionado para não se perder numa troca de servidor: ao migrar, cole-o de novo e troque o segredo pela URL nova.
+
+O script faz `pm2 delete` + `pm2 start` de dentro de `current`, não `pm2 restart`: o PM2 guarda o diretório de trabalho já resolvido (`releases/<commit>`), e um restart seguiria no release antigo.
 
 A API **recusa subir** se `DATABASE_URL` apontar para superusuário, papel com `BYPASSRLS` ou dono de alguma tabela (`assertApplicationRole`, em `packages/db/src/role-guard.ts`), e se faltar ou for inválida qualquer variável. O erro sai no log do projeto no painel, começando por `A API não subiu.`.
 

@@ -559,11 +559,22 @@ fi
 pause "Enter para continuar"
 
 # ── 12 ────────────────────────────────────────────────────────────────────
-stage "Falta só o reinício pelo deploy"
-say "Servidor, aaPanel, Netlify, DNS e GitHub prontos. Falta definir como o deploy"
-say "reinicia o projeto PM2 rodando como $APP_USER — depende de como o painel o subiu."
-step "Avise o Claude: ele inspeciona o servidor (só leitura) e fecha esse passo."
-step "Só depois disso faça o merge do pull request: sem ele, o deploy da API falha."
+stage "aaPanel: reinício pelo webhook"
+say "O deploy troca o link current e chama um webhook do painel, que reinicia a API."
+open_url "$PANEL_URL"
+step "Site → Node → $NODE_PROJECT_NAME → Git Manager (sem configurar repositório)"
+step "Aba Script: cole o conteúdo de tools/deploy/restart-api.sh e salve"
+step "Aba Webhook: ative e copie a URL (com access_key)"
+ask_secret DEPLOY_WEBHOOK_URL "Cole a URL do webhook (fica oculta):"
+if curl -fsS --max-time 30 -X POST "$DEPLOY_WEBHOOK_URL" > /dev/null; then
+  printf '  %s✓%s o webhook respondeu\n' "$GREEN" "$RESET"
+  retry "API de volta depois do reinício" health_reports "https://$API_DOMAIN/health" inicial
+  env_secret DEPLOY_WEBHOOK_URL "$DEPLOY_WEBHOOK_URL"
+else
+  SKIPPED+=("secret DEPLOY_WEBHOOK_URL (o webhook não respondeu)")
+  warn "o webhook não respondeu; confira a URL e rode o wizard de novo."
+fi
+step "Só depois disso faça o merge do pull request."
 note "A chave privada de deploy só existe agora no GitHub: a pasta temporária é apagada ao sair."
 pause "Enter para o resumo"
 
