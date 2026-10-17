@@ -304,12 +304,16 @@ set -euo pipefail
 [ "\$(id -u)" = 0 ] || { echo "Rode como root (su -)." >&2; exit 1; }
 
 # Usuário da API: sem login, com home para os arquivos do PM2. Só ele (além do
-# root) lê o .env — os sites PHP do servidor rodam como www e não alcançam.
+# root) lê o .env, que é dele com permissão 400 — os sites PHP do servidor
+# rodam como www e não alcançam, nem o deploy, que é do grupo $APP_USER.
 id $APP_USER >/dev/null 2>&1 || useradd -m -s /usr/sbin/nologin $APP_USER
 
 # Usuário do GitHub Actions: envia releases e troca o link current. Sem sudo,
-# sem leitura do .env; a chave só abre túnel para o Postgres local.
+# sem leitura do .env; a chave só abre túnel para o Postgres local. Membro do
+# grupo $APP_USER para manter o grupo do código (o setgid some no chmod de quem
+# não é membro); o .env é liberado pelo dono, não pelo grupo.
 id $DEPLOY_USER >/dev/null 2>&1 || useradd -m -s /bin/bash $DEPLOY_USER
+usermod -aG $APP_USER $DEPLOY_USER
 install -d -m 700 -o $DEPLOY_USER -g $DEPLOY_USER ~$DEPLOY_USER/.ssh
 echo 'restrict,port-forwarding,permitopen="localhost:5432" $(cat "$KEY.pub")' > ~$DEPLOY_USER/.ssh/authorized_keys
 chown $DEPLOY_USER:$DEPLOY_USER ~$DEPLOY_USER/.ssh/authorized_keys
@@ -317,7 +321,7 @@ chmod 600 ~$DEPLOY_USER/.ssh/authorized_keys
 
 # Releases: dono deploy, grupo $APP_USER com setgid — a API só lê.
 install -d -m 2750 -o $DEPLOY_USER -g $APP_USER $DEPLOY_PATH $DEPLOY_PATH/releases
-install -d -m 750 -o root -g $APP_USER $DEPLOY_PATH/shared
+install -d -m 710 -o root -g $APP_USER $DEPLOY_PATH/shared
 ENV_FILE=$DEPLOY_PATH/shared/.env
 if [ -s "\$ENV_FILE" ] && ! { read -rp "\$ENV_FILE já existe. Recriar? [s/N] " r; [[ "\$r" =~ ^[sS] ]]; }; then
   echo "Mantido \$ENV_FILE."
@@ -334,7 +338,7 @@ API_URL=https://$API_DOMAIN
 WEB_URL=https://$WEB_DOMAIN
 PORT=$API_PORT
 ENV
-  chown root:$APP_USER "\$ENV_FILE"; chmod 640 "\$ENV_FILE"
+  chown $APP_USER:root "\$ENV_FILE"; chmod 400 "\$ENV_FILE"
   echo "Gravado \$ENV_FILE."
 fi
 
@@ -390,6 +394,7 @@ rsync -rlt --delete \
   -e "ssh -i $KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=$KNOWN_HOSTS -p $DEPLOY_SSH_PORT" \
   "$WORKDIR/api/" "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/inicial/"
 deploy_ssh "set -e; cd $DEPLOY_PATH
+  chgrp -R -h $APP_USER releases/inicial
   chmod -R u=rwX,g=rX,o= releases/inicial
   find releases/inicial -type d -exec chmod g+s {} +
   ln -sfn ../../shared/.env releases/inicial/.env

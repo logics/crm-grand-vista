@@ -69,9 +69,11 @@ release_dir="$DEPLOY_PATH/releases/$RELEASE"
 
 step "Enviando o artefato para $release_dir"
 ssh "$DEPLOY_SSH_TARGET" "mkdir -p '$release_dir'"
-# Sem dono, grupo nem permissões do runner: os arquivos herdam o grupo da
-# pasta (setgid, o do usuário da API), e as permissões são acertadas no
-# servidor — só leitura para a API, nada para os outros.
+# Sem dono, grupo nem permissões do runner. Grupo e permissões são acertados
+# no servidor antes de ativar: o grupo de DEPLOY_PATH (o do usuário da API) e
+# só leitura para ele. O setgid da pasta não basta sozinho: o rsync faz chmod
+# em cada pasta que cria, e isso apagaria o bit se `deploy` não fosse membro
+# do grupo.
 rsync -rlt --delete "$ARTIFACT_DIR/" "$DEPLOY_SSH_TARGET:$release_dir/"
 
 # `ln -sfn` + `mv -T` troca o link de uma vez: não há instante sem `current`.
@@ -82,6 +84,7 @@ step "Ativando o release $RELEASE"
 # Re-executar o deploy do mesmo commit não sobrescreve o alvo do rollback com
 # o próprio release.
 ssh "$DEPLOY_SSH_TARGET" "set -e; cd '$DEPLOY_PATH'
+  chgrp -R -h \"\$(stat -c %G .)\" 'releases/$RELEASE'
   chmod -R u=rwX,g=rX,o= 'releases/$RELEASE'
   find 'releases/$RELEASE' -type d -exec chmod g+s {} +
   if [ -L current ] && [ \"\$(readlink current)\" != 'releases/$RELEASE' ]; then

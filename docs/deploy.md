@@ -50,7 +50,7 @@ ln -sfn releases/<commit> current.next && mv -T current.next current
 │   ├── package.json
 │   ├── release.json      # versão respondida pelo /health
 │   └── .env -> ../../shared/.env
-├── shared/.env           # variáveis da API; dono root, grupo crmgv, 640 — só no servidor
+├── shared/.env           # variáveis da API; dono crmgv, 400 (shared/: root:crmgv, 710) — só no servidor
 ├── current -> releases/<commit>
 └── previous_release      # alvo do rollback automático
 ```
@@ -59,8 +59,8 @@ Três usuários, cada um com o mínimo:
 
 | Usuário | Faz | Não pode |
 |---|---|---|
-| `deploy` | Recebe os releases pelo SSH do GitHub Actions e troca o link `current`; a chave só abre túnel para o Postgres local | Ler o `.env`, `sudo` |
-| `crmgv` | Roda a API (projeto PM2 do aaPanel); único, além do root, que lê o `.env` | Alterar os releases |
+| `deploy` | Recebe os releases pelo SSH do GitHub Actions e troca o link `current`; a chave só abre túnel para o Postgres local. Membro do grupo `crmgv`, para acertar o grupo do código | Ler o `.env` (liberado pelo dono, não pelo grupo), `sudo` |
+| `crmgv` | Roda a API (projeto PM2 do aaPanel); dono do `.env` e único, além do root, que o lê | Alterar os releases |
 | `www` | nginx e os sites PHP do servidor | Ler o `.env` ou a memória do processo da API |
 
 O usuário próprio da API é o que protege os segredos: os sites PHP do servidor rodam todos como `www`, e uma falha em qualquer um deles daria acesso ao que o `www` lê — inclusive às variáveis de um processo `www` em memória.
