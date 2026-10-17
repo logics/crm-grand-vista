@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { assertApplicationRole, createDatabase, createPool, UnsafeApplicationRoleError } from '@crm/db';
-import { InvalidEnvError, loadApiEnv, type ApiEnv } from '@crm/shared/env';
+import { fileURLToPath } from 'node:url';
+import { InvalidEnvError, loadApiEnv, loadEnvFileIfPresent, type ApiEnv } from '@crm/shared/env';
 import { createApp } from './app.js';
 import { createAuth } from './modules/auth/auth.js';
 
@@ -22,6 +23,10 @@ function loadEnvOrExit(): ApiEnv {
   }
 }
 
+// Em produção, `<release>/.env` é o link para o `shared/.env` do servidor, que
+// só o usuário da API lê. Fora de um release o arquivo não existe, e o
+// ambiente vem de quem sobe o processo (`pnpm dev`, testes).
+loadEnvFileIfPresent(fileURLToPath(new URL('../.env', import.meta.url)));
 const env = loadEnvOrExit();
 const pool = createPool(env.DATABASE_URL);
 

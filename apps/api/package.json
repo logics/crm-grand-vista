@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "dev": "tsx watch --conditions=@crm/source --env-file-if-exists=../../.env src/index.ts",
-    "start": "node --env-file-if-exists=.env dist/index.js",
+    "start": "node dist/index.js",
     "provision-tenant": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/provision-tenant.ts",
     "super-admin": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/super-admin.ts"
   },

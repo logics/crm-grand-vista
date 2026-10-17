@@ -189,11 +189,15 @@ finish() {
 # repositório: tools/deploy/setup-wizard.sh
 #
 # Nenhum segredo é gravado em disco local: a chave SSH nasce numa pasta
-# temporária apagada ao sair, e os demais vão direto para o GitHub ou são
-# digitados no próprio servidor. Só valores públicos ficam no arquivo de
-# estado (ENV_FILE), para que uma nova execução os ofereça de novo.
+# temporária apagada ao sair, os segredos da API são gerados e digitados no
+# próprio servidor, e os do CI vão direto para o GitHub. Só valores públicos
+# ficam no arquivo de estado (ENV_FILE), oferecidos de novo numa nova execução.
+#
+# O reinício do processo pelo deploy fica de fora: ele depende de como o
+# painel sobe o PM2 do usuário da API, e é configurado depois de inspecionar
+# o projeto já criado.
 
-TOTAL_STAGES=13
+TOTAL_STAGES=12
 
 REPO=logics/crm-grand-vista
 ENVIRONMENT=production
@@ -201,11 +205,10 @@ ADMIN_SSH=server1                       # seu acesso (ubuntu + su), do ~/.ssh/co
 API_DOMAIN=api.crmgv.logics.com.br
 WEB_DOMAIN=crmgv.logics.com.br
 DEPLOY_PATH=/www/wwwroot/$API_DOMAIN
-DEPLOY_USER=deploy
+DEPLOY_USER=deploy                      # envia releases; sem sudo, sem leitura do .env
+APP_USER=crmgv                          # roda a API; único que lê o .env
 API_PORT=3010                           # 3000 e 3001 já são de outros projetos
-NODE_VERSION_DIR=/www/server/nodejs/v22.18.0
-NODE_PROJECT_NAME=CRMGrandVistaAPI      # nome do projeto Node no aaPanel
-RESTART_SCRIPT=/usr/local/bin/crm-api-restart
+NODE_PROJECT_NAME=CRMGrandVistaAPI      # nome do projeto PM2 no aaPanel
 DB_NAME=crm_grandvista
 NETLIFY_CLI=netlify-cli@27.10.2         # a mesma versão do ci.yml
 
@@ -274,11 +277,11 @@ if [[ "$(gh api "repos/$REPO" --jq .permissions.admin 2>/dev/null)" != "true" ]]
   warn "sua conta do gh precisa ser admin de $REPO (environments e proteção de branch)."
   exit 1
 fi
+note "Se o ssh falhar pedindo a senha da chave: ssh-add --apple-use-keychain <sua chave>"
 retry "acesso administrativo por ssh $ADMIN_SSH" ssh -o BatchMode=yes -o ConnectTimeout=10 "$ADMIN_SSH" true
-note "Se o ssh pediu senha da chave e falhou: ssh-add --apple-use-keychain <sua chave>"
-say "Endereço público do servidor (o GitHub conecta nele)."
 DEPLOY_HOST_DETECTED=$(ssh -o BatchMode=yes "$ADMIN_SSH" 'curl -fsS --max-time 5 https://api.ipify.org' 2>/dev/null || true)
 [[ -z "$(_existing DEPLOY_HOST || true)" && -n "$DEPLOY_HOST_DETECTED" ]] && write_env DEPLOY_HOST "$DEPLOY_HOST_DETECTED" >/dev/null
+say "Endereço público do servidor (é nele que o GitHub conecta)."
 ask DEPLOY_HOST "IP público do servidor:"
 write_env DEPLOY_HOST "$DEPLOY_HOST"
 DEPLOY_SSH_PORT=$(ssh -G "$ADMIN_SSH" | awk '/^port /{print $2}')
@@ -289,30 +292,32 @@ pause "Enter para continuar"
 stage "Chave SSH de deploy"
 say "Uma chave só do GitHub Actions, sem senha, numa pasta temporária."
 ssh-keygen -q -t ed25519 -N '' -C "deploy crm-grand-vista $(date +%Y-%m-%d)" -f "$KEY"
-note "Pública: $(cut -d' ' -f1-2 "$KEY.pub" | cut -c1-40)…"
-note "A privada vai para o secret DEPLOY_SSH_KEY no estágio 11 e é apagada ao sair."
+note "A privada vai para o secret DEPLOY_SSH_KEY no estágio 10 e é apagada ao sair."
 pause "Enter para continuar"
 
 # ── 3 ─────────────────────────────────────────────────────────────────────
-stage "Servidor: usuário deploy, pastas, .env e script de reinício (como root)"
+stage "Servidor: usuários, pastas e .env da API (como root)"
 cat > "$WORKDIR/setup-servidor.sh" <<ROOT
 #!/bin/bash
 # Gerado por tools/deploy/setup-wizard.sh. Rode como root. Idempotente.
 set -euo pipefail
 [ "\$(id -u)" = 0 ] || { echo "Rode como root (su -)." >&2; exit 1; }
 
-# Usuário que o GitHub Actions usa: envia releases e troca o link current.
-# Sem sudo, sem leitura do .env. A chave só abre túnel para o Postgres local.
+# Usuário da API: sem login, com home para os arquivos do PM2. Só ele (além do
+# root) lê o .env — os sites PHP do servidor rodam como www e não alcançam.
+id $APP_USER >/dev/null 2>&1 || useradd -m -s /usr/sbin/nologin $APP_USER
+
+# Usuário do GitHub Actions: envia releases e troca o link current. Sem sudo,
+# sem leitura do .env; a chave só abre túnel para o Postgres local.
 id $DEPLOY_USER >/dev/null 2>&1 || useradd -m -s /bin/bash $DEPLOY_USER
 install -d -m 700 -o $DEPLOY_USER -g $DEPLOY_USER ~$DEPLOY_USER/.ssh
 echo 'restrict,port-forwarding,permitopen="localhost:5432" $(cat "$KEY.pub")' > ~$DEPLOY_USER/.ssh/authorized_keys
 chown $DEPLOY_USER:$DEPLOY_USER ~$DEPLOY_USER/.ssh/authorized_keys
 chmod 600 ~$DEPLOY_USER/.ssh/authorized_keys
 
-# Releases: dono deploy, grupo www (setgid) — o processo roda como www e só lê.
-install -d -m 2750 -o $DEPLOY_USER -g www $DEPLOY_PATH $DEPLOY_PATH/releases
-# .env da API: só root escreve, www lê.
-install -d -m 750 -o root -g www $DEPLOY_PATH/shared
+# Releases: dono deploy, grupo $APP_USER com setgid — a API só lê.
+install -d -m 2750 -o $DEPLOY_USER -g $APP_USER $DEPLOY_PATH $DEPLOY_PATH/releases
+install -d -m 750 -o root -g $APP_USER $DEPLOY_PATH/shared
 ENV_FILE=$DEPLOY_PATH/shared/.env
 if [ -s "\$ENV_FILE" ] && ! { read -rp "\$ENV_FILE já existe. Recriar? [s/N] " r; [[ "\$r" =~ ^[sS] ]]; }; then
   echo "Mantido \$ENV_FILE."
@@ -321,56 +326,34 @@ else
   ENCODED=\$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "\$CRM_APP_PASSWORD")
   umask 027
   cat > "\$ENV_FILE" <<ENV
-# Variáveis da API do CRM (packages/shared/src/env.ts). Só neste servidor.
+# Variáveis da API do CRM (packages/shared/src/env.ts). Só neste servidor;
+# a API as carrega no boot pelo link <release>/.env.
 DATABASE_URL=postgres://crm_app:\$ENCODED@localhost:5432/$DB_NAME
 BETTER_AUTH_SECRET=\$(openssl rand -base64 32)
 API_URL=https://$API_DOMAIN
 WEB_URL=https://$WEB_DOMAIN
 PORT=$API_PORT
 ENV
-  chown root:www "\$ENV_FILE"; chmod 640 "\$ENV_FILE"
+  chown root:$APP_USER "\$ENV_FILE"; chmod 640 "\$ENV_FILE"
   echo "Gravado \$ENV_FILE."
 fi
 
-# Reinício chamado pelo WebHook do aaPanel no deploy. Encerra o processo da API
-# (o npm do painel e o node filho, achado pela pasta em que roda) e sobe de novo
-# pelo script de início que o próprio painel gerou, como www.
-cat > $RESTART_SCRIPT <<'RESTART'
-#!/bin/bash
-set -euo pipefail
-VHOST=/www/server/nodejs/vhost
-START=\$VHOST/scripts/$NODE_PROJECT_NAME.sh
-PID_FILE=\$VHOST/pids/$NODE_PROJECT_NAME.pid
-[ -f "\$START" ] || { echo "Sem \$START: crie o projeto Node $NODE_PROJECT_NAME no aaPanel." >&2; exit 1; }
-pids=\$( { cat "\$PID_FILE" 2>/dev/null || true
-          for p in \$(pgrep -u www node || true); do
-            case "\$(readlink /proc/\$p/cwd)" in $DEPLOY_PATH/releases/*) echo "\$p" ;; esac
-          done; } | sort -u)
-for p in \$pids; do kill -TERM "\$p" 2>/dev/null || true; done
-for _ in \$(seq 1 30); do
-  alive=0; for p in \$pids; do kill -0 "\$p" 2>/dev/null && alive=1; done
-  [ \$alive = 0 ] && break; sleep 0.5
-done
-su -s /bin/bash www -c "bash \$START"
-RESTART
-chmod 755 $RESTART_SCRIPT
-
-ls -l $DEPLOY_PATH $DEPLOY_PATH/shared
+ls -la $DEPLOY_PATH $DEPLOY_PATH/shared
 echo "Pronto. Pode voltar ao wizard."
 ROOT
 scp -q "$WORKDIR/setup-servidor.sh" "$ADMIN_SSH:/tmp/crm-setup-servidor.sh"
 say "Enviei o script para /tmp/crm-setup-servidor.sh no servidor. Em OUTRO terminal:"
 step "ssh $ADMIN_SSH"
-step "su -"
-step "bash /tmp/crm-setup-servidor.sh   (pede a senha do crm_app, com digitação oculta)"
-step "rm /tmp/crm-setup-servidor.sh"
-note "Ele cria o usuário $DEPLOY_USER, $DEPLOY_PATH (releases/ e shared/.env),"
-note "gera o BETTER_AUTH_SECRET no próprio servidor e instala $RESTART_SCRIPT."
+step "su -          (senha do root)"
+step "bash /tmp/crm-setup-servidor.sh   (pede a senha do crm_app, digitação oculta)"
+step "rm /tmp/crm-setup-servidor.sh && exit"
+note "Cria os usuários $APP_USER e $DEPLOY_USER, $DEPLOY_PATH com releases/ e shared/.env,"
+note "e gera o BETTER_AUTH_SECRET no próprio servidor."
 pause "Enter quando o script disser \"Pronto\""
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
 stage "Conexão do deploy"
-ssh-keyscan -t ed25519 -p "$DEPLOY_SSH_PORT" "$DEPLOY_HOST" 2>/dev/null > "$KNOWN_HOSTS"
+ssh-keyscan -t ed25519 -p "$DEPLOY_SSH_PORT" "$DEPLOY_HOST" 2>/dev/null > "$KNOWN_HOSTS" || true
 scanned=$(ssh-keygen -lf "$KNOWN_HOSTS" 2>/dev/null | awk '{print $2}' || true)
 # Conferida pelo seu acesso administrativo, que já é confiável.
 expected=$(ssh -o BatchMode=yes "$ADMIN_SSH" 'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub' | awk '{print $2}' || true)
@@ -379,7 +362,7 @@ if [[ -z "$scanned" || "$scanned" != "$expected" ]]; then
   exit 1
 fi
 printf '  %s✓%s impressão digital do servidor conferida: %s\n' "$GREEN" "$RESET" "$scanned"
-retry "ssh como $DEPLOY_USER e acesso à pasta" deploy_ssh "test -w $DEPLOY_PATH/releases && rsync --version >/dev/null"
+retry "ssh como $DEPLOY_USER com escrita em releases/" deploy_ssh "test -w $DEPLOY_PATH/releases && rsync --version >/dev/null"
 pause "Enter para continuar"
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
@@ -410,54 +393,44 @@ printf '  %s✓%s %s/current → releases/inicial\n' "$GREEN" "$RESET" "$DEPLOY_
 pause "Enter para continuar"
 
 # ── 7 ─────────────────────────────────────────────────────────────────────
-stage "aaPanel: projeto Node da API"
-ask PANEL_URL "URL do seu aaPanel (ex.: https://painel.exemplo.com:8888/xxxx):"
+stage "aaPanel: projeto PM2 da API"
+ask PANEL_URL "URL do seu aaPanel (ex.: https://server1.logics.com.br:18710/xxxx):"
 write_env PANEL_URL "$PANEL_URL"
 open_url "$PANEL_URL"
-step "Website → Node project → Add Node project, com:"
-note "   Project directory : $DEPLOY_PATH/current"
-note "   Project name      : $NODE_PROJECT_NAME   (exatamente este: o reinício depende dele)"
-note "   Run opt / script  : start   (npm run start)"
-note "   Port              : $API_PORT"
-note "   Run user          : www"
-note "   Node version      : v22.18.0"
-note "   Domain            : $API_DOMAIN"
-step "Sem variáveis de ambiente no painel: elas estão em $DEPLOY_PATH/shared/.env."
-step "Depois, no projeto → SSL → Let's Encrypt → $API_DOMAIN → Apply, e ative Force HTTPS."
-note "Os nomes dos campos variam entre versões do aaPanel; o que importa são os valores."
-pause "Enter quando o projeto estiver rodando e com SSL"
+step "Site → Node → Adicionar projeto Node → aba Projeto PM2:"
+note "   nome do projeto       : $NODE_PROJECT_NAME   (exatamente este)"
+note "   Versão do nó          : v22.18.0"
+note "   Iniciar o ficheiro    : $DEPLOY_PATH/current/dist/index.js"
+note "   Executar diretório    : $DEPLOY_PATH/current"
+note "   Agrupamento           : 1"
+note "   Limitação de memória  : 512"
+note "   Iniciação automática  : ligada"
+note "   Gerenciador de pacotes: pnpm, com \"Não instalar o node_module\" MARCADO"
+step "Em \"Mais configurações\":"
+note "   variáveis ambientais  : VAZIO (a API lê o shared/.env, que só $APP_USER lê)"
+note "   Executar usuário      : $APP_USER"
+note "   Porta do Projeto      : $API_PORT"
+note "   Nome de domínio       : $API_DOMAIN"
+warn "Sem \"Não instalar o node_module\", o painel roda pnpm install no servidor."
+step "Confirmar. Depois, no projeto → SSL → Let's Encrypt → $API_DOMAIN, e force HTTPS."
+note "Se o Let's Encrypt falhar na validação por arquivo (a pasta do projeto é fechada"
+note "para o www, de propósito), use a validação por DNS com a API da Cloudflare."
+pause "Enter quando o projeto estiver criado e com SSL"
 retry "API respondendo em https://$API_DOMAIN/health (versão inicial)" \
   health_reports "https://$API_DOMAIN/health" inicial
 note "Se não subir, o motivo está no log do projeto no painel (começa por \"A API não subiu.\")."
 pause "Enter para continuar"
 
 # ── 8 ─────────────────────────────────────────────────────────────────────
-stage "aaPanel: WebHook de reinício"
-open_url "$PANEL_URL"
-step "App Store → WebHook → Add Hook"
-note "   Name   : CRM API deploy"
-note "   Script : bash $RESTART_SCRIPT"
-step "Salve e, na lista, clique em View key / Call: copie a URL inteira (com access_key)."
-ask_secret DEPLOY_WEBHOOK_URL "Cole a URL do hook (fica oculta):"
-say "Testando: chamo o hook e espero a API voltar."
-retry "webhook reiniciando a API" bash -c '
-  curl -fsS --max-time 30 -X POST "$1" >/dev/null || exit 1
-  sleep 3
-  for _ in $(seq 1 30); do
-    curl -fsS --max-time 5 "$2" 2>/dev/null | grep -q "\"status\":\"ok\"" && exit 0; sleep 2
-  done; exit 1' _ "$DEPLOY_WEBHOOK_URL" "https://$API_DOMAIN/health"
-
-# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Netlify: token e projeto do front"
 open_url "https://app.netlify.com/user/applications#personal-access-tokens"
 step "New access token · Description: CRM Grand Vista CI · Expiration: a mais longa que aceitar"
-note "Anote no calendário a data de expiração: o deploy do front para quando ele vencer."
+note "Anote a data de expiração: o deploy do front para quando o token vencer."
 ask_secret NETLIFY_AUTH_TOKEN "Cole o token (fica oculto):"
-ask NETLIFY_PROJECT "Nome do projeto no Netlify [ex.: crmgv]:"
+ask NETLIFY_PROJECT "Nome do projeto no Netlify (ex.: crmgv):"
 write_env NETLIFY_PROJECT "$NETLIFY_PROJECT"
-existing_site=$(_existing NETLIFY_SITE_ID || true)
-if [[ -n "$existing_site" ]]; then
-  NETLIFY_SITE_ID=$existing_site
+NETLIFY_SITE_ID=$(_existing NETLIFY_SITE_ID || true)
+if [[ -n "$NETLIFY_SITE_ID" ]]; then
   note "Projeto já criado numa execução anterior: $NETLIFY_SITE_ID"
 else
   # Criado sem ligação com o Git: quem publica é o CI, depois da API.
@@ -469,23 +442,26 @@ else
   NETLIFY_SITE_ID=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).id)' <<<"$created")
   write_env NETLIFY_SITE_ID "$NETLIFY_SITE_ID"
 fi
-npx --yes "$NETLIFY_CLI" api updateSite --auth "$NETLIFY_AUTH_TOKEN" \
-  --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"body\":{\"custom_domain\":\"$WEB_DOMAIN\"}}" >/dev/null < /dev/null \
-  && printf '  %s✓%s domínio %s no projeto\n' "$GREEN" "$RESET" "$WEB_DOMAIN" \
-  || { SKIPPED+=("domínio $WEB_DOMAIN no Netlify (Domain management → Add a domain)"); warn "não consegui definir o domínio"; }
+if npx --yes "$NETLIFY_CLI" api updateSite --auth "$NETLIFY_AUTH_TOKEN" \
+  --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"body\":{\"custom_domain\":\"$WEB_DOMAIN\"}}" >/dev/null < /dev/null; then
+  printf '  %s✓%s domínio %s no projeto\n' "$GREEN" "$RESET" "$WEB_DOMAIN"
+else
+  SKIPPED+=("domínio $WEB_DOMAIN no Netlify (Domain management → Add a domain)")
+  warn "não consegui definir o domínio pelo CLI"
+fi
 pause "Enter para continuar"
 
-# ── 10 ────────────────────────────────────────────────────────────────────
+# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Cloudflare: DNS do front"
 open_url "https://dash.cloudflare.com/"
 step "logics.com.br → DNS → Records → Add record"
 step "Type CNAME · Name crmgv · Target $NETLIFY_PROJECT.netlify.app · Proxy status: DNS only → Save"
-note "O Netlify emite o certificado sozinho depois do primeiro deploy, com o DNS já certo."
+note "O Netlify emite o certificado sozinho depois do primeiro deploy."
 pause "Enter depois de salvar"
 retry "DNS de $WEB_DOMAIN apontando para o Netlify" \
   bash -c "dig +short $WEB_DOMAIN @1.1.1.1 | grep -q netlify"
 
-# ── 11 ────────────────────────────────────────────────────────────────────
+# ── 10 ────────────────────────────────────────────────────────────────────
 stage "GitHub: environment production"
 say "Crio o environment, restrito à main, e gravo os segredos e variáveis do ci.yml."
 gh api -X PUT "repos/$REPO/environments/$ENVIRONMENT" --input - >/dev/null <<'JSON'
@@ -495,7 +471,7 @@ gh api -X POST "repos/$REPO/environments/$ENVIRONMENT/deployment-branch-policies
   -f name=main -f type=branch >/dev/null 2>&1 || true
 printf '  %s✓%s environment %s (só a main)\n' "$GREEN" "$RESET" "$ENVIRONMENT"
 
-say "Senha do crm_owner: vira o secret MIGRATION_DATABASE_URL, depois de conferida"
+say "A senha do crm_owner vira o secret MIGRATION_DATABASE_URL depois de conferida"
 say "pelo túnel do deploy (a conferência só lê current_user)."
 check_owner() {
   local control="$WORKDIR/tunnel" ok=1
@@ -522,7 +498,6 @@ retry "conexão como crm_owner em $DB_NAME" check_owner
 
 env_secret DEPLOY_SSH_KEY "$(cat "$KEY")"
 env_secret MIGRATION_DATABASE_URL "$MIGRATION_DATABASE_URL"
-env_secret DEPLOY_WEBHOOK_URL "$DEPLOY_WEBHOOK_URL"
 env_secret NETLIFY_AUTH_TOKEN "$NETLIFY_AUTH_TOKEN"
 env_var DEPLOY_SSH_TARGET "$DEPLOY_USER@$DEPLOY_HOST"
 env_var DEPLOY_SSH_PORT "$DEPLOY_SSH_PORT"
@@ -532,10 +507,10 @@ env_var API_HEALTH_URL "https://$API_DOMAIN/health"
 env_var NETLIFY_SITE_ID "$NETLIFY_SITE_ID"
 pause "Enter para continuar"
 
-# ── 12 ────────────────────────────────────────────────────────────────────
+# ── 11 ────────────────────────────────────────────────────────────────────
 stage "GitHub: proteção da main"
 say "Merge na main só com o check \"Verificação\" verde (critério 1 da spec)."
-note "Sem exigir aprovação de outra pessoa — você mescla os próprios PRs."
+note "Sem exigir aprovação de outra pessoa: você mescla os próprios PRs."
 if confirm "Proteger a main agora?"; then
   if gh api -X PUT "repos/$REPO/branches/main/protection" --input - >/dev/null 2>&1 <<'JSON'
 {"required_status_checks": {"strict": false, "contexts": ["Verificação"]},
@@ -551,12 +526,12 @@ else
 fi
 pause "Enter para continuar"
 
-# ── 13 ────────────────────────────────────────────────────────────────────
-stage "Próximos passos"
-say "Tudo pronto para o primeiro deploy pelo CI:"
-step "Abra o pull request desta branch e faça o merge com a Verificação verde."
-step "Acompanhe em https://github.com/$REPO/actions: Deploy da API, depois Deploy do front."
-step "Confira https://$API_DOMAIN/health (version = o commit) e https://$WEB_DOMAIN/e/teste/"
+# ── 12 ────────────────────────────────────────────────────────────────────
+stage "Falta só o reinício pelo deploy"
+say "Servidor, aaPanel, Netlify, DNS e GitHub prontos. Falta definir como o deploy"
+say "reinicia o projeto PM2 rodando como $APP_USER — depende de como o painel o subiu."
+step "Avise o Claude: ele inspeciona o servidor (só leitura) e fecha esse passo."
+step "Só depois disso faça o merge do pull request: sem ele, o deploy da API falha."
 note "A chave privada de deploy só existe agora no GitHub: a pasta temporária é apagada ao sair."
 pause "Enter para o resumo"
 

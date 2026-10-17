@@ -43,27 +43,35 @@ ln -sfn releases/<commit> current.next && mv -T current.next current
 ## O servidor
 
 ```
-/www/wwwroot/api.crmgv.logics.com.br/      # DEPLOY_PATH; dono deploy, grupo www, setgid
+/www/wwwroot/api.crmgv.logics.com.br/      # DEPLOY_PATH; dono deploy, grupo crmgv, setgid
 ├── releases/<commit>/    # um artefato por deploy; os 5 mais recentes
 │   ├── dist/             # API compilada
 │   ├── node_modules/     # só dependências de produção, @crm/db com as migrations
-│   ├── package.json      # `npm run start` = node --env-file-if-exists=.env dist/index.js
+│   ├── package.json
 │   ├── release.json      # versão respondida pelo /health
 │   └── .env -> ../../shared/.env
-├── shared/.env           # variáveis da API; dono root, grupo www, 640 — só no servidor
+├── shared/.env           # variáveis da API; dono root, grupo crmgv, 640 — só no servidor
 ├── current -> releases/<commit>
 └── previous_release      # alvo do rollback automático
 ```
 
-O usuário `deploy` envia os releases e troca o link; não lê o `.env` nem tem `sudo`. O processo roda como `www`, que só lê.
+Três usuários, cada um com o mínimo:
 
-No aaPanel, o **projeto Node** da API (*Website → Node project*):
+| Usuário | Faz | Não pode |
+|---|---|---|
+| `deploy` | Recebe os releases pelo SSH do GitHub Actions e troca o link `current`; a chave só abre túnel para o Postgres local | Ler o `.env`, `sudo` |
+| `crmgv` | Roda a API (projeto PM2 do aaPanel); único, além do root, que lê o `.env` | Alterar os releases |
+| `www` | nginx e os sites PHP do servidor | Ler o `.env` ou a memória do processo da API |
 
-- **pasta do projeto:** `<DEPLOY_PATH>/current`; **início:** `npm run start`; **Node:** 22.18.0; **usuário:** `www`; **porta:** 3010 (3000 e 3001 já são de outros projetos do servidor); domínio `api.crmgv.logics.com.br`, com SSL Let's Encrypt;
-- **variáveis de ambiente:** em `shared/.env`, não no painel — `DATABASE_URL` (papel `crm_app`, `localhost`), `BETTER_AUTH_SECRET`, `API_URL`, `WEB_URL`, `PORT` (as de `packages/shared/src/env.ts`). Nunca `MIGRATION_DATABASE_URL`: a API não a lê;
-- **reinício:** o plugin **WebHook** do painel roda, como root, o script que encerra o processo pelo PID do painel e o sobe de novo com o script de início que o próprio painel gerou. A URL do hook é o segredo `DEPLOY_WEBHOOK_URL`.
+O usuário próprio da API é o que protege os segredos: os sites PHP do servidor rodam todos como `www`, e uma falha em qualquer um deles daria acesso ao que o `www` lê — inclusive às variáveis de um processo `www` em memória.
 
-A API **recusa subir** se `DATABASE_URL` apontar para superusuário, papel com `BYPASSRLS` ou dono de alguma tabela (`assertApplicationRole`, em `packages/db/src/role-guard.ts`), e se faltar ou for inválida qualquer variável. O erro sai no log do processo (`/www/wwwlogs/nodejs/<projeto>.log`), começando por `A API não subiu.`.
+No aaPanel, o **projeto PM2** da API (*Site → Node → Adicionar projeto Node → Projeto PM2*):
+
+- **arquivo de início:** `<DEPLOY_PATH>/current/dist/index.js`; **diretório:** `<DEPLOY_PATH>/current`; **Node:** v22.18.0; **instâncias:** 1; **usuário:** `crmgv`; **porta:** 3010 (3000 e 3001 já são de outros projetos); domínio `api.crmgv.logics.com.br`, com SSL Let's Encrypt;
+- **"Não instalar o node_module" marcado:** o artefato chega com as dependências; sem isso, o painel instalaria no servidor;
+- **variáveis ambientais vazias:** a API carrega o `shared/.env` no boot, pelo link no release (`loadEnvFileIfPresent`, em `apps/api/src/index.ts`). O arquivo tem as de `packages/shared/src/env.ts` — `DATABASE_URL` (papel `crm_app`, `localhost`), `BETTER_AUTH_SECRET`, `API_URL`, `WEB_URL`, `PORT`. Nunca `MIGRATION_DATABASE_URL`: a API não a lê.
+
+A API **recusa subir** se `DATABASE_URL` apontar para superusuário, papel com `BYPASSRLS` ou dono de alguma tabela (`assertApplicationRole`, em `packages/db/src/role-guard.ts`), e se faltar ou for inválida qualquer variável. O erro sai no log do projeto no painel, começando por `A API não subiu.`.
 
 A configuração inicial de servidor, aaPanel, Cloudflare, Netlify e GitHub é conduzida por `tools/deploy/setup-wizard.sh`.
 
@@ -93,7 +101,7 @@ Nenhum segredo vive no repositório nem em arquivo de exemplo. O CI faz a varred
 | `DEPLOY_SSH_TARGET` | `deploy@api.exemplo.com.br` |
 | `DEPLOY_SSH_PORT` | `22` (opcional) |
 | `DEPLOY_KNOWN_HOSTS` | saída de `ssh-keyscan -t ed25519 <servidor>`, conferida contra a impressão digital do servidor |
-| `DEPLOY_PATH` | `/www/wwwroot/crm-api` |
+| `DEPLOY_PATH` | `/www/wwwroot/api.crmgv.logics.com.br` |
 | `API_HEALTH_URL` | `https://api.exemplo.com.br/health` |
 | `NETLIFY_SITE_ID` | id do site, em *Site configuration → General* |
 
@@ -119,6 +127,6 @@ Sem downtime do processo, mas **toda sessão aberta termina**: o cookie de sess�
 
 1. Escolha um horário de pouco uso e avise quem estiver usando que será preciso entrar de novo.
 2. Gere o segredo: `openssl rand -base64 32`.
-3. No servidor, como root, troque `BETTER_AUTH_SECRET` em `<DEPLOY_PATH>/shared/.env` e reinicie o projeto pelo painel. Segredo inválido (menos de 32 caracteres) derruba o boot com o nome da variável — o processo anterior segue no ar.
+3. No servidor, como root, troque `BETTER_AUTH_SECRET` em `<DEPLOY_PATH>/shared/.env` e reinicie o projeto PM2 pelo painel. Segredo inválido (menos de 32 caracteres) derruba o boot com o nome da variável — o processo anterior segue no ar.
 4. Confirme `GET /health` com `status: ok` e um login completo.
 5. Opcional: as sessões antigas ficam órfãs em `sessions` até expirar; a limpeza é a issue #32.
