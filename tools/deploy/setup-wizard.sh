@@ -384,11 +384,16 @@ pause "Enter para montar e enviar"
 pnpm install --frozen-lockfile >/dev/null
 pnpm build >/dev/null
 tools/deploy/build-api-artifact.sh "$WORKDIR/api" inicial
-rsync -rlt --delete --chmod=D2750,F640 \
+# Mesmo envio e ativação de tools/deploy/deploy-api.sh. Sem --chmod: o rsync
+# do macOS (openrsync) não o aceita; as permissões são acertadas no servidor.
+rsync -rlt --delete \
   -e "ssh -i $KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=$KNOWN_HOSTS -p $DEPLOY_SSH_PORT" \
   "$WORKDIR/api/" "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/inicial/"
-deploy_ssh "cd $DEPLOY_PATH && ln -sfn ../../shared/.env releases/inicial/.env \
-  && ln -sfn releases/inicial current.next && mv -T current.next current && ls -l current"
+deploy_ssh "set -e; cd $DEPLOY_PATH
+  chmod -R u=rwX,g=rX,o= releases/inicial
+  find releases/inicial -type d -exec chmod g+s {} +
+  ln -sfn ../../shared/.env releases/inicial/.env
+  ln -sfn releases/inicial current.next && mv -T current.next current && ls -l current"
 printf '  %s✓%s %s/current → releases/inicial\n' "$GREEN" "$RESET" "$DEPLOY_PATH"
 pause "Enter para continuar"
 
