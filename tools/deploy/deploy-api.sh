@@ -75,6 +75,8 @@ rsync -rlt --delete --chmod=D2750,F640 "$ARTIFACT_DIR/" "$DEPLOY_SSH_TARGET:$rel
 
 # `ln -sfn` + `mv -T` troca o link de uma vez: não há instante sem `current`.
 # O processo que está rodando não percebe — o Node já resolveu os caminhos reais.
+# O `.env` de produção vive fora dos releases (`shared/.env`, só no servidor) e
+# cada release ganha um link para ele: `npm run start` o lê por `--env-file`.
 step "Ativando o release $RELEASE"
 # Re-executar o deploy do mesmo commit não sobrescreve o alvo do rollback com
 # o próprio release.
@@ -82,6 +84,7 @@ ssh "$DEPLOY_SSH_TARGET" "set -e; cd '$DEPLOY_PATH'
   if [ -L current ] && [ \"\$(readlink current)\" != 'releases/$RELEASE' ]; then
     readlink current > previous_release
   fi
+  ln -sfn ../../shared/.env 'releases/$RELEASE/.env'
   ln -sfn 'releases/$RELEASE' current.next && mv -T current.next current
   ls -1dt releases/* | tail -n +$((keep_releases + 1)) | xargs -r rm -rf"
 

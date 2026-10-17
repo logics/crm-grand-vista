@@ -43,23 +43,29 @@ ln -sfn releases/<commit> current.next && mv -T current.next current
 ## O servidor
 
 ```
-<DEPLOY_PATH>/
+/www/wwwroot/api.crmgv.logics.com.br/      # DEPLOY_PATH; dono deploy, grupo www, setgid
 ├── releases/<commit>/    # um artefato por deploy; os 5 mais recentes
 │   ├── dist/             # API compilada
 │   ├── node_modules/     # só dependências de produção, @crm/db com as migrations
-│   ├── package.json
-│   └── release.json      # versão respondida pelo /health
+│   ├── package.json      # `npm run start` = node --env-file-if-exists=.env dist/index.js
+│   ├── release.json      # versão respondida pelo /health
+│   └── .env -> ../../shared/.env
+├── shared/.env           # variáveis da API; dono root, grupo www, 640 — só no servidor
 ├── current -> releases/<commit>
 └── previous_release      # alvo do rollback automático
 ```
 
-No painel (aaPanel), o projeto Node da API:
+O usuário `deploy` envia os releases e troca o link; não lê o `.env` nem tem `sudo`. O processo roda como `www`, que só lê.
 
-- **comando de início:** `node <DEPLOY_PATH>/current/dist/index.js`, com Node 22 (a versão do `.nvmrc`);
-- **variáveis de ambiente:** `DATABASE_URL` (papel `crm_app`, `localhost`), `BETTER_AUTH_SECRET`, `API_URL`, `WEB_URL`, `PORT` — as de `packages/shared/src/env.ts`. Nunca `MIGRATION_DATABASE_URL`: a API não a lê;
-- **webhook de deploy:** só reinicia o processo. A URL dele é o segredo `DEPLOY_WEBHOOK_URL`.
+No aaPanel, o **projeto Node** da API (*Website → Node project*):
 
-A API **recusa subir** se `DATABASE_URL` apontar para superusuário, papel com `BYPASSRLS` ou dono de alguma tabela (`assertApplicationRole`, em `packages/db/src/role-guard.ts`), e se faltar ou for inválida qualquer variável. O erro sai no log do processo, começando por `A API não subiu.`.
+- **pasta do projeto:** `<DEPLOY_PATH>/current`; **início:** `npm run start`; **Node:** 22.18.0; **usuário:** `www`; **porta:** 3010 (3000 e 3001 já são de outros projetos do servidor); domínio `api.crmgv.logics.com.br`, com SSL Let's Encrypt;
+- **variáveis de ambiente:** em `shared/.env`, não no painel — `DATABASE_URL` (papel `crm_app`, `localhost`), `BETTER_AUTH_SECRET`, `API_URL`, `WEB_URL`, `PORT` (as de `packages/shared/src/env.ts`). Nunca `MIGRATION_DATABASE_URL`: a API não a lê;
+- **reinício:** o plugin **WebHook** do painel roda, como root, o script que encerra o processo pelo PID do painel e o sobe de novo com o script de início que o próprio painel gerou. A URL do hook é o segredo `DEPLOY_WEBHOOK_URL`.
+
+A API **recusa subir** se `DATABASE_URL` apontar para superusuário, papel com `BYPASSRLS` ou dono de alguma tabela (`assertApplicationRole`, em `packages/db/src/role-guard.ts`), e se faltar ou for inválida qualquer variável. O erro sai no log do processo (`/www/wwwlogs/nodejs/<projeto>.log`), começando por `A API não subiu.`.
+
+A configuração inicial de servidor, aaPanel, Cloudflare, Netlify e GitHub é conduzida por `tools/deploy/setup-wizard.sh`.
 
 ### Endpoint de saúde
 
@@ -74,8 +80,8 @@ Nenhum segredo vive no repositório nem em arquivo de exemplo. O CI faz a varred
 | Segredo | Onde vive | Quem lê |
 |---|---|---|
 | Senha de `crm_owner` | GitHub, environment `production`: `MIGRATION_DATABASE_URL` (`postgres://crm_owner:<senha>@localhost:5432/<banco>`) | O passo de migration do deploy, pelo túnel |
-| Senha de `crm_app` | Painel, na `DATABASE_URL` do processo | A API |
-| Segredo do Better Auth | Painel, `BETTER_AUTH_SECRET` do processo | A API |
+| Senha de `crm_app` | Servidor, na `DATABASE_URL` de `shared/.env` | A API |
+| Segredo do Better Auth | Servidor, `BETTER_AUTH_SECRET` de `shared/.env` | A API |
 | Chave SSH de deploy | GitHub, `DEPLOY_SSH_KEY` (chave privada); a pública no `authorized_keys` do usuário de deploy | O deploy da API |
 | URL do webhook do painel | GitHub, `DEPLOY_WEBHOOK_URL` | O deploy da API |
 | Token do Netlify | GitHub, `NETLIFY_AUTH_TOKEN` | O deploy do front |
@@ -113,6 +119,6 @@ Sem downtime do processo, mas **toda sessão aberta termina**: o cookie de sess�
 
 1. Escolha um horário de pouco uso e avise quem estiver usando que será preciso entrar de novo.
 2. Gere o segredo: `openssl rand -base64 32`.
-3. No painel, troque `BETTER_AUTH_SECRET` do processo e reinicie. Segredo inválido (menos de 32 caracteres) derruba o boot com o nome da variável — o processo anterior segue no ar.
+3. No servidor, como root, troque `BETTER_AUTH_SECRET` em `<DEPLOY_PATH>/shared/.env` e reinicie o projeto pelo painel. Segredo inválido (menos de 32 caracteres) derruba o boot com o nome da variável — o processo anterior segue no ar.
 4. Confirme `GET /health` com `status: ok` e um login completo.
 5. Opcional: as sessões antigas ficam órfãs em `sessions` até expirar; a limpeza é a issue #32.
