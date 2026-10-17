@@ -26,7 +26,9 @@ Execuções em `main` não se cancelam: um deploy em andamento sempre termina. M
 | Webhook | O script volta `current` para o release anterior | Release anterior, sem reinício |
 | Processo novo não sobe (trava de boot, env inválido, crash) | O script volta `current` para o release anterior e reinicia de novo | Release anterior, **com as migrations novas aplicadas** |
 
-O último caso é o motivo de toda migration ser **compatível com o código anterior** (expandir antes, contrair num deploy seguinte): o rollback volta o código, não o banco.
+O último caso é o motivo de toda migration ser **compatível com o código anterior** (expandir antes, contrair num deploy seguinte): o rollback volta o código, não o banco. Não há `down()`: um `down()` automático apagaria dados escritos depois do deploy, e desfazer uma mudança no banco é uma migration nova, revisada e testada como qualquer outra.
+
+A regra é verificada no CI (`packages/db/test/migration-safety.test.ts`): comando que quebra o código anterior — apagar tabela ou coluna, renomear, mudar tipo, tornar coluna obrigatória, `TRUNCATE`, `DELETE` — só passa com a marcação `-- contração: <motivo>` logo antes dele, que só se escreve quando o release no ar já não depende do que sai.
 
 ### Rollback manual
 

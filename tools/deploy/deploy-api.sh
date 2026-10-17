@@ -69,7 +69,9 @@ release_dir="$DEPLOY_PATH/releases/$RELEASE"
 
 step "Enviando o artefato para $release_dir"
 ssh "$DEPLOY_SSH_TARGET" "mkdir -p '$release_dir'"
-rsync -a --delete "$ARTIFACT_DIR/" "$DEPLOY_SSH_TARGET:$release_dir/"
+# Sem copiar dono nem grupo do runner: os arquivos herdam o grupo da pasta
+# (setgid, grupo `www`), e o processo da API, que roda como `www`, só lê.
+rsync -rlt --delete --chmod=D2750,F640 "$ARTIFACT_DIR/" "$DEPLOY_SSH_TARGET:$release_dir/"
 
 # `ln -sfn` + `mv -T` troca o link de uma vez: não há instante sem `current`.
 # O processo que está rodando não percebe — o Node já resolveu os caminhos reais.
