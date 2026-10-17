@@ -210,7 +210,6 @@ APP_USER=crmgv                          # roda a API; único que lê o .env
 API_PORT=3010                           # 3000 e 3001 já são de outros projetos
 NODE_PROJECT_NAME=CRMGrandVistaAPI      # nome do projeto PM2 no aaPanel
 DB_NAME=crm_grandvista
-NETLIFY_CLI=netlify-cli@27.10.2         # a mesma versão do ci.yml
 
 ENV_FILE="${CRM_WIZARD_STATE:-$HOME/.config/crm-grand-vista/deploy-wizard.env}"
 mkdir -p "$(dirname "$ENV_FILE")"
@@ -441,27 +440,46 @@ open_url "https://app.netlify.com/user/applications#personal-access-tokens"
 step "New access token · Description: CRM Grand Vista CI · Expiration: a mais longa que aceitar"
 note "Anote a data de expiração: o deploy do front para quando o token vencer."
 ask_secret NETLIFY_AUTH_TOKEN "Cole o token (fica oculto):"
-ask NETLIFY_PROJECT "Nome do projeto no Netlify (ex.: crmgv):"
-write_env NETLIFY_PROJECT "$NETLIFY_PROJECT"
 NETLIFY_SITE_ID=$(_existing NETLIFY_SITE_ID || true)
+NETLIFY_PROJECT=$(_existing NETLIFY_PROJECT || true)
 if [[ -n "$NETLIFY_SITE_ID" ]]; then
-  note "Projeto já criado numa execução anterior: $NETLIFY_SITE_ID"
+  note "Projeto já criado numa execução anterior: $NETLIFY_PROJECT ($NETLIFY_SITE_ID)"
 else
-  # Criado sem ligação com o Git: quem publica é o CI, depois da API.
-  if ! created=$(npx --yes "$NETLIFY_CLI" sites:create --account-slug logics --name "$NETLIFY_PROJECT" \
-    --disable-linking --json --auth "$NETLIFY_AUTH_TOKEN" < /dev/null); then
-    warn "o Netlify recusou criar \"$NETLIFY_PROJECT\" (nome já usado?). Rode o wizard de novo com outro nome."
-    exit 1
-  fi
-  NETLIFY_SITE_ID=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).id)' <<<"$created")
-  write_env NETLIFY_SITE_ID "$NETLIFY_SITE_ID"
+  # Pela API REST, que devolve o motivo da recusa; o CLI pergunta de novo em
+  # vez de falhar. Criado sem ligação com o Git: quem publica é o CI.
+  until [[ -n "$NETLIFY_SITE_ID" ]]; do
+    ask NETLIFY_PROJECT "Nome do projeto no Netlify (minúsculas, números e hífen; ex.: crmgv):"
+    NETLIFY_PROJECT=$(printf '%s' "$NETLIFY_PROJECT" | tr '[:upper:]' '[:lower:]')
+    if [[ ! "$NETLIFY_PROJECT" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+      warn "\"$NETLIFY_PROJECT\" não vale: só minúsculas, números e hífen."
+      continue
+    fi
+    created=$(curl -sS --max-time 30 -X POST "https://api.netlify.com/api/v1/logics/sites" \
+      -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" -H 'Content-Type: application/json' \
+      -d "{\"name\":\"$NETLIFY_PROJECT\"}" -w '\n%{http_code}')
+    http_status=${created##*$'\n'}
+    created=${created%$'\n'*}
+    if [[ "$http_status" == 201 ]]; then
+      NETLIFY_SITE_ID=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).id)' <<<"$created")
+      write_env NETLIFY_PROJECT "$NETLIFY_PROJECT"
+      write_env NETLIFY_SITE_ID "$NETLIFY_SITE_ID"
+      printf '  %s✓%s projeto %s criado\n' "$GREEN" "$RESET" "$NETLIFY_PROJECT"
+    elif [[ "$http_status" == 401 || "$http_status" == 403 ]]; then
+      warn "o Netlify recusou o token (HTTP $http_status). Rode o wizard de novo com um token novo."
+      exit 1
+    else
+      warn "o Netlify recusou \"$NETLIFY_PROJECT\" (HTTP $http_status): $created"
+      say "Provavelmente o nome já é de outro projeto no Netlify. Tente outro."
+    fi
+  done
 fi
-if npx --yes "$NETLIFY_CLI" api updateSite --auth "$NETLIFY_AUTH_TOKEN" \
-  --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"body\":{\"custom_domain\":\"$WEB_DOMAIN\"}}" >/dev/null < /dev/null; then
+if curl -fsS --max-time 30 -X PATCH "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID" \
+  -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"custom_domain\":\"$WEB_DOMAIN\"}" >/dev/null; then
   printf '  %s✓%s domínio %s no projeto\n' "$GREEN" "$RESET" "$WEB_DOMAIN"
 else
   SKIPPED+=("domínio $WEB_DOMAIN no Netlify (Domain management → Add a domain)")
-  warn "não consegui definir o domínio pelo CLI"
+  warn "não consegui definir o domínio pela API do Netlify"
 fi
 pause "Enter para continuar"
 
