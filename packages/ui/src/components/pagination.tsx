@@ -1,6 +1,6 @@
 import { type ComponentProps, useEffect, useRef } from 'react';
 import { cn } from '../lib/cn.js';
-import { pageCount, pageRange, pageWindow } from '../lib/pagination.js';
+import { clampPage, pageCount, pageRange, pageWindow } from '../lib/pagination.js';
 import { controlTone, focusRing } from '../lib/styles.js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../primitives/select.js';
 import { Icon } from './icon.js';
@@ -12,27 +12,34 @@ import { IconButton } from './icon-button.js';
 // páginas é `pageWindow` (`lib/pagination.ts`). Sincronizar a página com a URL
 // é da tela.
 
-const number = new Intl.NumberFormat('pt-BR');
+const numberFormat = new Intl.NumberFormat('pt-BR');
 
-export type PaginationProps = Omit<ComponentProps<'nav'>, 'children'> & {
-  /** Página atual, a partir de 1. */
-  page: number;
-  pageSize: number;
-  /** Total de itens da lista, não só da página. */
-  total: number;
-  onPageChange: (page: number) => void;
-  /** Tamanhos oferecidos no seletor de itens por página; sem eles, não há seletor. */
-  pageSizeOptions?: number[];
-  onPageSizeChange?: (pageSize: number) => void;
-  /** Páginas visíveis de cada lado da atual. */
-  siblings?: number;
-  /** Cartões e galerias: só anterior, "3 de 12" e próxima. */
-  compact?: boolean;
-};
+/** Seletor de itens por página: os tamanhos e a troca vêm juntos, ou nenhum dos dois. */
+type PageSizeProps =
+  | {
+      /** Tamanhos oferecidos no seletor de itens por página. */
+      pageSizeOptions: number[];
+      onPageSizeChange: (pageSize: number) => void;
+    }
+  | { pageSizeOptions?: undefined; onPageSizeChange?: undefined };
+
+export type PaginationProps = Omit<ComponentProps<'nav'>, 'children'> &
+  PageSizeProps & {
+    /** Página atual, a partir de 1. */
+    page: number;
+    pageSize: number;
+    /** Total de itens da lista, não só da página. */
+    total: number;
+    onPageChange: (page: number) => void;
+    /** Páginas visíveis de cada lado da atual. */
+    siblings?: number;
+    /** Cartões e galerias: só anterior, "3 de 12" e próxima. */
+    compact?: boolean;
+  };
 
 export function Pagination({
   className,
-  page,
+  page: requestedPage,
   pageSize,
   total,
   onPageChange,
@@ -44,8 +51,8 @@ export function Pagination({
 }: PaginationProps) {
   const navRef = useRef<HTMLElement>(null);
   const pages = pageCount(total, pageSize);
-  const isFirst = page <= 1;
-  const isLast = page >= pages;
+  // o total pode encolher com a tela parada além do fim: mostra-se a última
+  const page = clampPage(requestedPage, pages);
 
   // A seta usada para chegar à ponta fica desabilitada e o navegador tira o
   // foco dela (vai para o `body`): ele passa à página atual, ou à outra seta
@@ -61,7 +68,7 @@ export function Pagination({
   const goTo = (target: number) => {
     if (target !== page && target >= 1 && target <= pages) onPageChange(target);
   };
-  const step = (target: number) => {
+  const goToFromArrow = (target: number) => {
     refocusAtEdge.current = target === 1 || target === pages;
     goTo(target);
   };
@@ -71,81 +78,79 @@ export function Pagination({
     pages === 0
       ? 'Nenhum item'
       : compact
-        ? `${number.format(page)} de ${number.format(pages)}`
-        : `${number.format(from)}–${number.format(to)} de ${number.format(total)}`;
+        ? `${numberFormat.format(page)} de ${numberFormat.format(pages)}`
+        : `${numberFormat.format(from)}–${numberFormat.format(to)} de ${numberFormat.format(total)}`;
 
-  const previous = (
+  const previous = pages > 1 && (
     <IconButton
       icon="chevron-left"
       label="Página anterior"
       size="sm"
-      disabled={isFirst}
-      onClick={() => step(page - 1)}
+      disabled={page <= 1}
+      onClick={() => goToFromArrow(page - 1)}
     />
   );
-  const next = (
+  const next = pages > 1 && (
     <IconButton
       icon="chevron-right"
       label="Próxima página"
       size="sm"
-      disabled={isLast}
-      onClick={() => step(page + 1)}
+      disabled={page >= pages}
+      onClick={() => goToFromArrow(page + 1)}
     />
   );
   const summaryText = <span className="gv-num whitespace-nowrap text-xs text-text-muted">{summary}</span>;
-
-  if (compact) {
-    return (
-      <nav
-        ref={navRef}
-        data-slot="pagination"
-        aria-label="Paginação"
-        className={cn('inline-flex items-center gap-3', className)}
-        {...props}
-      >
-        {pages > 1 && previous}
-        {summaryText}
-        {pages > 1 && next}
-      </nav>
-    );
-  }
 
   return (
     <nav
       ref={navRef}
       data-slot="pagination"
       aria-label="Paginação"
-      className={cn('flex flex-wrap items-center justify-between gap-5', className)}
+      className={cn(
+        compact ? 'inline-flex items-center gap-3' : 'flex flex-wrap items-center justify-between gap-5',
+        className,
+      )}
       {...props}
     >
-      <div className="flex flex-wrap items-center gap-6">
-        {summaryText}
-        {pageSizeOptions && pages > 0 && (
-          <PageSizeSelect value={pageSize} options={pageSizeOptions} onChange={onPageSizeChange} />
-        )}
-      </div>
-      {pages > 1 && (
-        <div className="flex items-center gap-2">
+      {compact ? (
+        <>
           {previous}
-          <ul className="flex items-center gap-1">
-            {pageWindow({ page, pageCount: pages, siblings }).map((item, index) =>
-              item === 'ellipsis' ? (
-                <li
-                  key={`ellipsis-${index}`}
-                  aria-hidden
-                  className="flex size-control-height-sm items-center justify-center text-text-faint"
-                >
-                  <Icon name="more-horizontal" size="sm" />
-                </li>
-              ) : (
-                <li key={item}>
-                  <PageButton page={item} current={item === page} onSelect={() => goTo(item)} />
-                </li>
-              ),
-            )}
-          </ul>
+          {summaryText}
           {next}
-        </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-6">
+            {summaryText}
+            {/* fica mesmo com uma página só: quem escolheu 100 itens precisa poder voltar a 25 */}
+            {pageSizeOptions && pages > 0 && (
+              <PageSizeSelect value={pageSize} options={pageSizeOptions} onChange={onPageSizeChange} />
+            )}
+          </div>
+          {pages > 1 && (
+            <div className="flex items-center gap-2">
+              {previous}
+              <ul className="flex items-center gap-1">
+                {pageWindow({ page, pageCount: pages, siblings }).map((item, index) =>
+                  item === 'ellipsis' ? (
+                    <li
+                      key={`ellipsis-${index}`}
+                      aria-hidden
+                      className="flex size-control-height-sm items-center justify-center text-text-faint"
+                    >
+                      <Icon name="more-horizontal" size="sm" />
+                    </li>
+                  ) : (
+                    <li key={item}>
+                      <PageButton page={item} current={item === page} onSelect={() => goTo(item)} />
+                    </li>
+                  ),
+                )}
+              </ul>
+              {next}
+            </div>
+          )}
+        </>
       )}
     </nav>
   );
@@ -168,19 +173,19 @@ function PageButton({ page, current, onSelect }: PageButtonProps) {
         focusRing,
       )}
     >
-      {number.format(page)}
+      {numberFormat.format(page)}
     </button>
   );
 }
 
-type PageSizeSelectProps = { value: number; options: number[]; onChange?: (pageSize: number) => void };
+type PageSizeSelectProps = { value: number; options: number[]; onChange: (pageSize: number) => void };
 
 /** "Itens por página" com o `Select` do sistema. */
 function PageSizeSelect({ value, options, onChange }: PageSizeSelectProps) {
   return (
     <label className="inline-flex items-center gap-3 text-xs text-text-muted">
       <span aria-hidden>Itens por página</span>
-      <Select value={String(value)} onValueChange={(next) => onChange?.(Number(next))}>
+      <Select value={String(value)} onValueChange={(next) => onChange(Number(next))}>
         {/* 84px: cabe o "100" com a divisa */}
         <SelectTrigger
           size="sm"
@@ -192,7 +197,7 @@ function PageSizeSelect({ value, options, onChange }: PageSizeSelectProps) {
         <SelectContent>
           {options.map((option) => (
             <SelectItem key={option} value={String(option)} className="gv-num">
-              {number.format(option)}
+              {numberFormat.format(option)}
             </SelectItem>
           ))}
         </SelectContent>

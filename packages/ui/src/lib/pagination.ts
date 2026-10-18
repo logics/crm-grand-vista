@@ -7,10 +7,17 @@ export function pageCount(total: number, pageSize: number): number {
   return Math.ceil(total / pageSize);
 }
 
+/** Leva a página para o intervalo de 1 a `count`: o total pode encolher com a tela parada além do fim. */
+export function clampPage(page: number, count: number): number {
+  return Math.min(Math.max(page, 1), count);
+}
+
 /** Primeiro e último item da página, a partir de 1; total zero dá `{ from: 0, to: 0 }`. */
 export function pageRange(page: number, pageSize: number, total: number): { from: number; to: number } {
-  if (pageCount(total, pageSize) === 0) return { from: 0, to: 0 };
-  return { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, total) };
+  const count = pageCount(total, pageSize);
+  if (count === 0) return { from: 0, to: 0 };
+  const current = clampPage(page, count);
+  return { from: (current - 1) * pageSize + 1, to: Math.min(current * pageSize, total) };
 }
 
 export type PageWindowItem = number | 'ellipsis';
@@ -36,7 +43,7 @@ const range = (from: number, to: number) => Array.from({ length: to - from + 1 }
 export function pageWindow({ page, pageCount: count, siblings = 1 }: PageWindowOptions): PageWindowItem[] {
   const slots = 2 * siblings + 5;
   if (count <= slots) return range(1, count);
-  const current = Math.min(Math.max(page, 1), count);
+  const current = clampPage(page, count);
   // a janela da atual fica entre a 3ª e a antepenúltima página: as pontas e o
   // lugar das reticências vêm à parte
   const start = Math.max(Math.min(current - siblings, count - 2 * siblings - 2), 3);

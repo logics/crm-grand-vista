@@ -27,6 +27,10 @@ describe('pageRange', () => {
     expect(pageRange(60, 25, 1480)).toEqual({ from: 1476, to: 1480 });
   });
 
+  it('página além do fim (o total encolheu) é levada à última', () => {
+    expect(pageRange(5, 25, 18)).toEqual({ from: 1, to: 18 });
+  });
+
   it('total zero é intervalo vazio', () => {
     expect(pageRange(1, 25, 0)).toEqual({ from: 0, to: 0 });
   });

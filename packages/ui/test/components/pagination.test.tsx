@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Pagination, type PaginationProps } from '../../src/index.js';
 
 /** A paginação é controlada: a tela guarda a página. Aqui, um estado local. */
-type ControlledProps = Omit<PaginationProps, 'page' | 'onPageChange'> & { initialPage?: number };
+type ControlledProps = Pick<PaginationProps, 'pageSize' | 'total' | 'compact'> & { initialPage?: number };
 
 function Controlled({ initialPage = 1, ...props }: ControlledProps) {
   const [page, setPage] = useState(initialPage);
@@ -130,6 +130,28 @@ describe('Pagination', () => {
     render(<Pagination page={1} pageSize={25} total={18} onPageChange={() => {}} />);
     expect(screen.getByText('1–18 de 18')).toBeInTheDocument();
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('o seletor de itens por página fica com uma página só, para voltar a um tamanho menor', () => {
+    render(
+      <Pagination
+        page={1}
+        pageSize={100}
+        total={30}
+        onPageChange={() => {}}
+        pageSizeOptions={[25, 50, 100]}
+        onPageSizeChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: 'Itens por página' })).toHaveTextContent('100');
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('página além do fim (o total encolheu) mostra a última', () => {
+    render(<Pagination page={9} pageSize={25} total={60} onPageChange={() => {}} />);
+    expect(screen.getByText('51–60 de 60')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Página 3' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Próxima página' })).toBeDisabled();
   });
 
   it('total zero: sem números nem botões', () => {

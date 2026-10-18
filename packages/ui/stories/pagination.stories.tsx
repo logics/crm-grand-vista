@@ -7,19 +7,22 @@ import { Pagination, type PaginationProps } from '../src/index.js';
 function Controlled(args: PaginationProps) {
   const [page, setPage] = useState(args.page);
   const [pageSize, setPageSize] = useState(args.pageSize);
+  const onPageChange = (next: number) => {
+    setPage(next);
+    args.onPageChange(next);
+  };
+  if (!args.pageSizeOptions) return <Pagination {...args} page={page} onPageChange={onPageChange} />;
+  const { onPageSizeChange } = args;
   return (
     <Pagination
       {...args}
       page={page}
       pageSize={pageSize}
-      onPageChange={(next) => {
-        setPage(next);
-        args.onPageChange(next);
-      }}
-      onPageSizeChange={(next) => {
+      onPageChange={onPageChange}
+      onPageSizeChange={(next: number) => {
         setPageSize(next);
         setPage(1);
-        args.onPageSizeChange?.(next);
+        onPageSizeChange(next);
       }}
     />
   );
