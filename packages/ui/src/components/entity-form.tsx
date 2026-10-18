@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ComponentProps, type ReactNode, useId, useState } from 'react';
+import { type ComponentProps, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import {
   Controller,
   type ControllerRenderProps,
@@ -84,7 +84,10 @@ export type EntityFormProps<TSchema extends FormSchema> = Omit<
   submitLabel?: string;
 };
 
-const colSpan = { 1: '', 2: 'col-span-2 max-mobile:col-span-1' } as const;
+const colSpanClass = { 1: '', 2: 'col-span-2 max-mobile:col-span-1' } as const;
+
+/** Erro geral no topo; `focus` quando nenhum campo recebe o foco no lugar dele. */
+type ServerError = { messages: string[]; focus: boolean };
 
 export function EntityForm<TSchema extends FormSchema>({
   className,
@@ -99,31 +102,48 @@ export function EntityForm<TSchema extends FormSchema>({
   type Input = z.input<TSchema>;
   type Output = z.output<TSchema>;
   const baseId = useId();
-  const [serverError, setServerError] = useState<string>();
+  const [serverError, setServerError] = useState<ServerError>();
+  const alertRef = useRef<HTMLDivElement>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const form = useForm<Input, unknown, Output>({
     defaultValues,
-    // o mapa de erros precisa dos valores brutos para saber o que está vazio
+    // o mapa de erros precisa dos valores brutos para saber o que está vazio; o
+    // cast só fixa os genéricos que o `zodResolver` não infere de `TSchema`
     resolver: (values, context, options) =>
-      (zodResolver(schema, { error: formErrorMap(values) }) as Resolver<Input, unknown, Output>)(values, context, options),
+      (zodResolver(schema, { error: formErrorMap(schema, values) }) as Resolver<Input, unknown, Output>)(
+        values,
+        context,
+        options,
+      ),
   });
   const { isSubmitting, isDirty } = form.formState;
   const fieldNames = sections.flatMap((section) => section.fields.map((field) => field.name));
 
+  useEffect(() => {
+    if (serverError?.focus) alertRef.current?.focus();
+  }, [serverError]);
+
   const submit = form.handleSubmit(async (values) => {
     try {
       await onSubmit(values);
+      // salvo, o que está na tela passa a ser o estado limpo
+      form.reset(form.getValues());
     } catch (error) {
       if (!(error instanceof FormSubmitError)) {
-        setServerError(genericSubmitError);
+        setServerError({ messages: [genericSubmitError], focus: true });
         return;
       }
-      setServerError(error.message);
+      // campo que o formulário não mostra tem a mensagem levada ao topo
+      const names = Object.keys(error.fieldErrors);
+      const shown = fieldNames.filter((name) => names.includes(name));
+      const hidden = names.filter((name) => !shown.includes(name as FieldPath<Input>));
+      setServerError({
+        messages: [error.message, ...hidden.map((name) => error.fieldErrors[name] ?? '')],
+        focus: shown.length === 0,
+      });
       // o foco vai para o primeiro campo apontado, na ordem do formulário
-      const names = Object.keys(error.fieldErrors) as FieldPath<Input>[];
-      const first = fieldNames.find((name) => names.includes(name));
-      for (const name of names) {
-        form.setError(name, { type: 'server', message: error.fieldErrors[name] }, { shouldFocus: name === first });
+      for (const name of shown) {
+        form.setError(name, { type: 'server', message: error.fieldErrors[name] }, { shouldFocus: name === shown[0] });
       }
     }
   });
@@ -144,11 +164,17 @@ export function EntityForm<TSchema extends FormSchema>({
     >
       {serverError && (
         <div
+          ref={alertRef}
           role="alert"
-          className="flex items-start gap-4 rounded-input bg-status-danger-bg px-6 py-5 text-sm text-status-danger-fg"
+          tabIndex={-1}
+          className="flex items-start gap-4 rounded-input bg-status-danger-bg px-6 py-5 text-sm text-status-danger-fg outline-none"
         >
           <Icon name="alert-circle" size="md" />
-          <span>{serverError}</span>
+          <div className="flex flex-col gap-2">
+            {serverError.messages.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
         </div>
       )}
       {sections.map((section, index) => {
@@ -169,12 +195,13 @@ export function EntityForm<TSchema extends FormSchema>({
                   name={item.name}
                   render={({ field, fieldState }) => (
                     <Field
-                      className={colSpan[item.colSpan ?? 1]}
+                      className={colSpanClass[item.colSpan ?? 1]}
                       label={item.label}
                       hint={item.hint}
                       error={fieldState.error?.message}
                       required={isRequiredField(schema, item.name)}
                     >
+                      {/* `render` é o do mesmo `name` deste `Controller`: o cast junta a união por nome */}
                       {(item.render as (field: ControllerRenderProps<Input, FieldPath<Input>>) => ReactNode)(field)}
                     </Field>
                   )}

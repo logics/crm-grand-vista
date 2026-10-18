@@ -27,6 +27,7 @@ const farmSchema = z.object({
 type FarmInput = z.input<typeof farmSchema>;
 
 const defaultValues: FarmInput = { name: '', state: '', area: '', notes: '' };
+const filled: FarmInput = { name: 'Fazenda Três Barras', state: 'mg', area: '1240', notes: '' };
 
 const sections: EntityFormSection<FarmInput>[] = [
   {
@@ -193,6 +194,38 @@ describe('EntityForm', () => {
     await screen.findByRole('alert');
     await user.click(save());
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  it('sem campo apontado, o foco vai para o erro geral', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new FormSubmitError('Sem conexão com o servidor.'));
+    const { user } = renderForm({ onSubmit, defaultValues: filled });
+    await user.click(save());
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveFocus());
+  });
+
+  it('erro do servidor para campo fora do formulário entra no erro geral', async () => {
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValue(new FormSubmitError('Corrija os dados.', { name: 'Nome em uso', tenant: 'Empresa inativa' }));
+    const { user } = renderForm({ onSubmit, defaultValues: filled });
+    await user.click(save());
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Corrija os dados.');
+    expect(alert).toHaveTextContent('Empresa inativa');
+    expect(alert).not.toHaveTextContent('Nome em uso');
+  });
+
+  it('depois de salvar, o formulário fica limpo: cancelar sai sem aviso', async () => {
+    const { onCancel, user } = renderForm();
+    await user.type(screen.getByRole('textbox', { name: 'Nome da fazenda' }), 'Fazenda');
+    await user.click(screen.getByRole('combobox', { name: 'Estado' }));
+    await user.click(screen.getByRole('option', { name: 'Minas Gerais' }));
+    await user.type(screen.getByRole('textbox', { name: 'Área total' }), '1240');
+    await user.click(save());
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(screen.getByRole('textbox', { name: 'Nome da fazenda' })).toHaveValue('Fazenda');
   });
 
   it('cancelar com o formulário limpo sai direto', async () => {

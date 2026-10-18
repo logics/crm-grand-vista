@@ -42,10 +42,15 @@ function valueAt(values: unknown, path: readonly PropertyKey[]): unknown {
 const isEmpty = (value: unknown) => value === undefined || value === null || value === '';
 
 /**
- * Mapa de erros por parse, para os valores do formulário: campo vazio vira
- * "Campo obrigatório", seja qual for a regra que falhou (`min(1)`, tipo, a
- * coerção de `''` para 0); o resto sai na mensagem do Zod em pt-BR.
+ * Mapa de erros por parse, para os valores do formulário: campo obrigatório
+ * vazio vira "Campo obrigatório", seja qual for a regra que falhou (`min(1)`,
+ * tipo, a coerção de `''` para 0) — a mesma regra do asterisco; o resto sai na
+ * mensagem do Zod em pt-BR.
  */
-export function formErrorMap(values: unknown): z.core.$ZodErrorMap {
-  return (issue) => (isEmpty(valueAt(values, issue.path ?? [])) ? requiredMessage : ptBR(issue));
+export function formErrorMap(schema: Schema, values: unknown): z.core.$ZodErrorMap {
+  return (issue) => {
+    const path = issue.path ?? [];
+    const required = path.length > 0 && isRequiredField(schema, path.join('.'));
+    return required && isEmpty(valueAt(values, path)) ? requiredMessage : ptBR(issue);
+  };
 }

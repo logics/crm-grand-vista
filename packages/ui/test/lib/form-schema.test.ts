@@ -8,6 +8,7 @@ const schema = z.object({
   nickname: z.string().nullish(),
   area: z.coerce.number().positive(),
   owner: z.object({ email: z.email(), phone: z.string().optional() }),
+  site: z.url().optional(),
 });
 
 describe('isRequiredField', () => {
@@ -37,7 +38,7 @@ describe('isRequiredField', () => {
 
 describe('formErrorMap', () => {
   const parse = (values: Record<string, unknown>) =>
-    schema.safeParse(values, { error: formErrorMap(values) }).error?.issues.map(({ path, message }) => [path.join('.'), message]);
+    schema.safeParse(values, { error: formErrorMap(schema, values) }).error?.issues.map(({ path, message }) => [path.join('.'), message]);
 
   it('campo vazio, nulo ou ausente é obrigatório, qualquer que seja a regra que falhou', () => {
     expect(parse({ name: '', area: '', owner: { email: null } })).toEqual([
@@ -53,9 +54,16 @@ describe('formErrorMap', () => {
     expect(messages?.[1]).toMatch(/inválido/);
   });
 
+  it('campo opcional vazio que falha não é dito obrigatório: sai a mensagem do zod', () => {
+    const issues = parse({ name: 'Três Barras', area: '10', owner: { email: 'a@b.com' }, site: '' });
+    expect(issues).toHaveLength(1);
+    expect(issues?.[0]?.[0]).toBe('site');
+    expect(issues?.[0]?.[1]).not.toBe(requiredMessage);
+  });
+
   it('a mensagem declarada no schema vence', () => {
     const custom = z.object({ name: z.string().min(1, 'Dê um nome à fazenda') });
     const values = { name: '' };
-    expect(custom.safeParse(values, { error: formErrorMap(values) }).error?.issues[0]?.message).toBe('Dê um nome à fazenda');
+    expect(custom.safeParse(values, { error: formErrorMap(custom, values) }).error?.issues[0]?.message).toBe('Dê um nome à fazenda');
   });
 });
