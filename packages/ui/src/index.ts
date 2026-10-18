@@ -23,6 +23,7 @@ export * from './components/field.js';
 export * from './components/icon.js';
 export * from './components/icon-button.js';
 export * from './components/kanban.js';
+export * from './components/media-uploader.js';
 export * from './components/opportunity-card.js';
 export * from './components/progress-bar.js';
 export * from './components/search-bar.js';

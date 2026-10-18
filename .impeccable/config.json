@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "packages/ui/test/components/media-uploader.test.tsx"
+        ],
+        "createdAt": "2026-10-18T15:06:41.717Z",
+        "reason": "Claude: o <img> citado está num comentário JSDoc do teste, não é marcação renderizada"
+      }
+    ]
+  }
+}
