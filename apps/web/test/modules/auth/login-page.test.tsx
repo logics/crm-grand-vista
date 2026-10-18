@@ -6,6 +6,7 @@ import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { session, stubFakeApi } from '../../support/fake-api.js';
 import { renderApp } from '../../support/render-app.js';
+import { LOGOUT_FAILED_MESSAGE } from '../../../src/modules/auth/session.js';
 
 const account = {
   email: 'ana@grandvista.com.br',
@@ -23,6 +24,12 @@ async function fillLogin(email: string, password: string) {
   await user.type(await screen.findByRole('textbox', { name: 'E-mail' }), email);
   if (password) await user.type(screen.getByLabelText('Senha'), password);
   await user.click(screen.getByRole('button', { name: 'Entrar' }));
+}
+
+async function chooseLogout() {
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: /Ana Ribeiro/ }));
+  await user.click(await screen.findByRole('option', { name: 'Sair' }));
 }
 
 afterEach(() => {
@@ -112,11 +119,11 @@ describe('tela de login', () => {
     expect(app.pathname()).toBe('/e/grand-vista');
   });
 
-  it('logout encerra a sessão na API e volta à tela de login', async () => {
+  it('logout, pelo menu de conta, encerra a sessão na API e volta à tela de login', async () => {
     const api = stubFakeApi({ session: account.session });
     const app = renderApp('/e/grand-vista');
 
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'Sair' }));
+    await chooseLogout();
 
     expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument();
     expect(app.pathname()).toBe('/login');
@@ -130,10 +137,10 @@ describe('tela de login', () => {
     stubFakeApi({ session: account.session, logoutFails: true });
     const app = renderApp('/e/grand-vista');
 
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'Sair' }));
+    await chooseLogout();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível sair agora.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(LOGOUT_FAILED_MESSAGE);
     expect(app.pathname()).toBe('/e/grand-vista');
-    expect(screen.getByRole('button', { name: 'Sair' })).toBeEnabled();
+    expect(screen.getByRole('option', { name: 'Sair' })).not.toHaveAttribute('aria-disabled', 'true');
   });
 });

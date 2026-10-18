@@ -115,10 +115,10 @@ Status: 401 sem sessão válida; **403** (`tenant_blocked`) para empresa bloquea
 Mínimo viável para provar o fluxo; o acabamento visual vem do Design System.
 
 - **Login** — e-mail, senha, erro de credencial sem distinguir "e-mail não existe" de "senha errada"
-- **Seletor de empresa na topbar** — só aparece com mais de um vínculo
+- **Seletor de empresa na topbar** — dentro do menu de conta (avatar, nome e empresa ativa, à direita da topbar), que também traz a saída; a seção de empresa só aparece com mais de um vínculo
 - **Tela de empresa inacessível** — a mensagem única mais a lista das empresas do usuário
 
-Consome de `packages/ui`: `Input`, `Button`, `Field`, `EmptyState`, `TopBar`. Não cria componente novo em `packages/ui`.
+Consome de `packages/ui`: `Input`, `Button`, `Field`, `EmptyState`, `TopBar`, `Popover`, `Command`. Não cria componente novo em `packages/ui`.
 
 ## Critérios de aceite
 

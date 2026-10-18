@@ -206,13 +206,22 @@ export function MediaUploader<T>({
         role="region"
         aria-label="Área de envio"
         data-dragging={dragging || undefined}
+        data-disabled={disabled || undefined}
+        // a superfície dos campos: branca com filete em repouso, contorno dourado e
+        // anel de foco ao receber arquivos, afundada quando desabilitada
         className={cn(
-          'flex flex-col items-center gap-4 rounded-media border border-dashed border-border-default bg-surface-muted px-7 py-9 text-center',
-          'transition-control data-dragging:border-brand-accent data-dragging:bg-surface-sunken',
+          'flex flex-col items-center gap-4 rounded-media border border-dashed border-border-default bg-surface-card px-7 py-9 text-center',
+          'transition-control data-dragging:border-brand-accent data-dragging:shadow-ring-focus',
+          'data-disabled:cursor-not-allowed data-disabled:bg-surface-sunken',
         )}
         {...dropZone}
       >
-        {items.length === 0 && queue.entries.length === 0 && <span className="gv-eyebrow">{placeholder}</span>}
+        {items.length === 0 && queue.entries.length === 0 && (
+          // sem mídia: o espaço em areia da foto, com o rótulo do que vai ali
+          <span className={cn(mediaFrame, 'aspect-4/3 w-[calc(4*var(--space-10))]')}>
+            <span className="gv-eyebrow">{placeholder}</span>
+          </span>
+        )}
         <p className="m-0 text-sm text-text-muted">Arraste fotos e vídeos para cá</p>
         <Button
           ref={uploadButton}

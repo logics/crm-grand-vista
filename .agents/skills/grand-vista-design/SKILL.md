@@ -11,7 +11,7 @@ O Design System de produção é `packages/ui`. A referência visual de onde ele
 ## Leia primeiro
 
 1. `design-system/referencia/README.md` — marca, voz, casing, números, ausência de dado, iconografia. É a fonte das regras de redação de UI.
-2. `docs/specs/design-system.md` — camadas (tokens, primitivos shadcn, componentes de domínio), nomes de classe do tema do Tailwind, desvios deliberados da API do export.
+2. `docs/specs/design-system.md` — camadas (tokens, primitivos shadcn, componentes de domínio), nomes de classe do tema do Tailwind, desvios deliberados do export (API e superfície dos campos).
 3. `packages/ui/CLAUDE.md` — convenções do pacote: `Icon` e seu registro, `Field`, `cn`, receitas de classe, `pressable`.
 4. `CONTEXT.md` — glossário. Nome de componente e rótulo de tela seguem o glossário, não o export.
 
@@ -28,6 +28,7 @@ O Design System de produção é `packages/ui`. A referência visual de onde ele
 
 - Texto de UI em português brasileiro, sentence case, verbo primeiro nos botões ("Cadastrar fazenda"), sem emoji, sem exclamação. Dado ausente é travessão (—), nunca "N/A".
 - Cor, espaçamento, raio, sombra e fonte só pelos tokens, via classes do tema (`bg-surface-card`, `p-6`, `text-text-body`). Nada de hex, px cru, paleta crua `--gv-*` nem fonte fora de Geist, Geist Mono e Jost — o `pnpm lint` barra.
+- Campo de formulário segue os estados de `packages/ui`, não os do export: branco com filete em repouso, contorno dourado e anel de foco quando focado, afundado só quando desabilitado (tabela em `docs/specs/design-system.md`, "Divisão de camadas"). No código, pelas receitas `fieldSurface` e `fieldFrameSurface`; em protótipo, copie esses estados — o afundado do export ficou para trás.
 - Todo glifo passa pelo `Icon`; glifo novo entra no registro de `packages/ui/src/components/icon.tsx`.
 - Não existe logotipo vetorial. O monograma não é desenhado, aproximado nem gerado: onde iria o logotipo vai o `Wordmark`; a placa em raster só grande, sobre fundo simples.
 - Componente que serve a dois módulos vai para `packages/ui`, com story. Story nova entra em `packages/ui/stories/` com o nome do arquivo do componente.

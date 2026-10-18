@@ -1,7 +1,6 @@
 import type { Session } from '@crm/shared';
-import { Button } from '@crm/ui';
 import { Navigate, Outlet, useOutletContext } from 'react-router';
-import { PageState } from '../../shell/page-state.js';
+import { LoadFailedState } from '../../shell/page-state.js';
 import { useSession } from './session.js';
 
 /**
@@ -12,16 +11,7 @@ export function RequireSession() {
   const { data: session, isPending, isError, refetch } = useSession();
 
   if (isPending) return null;
-  if (isError) {
-    return (
-      <PageState
-        icon="alert-triangle"
-        title="Não foi possível carregar a sessão"
-        description="Verifique a conexão e tente de novo."
-        action={<Button onClick={() => void refetch()}>Tentar de novo</Button>}
-      />
-    );
-  }
+  if (isError) return <LoadFailedState title="Não foi possível carregar a sessão" onRetry={() => void refetch()} />;
   if (!session) return <Navigate to="/login" replace />;
 
   return <Outlet context={session} />;

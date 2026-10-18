@@ -49,6 +49,9 @@ export function useLogin() {
   });
 }
 
+/** Logout que falhou: a sessão continua aberta, e o usuário precisa saber. */
+export const LOGOUT_FAILED_MESSAGE = 'Não foi possível sair agora. Tente de novo em instantes.';
+
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
