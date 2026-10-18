@@ -5,6 +5,7 @@ import {
   formatDecimal,
   hectaresToAlqueires,
   parseDecimal,
+  parseShiftedDecimal,
   roundDecimal,
 } from '../src/decimal.js';
 
@@ -58,6 +59,35 @@ describe('parseDecimal', () => {
     expect(valueOf('-1,005', 2)).toBe('-1.01');
     expect(valueOf('2,99999', 4)).toBe('3');
     expect(valueOf('0,00004', 4)).toBe('0');
+  });
+});
+
+describe('parseShiftedDecimal', () => {
+  it.each([
+    ['1', '0.01'],
+    ['14', '0.14'],
+    ['148', '1.48'],
+    ['1480', '14.8'],
+    ['148050', '1480.5'],
+    ['0', '0'],
+    ['001', '0.01'],
+  ])('os dígitos %s entram pela direita: %s', (text, expected) => {
+    expect(parseShiftedDecimal(text, 2)).toBe(expected);
+  });
+
+  it('ignora o que não é dígito: milhar, vírgula, letra', () => {
+    expect(parseShiftedDecimal('1.480,50', 2)).toBe('1480.5');
+    expect(parseShiftedDecimal('1.480,5', 2)).toBe('148.05');
+    expect(parseShiftedDecimal('12,00a', 2)).toBe('12');
+  });
+
+  it('sinal de menos à frente é negativo', () => {
+    expect(parseShiftedDecimal('-1.480,50', 2)).toBe('-1480.5');
+    expect(parseShiftedDecimal('-0,00', 2)).toBe('0');
+  });
+
+  it.each(['', '-', 'R$', ',', '  '])('sem dígito (%j) é vazio', (text) => {
+    expect(parseShiftedDecimal(text, 2)).toBeNull();
   });
 });
 

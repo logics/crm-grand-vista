@@ -43,6 +43,7 @@ export {
   formatDecimal,
   hectaresToAlqueires,
   parseDecimal,
+  parseShiftedDecimal,
   roundDecimal,
 } from './decimal.js';
 export type { AlqueireType, DecimalFormat, ParsedDecimal } from './decimal.js';

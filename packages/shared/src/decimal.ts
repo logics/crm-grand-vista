@@ -130,6 +130,18 @@ export function parseDecimal(text: string, scale: number): ParsedDecimal {
   return { ok: true, value: roundDecimal(canonical, scale) };
 }
 
+/**
+ * Lê como máscara de centavos: só os dígitos contam, e os últimos `scale` são
+ * as casas — `"148050"` é `"1480.5"` com duas. É o campo de dinheiro que se
+ * formata a cada tecla; cada dígito entra pela direita. Sem dígito é `null`.
+ */
+export function parseShiftedDecimal(text: string, scale: number): string | null {
+  const digits = text.replace(/\D/g, '');
+  if (digits === '') return null;
+  const negative = text.trimStart().startsWith('-');
+  return toCanonical(BigInt(digits) * (negative ? -1n : 1n), scale);
+}
+
 export type DecimalFormat = {
   /** Casas sempre mostradas, completando com zero: 2 no dinheiro. */
   minScale: number;

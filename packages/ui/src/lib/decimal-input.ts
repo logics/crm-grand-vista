@@ -1,4 +1,4 @@
-import { compareDecimal, type DecimalFormat, formatDecimal, parseDecimal } from '@crm/shared';
+import { compareDecimal, type DecimalFormat, formatDecimal, parseDecimal, parseShiftedDecimal } from '@crm/shared';
 import { type ChangeEvent, type FocusEvent, useState } from 'react';
 import type { InputProps } from '../primitives/input.js';
 
@@ -8,7 +8,9 @@ import type { InputProps } from '../primitives/input.js';
 // texto só é reformatado ao sair do campo, para o cursor não pular. Texto que
 // não é número marca o campo inválido e não muda o valor; ao sair, o campo
 // volta a mostrar o último valor. Valor fora de `min`/`max` é entregue, e o
-// campo fica inválido até ser corrigido.
+// campo fica inválido até ser corrigido. Com `shifted` (dinheiro), o campo é
+// máscara de centavos: cada dígito entra pela direita e o texto é formatado a
+// cada tecla, com o cursor sempre no fim — não há texto ilegível.
 
 export type DecimalInputProps = Omit<
   InputProps,
@@ -33,6 +35,8 @@ export type DecimalSpec = {
   fromDisplay?: (display: string) => string;
   /** Muda quando a unidade de exibição muda, para o texto ser refeito. */
   displayKey?: string;
+  /** Máscara de centavos: só os dígitos contam, os últimos `maxScale` são as casas (`parseShiftedDecimal`). */
+  shifted?: boolean;
 };
 
 type State = { text: string; value: string | null; unreadable: boolean; displayKey?: string };
@@ -46,7 +50,7 @@ const sameDecimal = (a: string | null, b: string | null) =>
 /** Liga as props de um campo decimal às do `Input`. */
 export function useDecimalInput(
   { value, defaultValue = null, onChange, min, max, onBlur, ...props }: DecimalInputProps,
-  { format, toDisplay, fromDisplay, displayKey }: DecimalSpec,
+  { format, toDisplay, fromDisplay, displayKey, shifted = false }: DecimalSpec,
 ): InputProps {
   const show = (decimal: string | null) =>
     decimal === null ? '' : formatDecimal(toDisplay ? toDisplay(decimal) : decimal, format);
@@ -66,6 +70,12 @@ export function useDecimalInput(
   }
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (shifted) {
+      const next = parseShiftedDecimal(event.target.value, format.maxScale);
+      setState({ text: show(next), value: next, unreadable: false, displayKey });
+      if (!sameDecimal(next, state.value)) onChange?.(next);
+      return;
+    }
     const text = event.target.value;
     const parsed = parseDecimal(text, format.maxScale);
     if (!parsed.ok) {
@@ -89,7 +99,7 @@ export function useDecimalInput(
       (max !== undefined && compareDecimal(current, max) > 0));
 
   return {
-    inputMode: 'decimal',
+    inputMode: shifted ? 'numeric' : 'decimal',
     autoComplete: 'off',
     ...props,
     type: 'text',

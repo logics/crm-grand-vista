@@ -23,28 +23,42 @@ describe('MoneyInput', () => {
   it('campo de texto decimal com o prefixo R$', () => {
     render(<MoneyInput aria-label="Preço pedido" />);
     const input = screen.getByRole('textbox', { name: 'Preço pedido' });
-    expect(input).toHaveAttribute('inputmode', 'decimal');
+    expect(input).toHaveAttribute('inputmode', 'numeric');
     expect(screen.getByText('R$')).toBeInTheDocument();
   });
 
-  it('entrega a string decimal canônica a cada tecla e formata só ao sair', async () => {
+  it('formata a cada tecla, com os centavos entrando pela direita', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<MoneyInput aria-label="Preço pedido" onChange={onChange} />);
     const input = screen.getByRole('textbox');
-    await user.type(input, '1480,5');
-    expect(input).toHaveValue('1480,5');
+    const typed: string[] = [];
+    for (const key of '148050') {
+      await user.type(input, key);
+      typed.push((input as HTMLInputElement).value);
+    }
+    expect(typed).toEqual(['0,01', '0,14', '1,48', '14,80', '148,05', '1.480,50']);
     expect(onChange).toHaveBeenLastCalledWith('1480.5');
-    await user.tab();
-    expect(input).toHaveValue('1.480,50');
   });
 
-  it('aceita ponto decimal e arredonda nas duas casas', async () => {
+  it('apagar o último dígito volta uma casa', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<MoneyInput aria-label="Preço pedido" defaultValue="1480.5" onChange={onChange} />);
+    const input = screen.getByRole('textbox');
+    await user.type(input, '{Backspace}');
+    expect(input).toHaveValue('148,05');
+    expect(onChange).toHaveBeenLastCalledWith('148.05');
+  });
+
+  it('colar um valor formatado entrega o mesmo valor', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<MoneyInput aria-label="Preço pedido" onChange={onChange} />);
-    await user.type(screen.getByRole('textbox'), '1480.505');
-    expect(onChange).toHaveBeenLastCalledWith('1480.51');
+    await user.click(screen.getByRole('textbox'));
+    await user.paste('R$ 48.200.000,00');
+    expect(screen.getByRole('textbox')).toHaveValue('48.200.000,00');
+    expect(onChange).toHaveBeenLastCalledWith('48200000');
   });
 
   it('controlado: mostra o valor de fora e acompanha a troca', async () => {
@@ -68,17 +82,14 @@ describe('MoneyInput', () => {
     expect(screen.getByRole('status', { name: 'valor' })).toHaveTextContent('null');
   });
 
-  it('texto que não é número marca inválido sem trocar o valor; ao sair, volta ao último valor', async () => {
+  it('o que não é dígito não entra nem muda o valor', async () => {
     const user = userEvent.setup();
     render(<Controlled initial="12" />);
     const input = screen.getByRole('textbox', { name: 'Preço pedido' });
-    await user.type(input, 'a');
-    expect(input).toHaveValue('12,00a');
-    expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByRole('status', { name: 'valor' })).toHaveTextContent('12');
-    await user.tab();
+    await user.type(input, 'a,.');
     expect(input).toHaveValue('12,00');
     expect(input).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByRole('status', { name: 'valor' })).toHaveTextContent('12');
   });
 
   it('fora de `min`/`max` fica inválido, mas entrega o valor', async () => {
@@ -86,7 +97,7 @@ describe('MoneyInput', () => {
     const onChange = vi.fn();
     render(<MoneyInput aria-label="Entrada" min="0" max="1000" onChange={onChange} />);
     const input = screen.getByRole('textbox');
-    await user.type(input, '1500');
+    await user.type(input, '150000');
     expect(onChange).toHaveBeenLastCalledWith('1500');
     expect(input).toHaveAttribute('aria-invalid', 'true');
     await user.tab();
