@@ -1,6 +1,6 @@
 import type { Session } from '@crm/shared';
-import { EmptyState } from '@crm/ui';
 import { Navigate } from 'react-router';
+import { PageState } from '../../shell/page-state.js';
 import { landingPath } from './landing.js';
 import { LogoutButton } from './logout-button.js';
 
@@ -10,13 +10,11 @@ export function LandingRedirect({ session }: { session: Session }) {
   if (path) return <Navigate to={path} replace />;
 
   return (
-    <main className="grid min-h-dvh place-items-center p-gap-shell">
-      <EmptyState
-        icon="users"
-        title="Nenhuma empresa vinculada"
-        description="Seu usuário ainda não tem acesso a nenhuma empresa. Procure o responsável pela empresa em que você trabalha."
-        action={<LogoutButton />}
-      />
-    </main>
+    <PageState
+      icon="users"
+      title="Nenhuma empresa vinculada"
+      description="Este usuário ainda não tem acesso a nenhuma empresa. O acesso é liberado pelo responsável pela empresa."
+      action={<LogoutButton />}
+    />
   );
 }

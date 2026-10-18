@@ -7,6 +7,14 @@ import { api } from '../../lib/api.js';
 
 const sessionQueryKey = ['session'] as const;
 
+/** Resposta fora do contrato (5xx, rede no meio do caminho) é falha, não recusa. */
+function assertOk<R extends { ok: boolean; status: number }>(
+  response: R,
+  operation: string,
+): asserts response is Extract<R, { ok: true }> {
+  if (!response.ok) throw new Error(`Falha ${operation}: HTTP ${response.status}.`);
+}
+
 /** Recusa do login: a API não diz se foi o e-mail ou a senha, e o front também não. */
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -22,7 +30,7 @@ export function useSession() {
     queryFn: async (): Promise<Session | null> => {
       const response = await api.auth.session.$get();
       if (response.status === 401) return null;
-      if (!response.ok) throw new Error('Falha ao ler a sessão.');
+      assertOk(response, 'ao ler a sessão');
       return response.json();
     },
   });
@@ -34,7 +42,7 @@ export function useLogin() {
     mutationFn: async (input: LoginInput): Promise<Session> => {
       const response = await api.auth.login.$post({ json: input });
       if (response.status === 401) throw new InvalidCredentialsError();
-      if (!response.ok) throw new Error(`Falha no login: HTTP ${response.status}.`);
+      assertOk(response, 'no login');
       return response.json();
     },
     onSuccess: (session) => queryClient.setQueryData(sessionQueryKey, session),
@@ -46,7 +54,7 @@ export function useLogout() {
   return useMutation({
     mutationFn: async () => {
       const response = await api.auth.logout.$post();
-      if (!response.ok) throw new Error(`Falha no logout: HTTP ${response.status}.`);
+      assertOk(response, 'no logout');
     },
     onSuccess: () => {
       // A sessão vira `null` no lugar (quem a observa leva ao login), e nada

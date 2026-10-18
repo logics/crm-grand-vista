@@ -4,7 +4,8 @@ import { LoginPage } from './modules/auth/login-page.js';
 import { RequireSession, useAuthenticatedSession } from './modules/auth/require-session.js';
 import { TenantHome } from './shell/tenant-home.js';
 
-function Root() {
+/** A raiz `/`: leva quem está logado à empresa padrão. */
+function SessionLanding() {
   return <LandingRedirect session={useAuthenticatedSession()} />;
 }
 
@@ -15,7 +16,7 @@ export const routes: RouteObject[] = [
   {
     element: <RequireSession />,
     children: [
-      { index: true, element: <Root /> },
+      { index: true, element: <SessionLanding /> },
       { path: '/e/:tenant/*', element: <TenantHome /> },
     ],
   },
