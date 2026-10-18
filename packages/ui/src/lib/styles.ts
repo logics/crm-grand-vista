@@ -94,3 +94,9 @@ export const accentRing = 'inset-ring inset-ring-brand-accent/55';
  */
 export const liftOnHover =
   'cursor-pointer transition-[box-shadow,translate] duration-normal ease-standard hover:-translate-y-px';
+
+/** Moldura de foto: areia de fundo, cantos de mídia; sem foto, o rótulo fica no centro. */
+export const mediaFrame = 'relative grid place-items-center overflow-hidden rounded-media bg-surface-muted';
+
+/** Foto ou vídeo cobrindo toda a moldura (`mediaFrame`). */
+export const mediaFill = 'absolute inset-0 size-full object-cover';
