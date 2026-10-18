@@ -58,6 +58,10 @@
         "message": "Fonte fora do Design System. Disponíveis: Geist, Geist Mono, Jost."
       },
       {
+        "selector": "JSXOpeningElement[name.name='AsyncCombobox'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
+        "message": "<AsyncCombobox> size aceita só 'sm' | 'md' | 'lg'."
+      },
+      {
         "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:neutral|success|warning|danger|info|brand|gold)$/]",
         "message": "<Badge> tone aceita só 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand' | 'gold'."
       },

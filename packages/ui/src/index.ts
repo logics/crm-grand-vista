@@ -11,6 +11,7 @@ export * from './primitives/select.js';
 export * from './primitives/switch.js';
 export * from './primitives/tabs.js';
 export * from './components/area-input.js';
+export * from './components/async-combobox.js';
 export * from './components/audit-timeline.js';
 export * from './components/badge.js';
 export * from './components/button.js';
