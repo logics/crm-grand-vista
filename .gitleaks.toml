@@ -10,4 +10,6 @@ description = "Valores de teste versionados de propósito, sem uso fora do conta
 regexes = [
   # BETTER_AUTH_SECRET do `.env.test`: só assina sessões da suíte de integração.
   '''^segredo-de-teste-com-pelo-menos-32-caracteres$''',
+  # Senha do usuário semeado do E2E (`e2e/support/accounts.ts`): só vale no banco de teste.
+  '''^senha-do-e2e-com-folga$''',
 ]
