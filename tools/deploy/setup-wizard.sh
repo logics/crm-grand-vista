@@ -481,6 +481,20 @@ else
   SKIPPED+=("domínio $WEB_DOMAIN no Netlify (Domain management → Add a domain)")
   warn "não consegui definir o domínio pela API do Netlify"
 fi
+# Única variável de build do front: vai para o bundle, então nunca segredo.
+# Cria; se já existir de uma execução anterior, atualiza.
+netlify_env_body="[{\"key\":\"VITE_API_URL\",\"scopes\":[\"builds\"],\"values\":[{\"context\":\"all\",\"value\":\"https://$API_DOMAIN\"}]}]"
+if curl -fsS --max-time 30 -X POST "https://api.netlify.com/api/v1/accounts/logics/env?site_id=$NETLIFY_SITE_ID" \
+     -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" -H 'Content-Type: application/json' \
+     -d "$netlify_env_body" >/dev/null 2>&1 \
+  || curl -fsS --max-time 30 -X PUT "https://api.netlify.com/api/v1/accounts/logics/env/VITE_API_URL?site_id=$NETLIFY_SITE_ID" \
+     -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" -H 'Content-Type: application/json' \
+     -d "${netlify_env_body:1:${#netlify_env_body}-2}" >/dev/null; then
+  printf '  %s✓%s VITE_API_URL=%s no projeto\n' "$GREEN" "$RESET" "https://$API_DOMAIN"
+else
+  SKIPPED+=("VITE_API_URL=https://$API_DOMAIN no Netlify (Site configuration → Environment variables)")
+  warn "não consegui gravar VITE_API_URL pela API do Netlify"
+fi
 pause "Enter para continuar"
 
 # ── 9 ─────────────────────────────────────────────────────────────────────

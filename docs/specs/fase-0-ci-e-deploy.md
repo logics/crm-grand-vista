@@ -18,6 +18,7 @@ Entrega **uma casca vazia mas publicada e testada**. A partir daqui todo increme
 - **API como processo nativo**, administrada por aaPanel, que resolve certificado SSL, backup e deploy por webhook. Sem container em produção
 - **Postgres 18 no mesmo servidor da aplicação, escutando apenas em `localhost`** — sem porta exposta, sem SSL na conexão, sem regra de firewall. A instância é compartilhada com outros projetos do servidor
 - **Frontend no Netlify**, com `base = "apps/web"` e instalação a partir da raiz do workspace — monorepo pnpm não é obstáculo
+- **Front e API como subdomínios do mesmo domínio** — `crmgv.logics.com.br` (Netlify) e `api.crmgv.logics.com.br` (aaPanel), ambos sob `logics.com.br`. O cookie de sessão sai `HttpOnly; SameSite=Lax`, e o navegador só o envia nas chamadas `fetch` do front quando os dois estão sob o mesmo domínio registrável: com o front em `*.netlify.app`, o login responde 200 e a sessão não se mantém. Recusados: proxy do Netlify para a API (mais um salto em toda requisição, e o CDN no caminho da autenticação) e `SameSite=None; Secure` (exigiria proteção de CSRF própria). Decidido na #29
 - **Sem homologação na Fase 0.** Local direto para produção, que é o que a fase pede e ninguém está usando ainda. O ambiente de homologação nasce ao fim da Fase 1, quando a Grand Vista começa a usar de verdade: a partir daí, subir migration quebrada na produção do cliente é risco de outra natureza. É o mesmo pipeline apontando para outro diretório e outro banco
 
 ## Modelo de dados
@@ -66,7 +67,7 @@ Falhar o boot é o comportamento desejado: o painel mantém o processo anterior,
 
 ### Deploy do front
 
-Netlify a partir de `main`, com `base = "apps/web"` e instalação na raiz do workspace. Variáveis de build no painel do Netlify, nunca no repositório. Redirecionamento de SPA configurado — sem ele, abrir `/e/<tenant>/farms/123` direto devolve 404 do CDN, e o link compartilhado por WhatsApp, que é o motivo de a empresa estar na URL, não funciona.
+Netlify a partir de `main`, com `base = "apps/web"` e instalação na raiz do workspace. Variáveis de build no painel do Netlify, nunca no repositório. A única é `VITE_API_URL` (validada por `webEnvSchema`), igual ao `API_URL` do servidor; o `WEB_URL` do servidor, por sua vez, é a origem do front, a única que o CORS aceita com credenciais. Tudo o que entra numa variável `VITE_` vai para o bundle: nunca segredo. Redirecionamento de SPA configurado — sem ele, abrir `/e/<tenant>/farms/123` direto devolve 404 do CDN, e o link compartilhado por WhatsApp, que é o motivo de a empresa estar na URL, não funciona.
 
 ### Segredos
 

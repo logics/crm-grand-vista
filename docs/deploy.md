@@ -111,7 +111,7 @@ Nenhum segredo vive no repositório nem em arquivo de exemplo. O CI faz a varred
 | `API_HEALTH_URL` | `https://api.exemplo.com.br/health` |
 | `NETLIFY_SITE_ID` | id do site, em *Site configuration → General* |
 
-O site do Netlify é criado **sem build automático pelo Git**: quem publica é o CI, depois da API e só com a verificação verde. As variáveis de build do front ficam no painel do Netlify.
+O site do Netlify é criado **sem build automático pelo Git**: quem publica é o CI, depois da API e só com a verificação verde. As variáveis de build do front ficam no painel do Netlify: só `VITE_API_URL=https://api.crmgv.logics.com.br`, igual ao `API_URL` do servidor. O front fica em `crmgv.logics.com.br`, subdomínio do mesmo domínio da API — é o que mantém o cookie de sessão (`SameSite=Lax`) nas chamadas do front —, e o `WEB_URL` do servidor é essa origem.
 
 ## Rotação
 
