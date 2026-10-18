@@ -1,0 +1,127 @@
+import { compareDecimal, type DecimalFormat, formatDecimal, parseDecimal, parseShiftedDecimal } from '@crm/shared';
+import { type ChangeEvent, type FocusEvent, useState } from 'react';
+import type { InputProps } from '../primitives/input.js';
+
+// Base comum de `MoneyInput`, `AreaInput` e `PercentInput`: um `Input` de
+// texto cujo valor é a string decimal canônica de `@crm/shared` (`"1480.5"`),
+// nunca `number`. O valor entra como vem do banco (`"12.5000"`) e é exibido em
+// pt-BR (`"12,5"`); a pessoa digita no mesmo formato — vírgula decimal, ponto
+// só de milhar — e o texto só é reformatado ao sair do campo, para o cursor
+// não pular. Texto que
+// não é número marca o campo inválido e não muda o valor; ao sair, o campo
+// volta a mostrar o último valor. Valor fora de `min`/`max` é entregue, e o
+// campo fica inválido até ser corrigido. Com `shifted` (dinheiro), o campo é
+// máscara de centavos: cada dígito entra pela direita e o texto é formatado a
+// cada tecla, com o cursor sempre no fim — não há texto ilegível.
+
+export type DecimalInputProps = Omit<
+  InputProps,
+  'value' | 'defaultValue' | 'onChange' | 'min' | 'max' | 'type' | 'prefix' | 'suffix'
+> & {
+  /** Decimal canônico (`"1480.5"`); `null` é vazio. Com ele, o campo é controlado. */
+  value?: string | null;
+  defaultValue?: string | null;
+  /** Recebe o decimal canônico a cada tecla que muda o valor; `null` quando o campo fica vazio. */
+  onChange?: (value: string | null) => void;
+  /** Limites inclusivos, em decimal canônico; fora deles o campo fica `aria-invalid`. */
+  min?: string;
+  max?: string;
+};
+
+export type DecimalSpec = {
+  /** Casas exibidas; `maxScale` é também a do texto digitado, que é arredondado nelas. */
+  format: DecimalFormat;
+  /** Unidade de exibição diferente da do valor: converte do valor para o que se mostra. */
+  toDisplay?: (value: string) => string;
+  /** E de volta, do que se digitou para o valor. */
+  fromDisplay?: (display: string) => string;
+  /** Muda quando a unidade de exibição muda, para o texto ser refeito. */
+  displayKey?: string;
+  /**
+   * Onde o ponto não pode ser milhar (o percentual, até 100), o ponto digitado
+   * ou colado vira a vírgula decimal, no lugar em que entrou.
+   */
+  dotAsDecimal?: boolean;
+  /** Máscara de centavos: só os dígitos contam, os últimos `maxScale` são as casas (`parseShiftedDecimal`). */
+  shifted?: boolean;
+};
+
+type State = { text: string; value: string | null; unreadable: boolean; displayKey?: string };
+
+// `""` é o vazio de quem inicia o formulário com string (React Hook Form): vale `null`
+const emptyToNull = (value: string | null) => (value === '' ? null : value);
+
+const sameDecimal = (a: string | null, b: string | null) =>
+  a === null || b === null ? a === b : compareDecimal(a, b) === 0;
+
+/** Liga as props de um campo decimal às do `Input`. */
+export function useDecimalInput(
+  { value, defaultValue = null, onChange, min, max, onBlur, ...props }: DecimalInputProps,
+  { format, toDisplay, fromDisplay, displayKey, dotAsDecimal = false, shifted = false }: DecimalSpec,
+): InputProps {
+  const show = (decimal: string | null) =>
+    decimal === null ? '' : formatDecimal(toDisplay ? toDisplay(decimal) : decimal, format);
+
+  const initial = value === undefined ? emptyToNull(defaultValue) : emptyToNull(value);
+  const [state, setState] = useState<State>(() => ({
+    text: show(initial),
+    value: initial,
+    unreadable: false,
+    displayKey,
+  }));
+
+  // valor de fora que mudou (controlado) ou unidade nova: o texto é refeito
+  const external = value === undefined ? state.value : emptyToNull(value);
+  if (state.displayKey !== displayKey || !sameDecimal(external, state.value)) {
+    setState({ text: show(external), value: external, unreadable: false, displayKey });
+  }
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (shifted) {
+      const next = parseShiftedDecimal(event.target.value, format.maxScale);
+      setState({ text: show(next), value: next, unreadable: false, displayKey });
+      if (!sameDecimal(next, state.value)) onChange?.(next);
+      return;
+    }
+    const input = event.target;
+    if (dotAsDecimal && input.value.includes('.')) {
+      // mesmo comprimento: troca no próprio campo e devolve o cursor onde estava,
+      // para o React não ter o que reescrever (o que levaria o cursor ao fim)
+      const caret = input.selectionStart;
+      input.value = input.value.replaceAll('.', ',');
+      input.setSelectionRange(caret, caret);
+    }
+    const text = input.value;
+    const parsed = parseDecimal(text, format.maxScale);
+    if (!parsed.ok) {
+      setState({ ...state, text, unreadable: true });
+      return;
+    }
+    const next = parsed.value === null || !fromDisplay ? parsed.value : fromDisplay(parsed.value);
+    setState({ text, value: next, unreadable: false, displayKey });
+    if (!sameDecimal(next, state.value)) onChange?.(next);
+  };
+
+  const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
+    setState((current) => ({ ...current, text: show(current.value), unreadable: false }));
+    onBlur?.(event);
+  };
+
+  const current = state.value;
+  const outOfRange =
+    current !== null &&
+    ((min !== undefined && compareDecimal(current, min) < 0) ||
+      (max !== undefined && compareDecimal(current, max) > 0));
+
+  return {
+    inputMode: shifted ? 'numeric' : 'decimal',
+    autoComplete: 'off',
+    ...props,
+    type: 'text',
+    value: state.text,
+    onChange: handleChange,
+    onBlur: handleBlur,
+    // só acende: sem erro próprio, vale o do `Field` ou o de quem usa
+    'aria-invalid': state.unreadable || outOfRange ? true : props['aria-invalid'],
+  };
+}
