@@ -1,5 +1,6 @@
 import { type ComponentProps, useEffect, useRef } from 'react';
 import { cn } from '../lib/cn.js';
+import { useFlip } from '../lib/flip.js';
 import { clampPage, pageCount, pageRange, pageWindow } from '../lib/pagination.js';
 import { controlTone, focusRing } from '../lib/styles.js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../primitives/select.js';
@@ -50,6 +51,7 @@ export function Pagination({
   ...props
 }: PaginationProps) {
   const navRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const pages = pageCount(total, pageSize);
   // o total pode encolher com a tela parada além do fim: mostra-se a última
   const page = clampPage(requestedPage, pages);
@@ -64,6 +66,9 @@ export function Pagination({
     refocusAtEdge.current = false;
     navRef.current?.querySelector<HTMLButtonElement>(compact ? 'button:enabled' : '[aria-current="page"]')?.focus();
   }, [page, compact]);
+
+  // a janela anda com a página: os números deslizam em vez de pular
+  useFlip(listRef, page);
 
   const goTo = (target: number) => {
     if (target !== page && target >= 1 && target <= pages) onPageChange(target);
@@ -130,7 +135,7 @@ export function Pagination({
           {pages > 1 && (
             <div className="flex items-center gap-2">
               {previous}
-              <ul className="flex items-center gap-1">
+              <ul ref={listRef} className="relative flex items-center gap-1">
                 {pageWindow({ page, pageCount: pages, siblings }).map((item, index) =>
                   item === 'ellipsis' ? (
                     <li
