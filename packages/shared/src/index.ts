@@ -31,3 +31,17 @@ export {
   tenantNameSchema,
   tenantSlugSchema,
 } from './tenant.js';
+export {
+  ALQUEIRE_HECTARES,
+  ALQUEIRE_TYPES,
+  AREA_SCALE,
+  MONEY_SCALE,
+  PERCENT_SCALE,
+  alqueiresToHectares,
+  compareDecimal,
+  formatDecimal,
+  hectaresToAlqueires,
+  parseDecimal,
+  roundDecimal,
+} from './decimal.js';
+export type { AlqueireType, DecimalFormat, ParsedDecimal } from './decimal.js';

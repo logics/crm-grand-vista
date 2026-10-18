@@ -1,0 +1,167 @@
+// Número decimal sem `float`: o valor trafega como string decimal canônica
+// (`"1480.5"` — ponto, sem milhar, sem zeros à direita), que é o que o
+// `numeric` do Postgres e o Zod recebem sem perda. A aritmética é feita em
+// `bigint` sobre os dígitos, com a escala à parte; `number` só conta casas.
+// Servem aos campos (`MoneyInput`, `AreaInput`, `PercentInput`), às tabelas e
+// aos relatórios — a formatação pt-BR é uma só.
+
+/** Casas de cada tipo, como no modelo de dados: `numeric(16,2)`, `numeric(12,4)`, `numeric(7,4)`. */
+export const MONEY_SCALE = 2;
+export const AREA_SCALE = 4;
+export const PERCENT_SCALE = 4;
+
+/** Tipos de alqueire, como em `tenant_settings.default_alqueire_type`. */
+export const ALQUEIRE_TYPES = ['goiano', 'paulista', 'norte'] as const;
+export type AlqueireType = (typeof ALQUEIRE_TYPES)[number];
+
+/** Hectares em um alqueire de cada tipo: o goiano (mineiro, geométrico), o paulista e o do norte. */
+export const ALQUEIRE_HECTARES: Record<AlqueireType, string> = {
+  goiano: '4.84',
+  paulista: '2.42',
+  norte: '2.72',
+};
+
+/** Leitura de um texto digitado: vazio é `null`; texto que não é número é `ok: false`. */
+export type ParsedDecimal = { ok: true; value: string | null } | { ok: false };
+
+/** Decimal como inteiro em `bigint` e casas: `"-14.805"` é `{ units: -14805n, scale: 3 }`. */
+type Scaled = { units: bigint; scale: number };
+
+const CANONICAL = /^[+-]?\d+(\.\d+)?$/;
+
+function toScaled(value: string): Scaled {
+  if (!CANONICAL.test(value)) throw new Error(`Não é um decimal canônico: ${JSON.stringify(value)}`);
+  const [integer = '', fraction = ''] = value.split('.');
+  return { units: BigInt(integer + fraction), scale: fraction.length };
+}
+
+const pow10 = (exponent: number) => 10n ** BigInt(exponent);
+
+/** Divisão inteira arredondando o meio para longe do zero, como o `round` do Postgres. */
+function divRound(numerator: bigint, denominator: bigint): bigint {
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  const abs = (n: bigint) => (n < 0n ? -n : n);
+  if (2n * abs(remainder) < abs(denominator)) return quotient;
+  return numerator < 0n === denominator < 0n ? quotient + 1n : quotient - 1n;
+}
+
+/** Leva o decimal a `scale` casas, arredondando. */
+function rescale({ units, scale }: Scaled, target: number): bigint {
+  return target >= scale ? units * pow10(target - scale) : divRound(units, pow10(scale - target));
+}
+
+/** Volta ao texto canônico, sem zeros à direita e sem `-0`. */
+function toCanonical(units: bigint, scale: number): string {
+  const negative = units < 0n;
+  const digits = (negative ? -units : units).toString().padStart(scale + 1, '0');
+  const integer = digits.slice(0, digits.length - scale);
+  const fraction = digits.slice(digits.length - scale).replace(/0+$/, '');
+  if (units === 0n) return '0';
+  return `${negative ? '-' : ''}${integer}${fraction ? `.${fraction}` : ''}`;
+}
+
+/** Arredonda um decimal canônico a `scale` casas (meio para longe do zero). */
+export function roundDecimal(value: string, scale: number): string {
+  return toCanonical(rescale(toScaled(value), scale), scale);
+}
+
+/** -1, 0 ou 1, comparando o valor: `"1480.50"` e `"1480.5"` são iguais. */
+export function compareDecimal(a: string, b: string): -1 | 0 | 1 {
+  const left = toScaled(a);
+  const right = toScaled(b);
+  const scale = Math.max(left.scale, right.scale);
+  const diff = rescale(left, scale) - rescale(right, scale);
+  return diff === 0n ? 0 : diff < 0n ? -1 : 1;
+}
+
+/** Parte inteira com separador de milhar: grupos de três depois do primeiro. */
+const grouped = (separator: string) => new RegExp(`^\\d{1,3}(\\${separator}\\d{3})*$`);
+
+/** Separa parte inteira e fração conforme os separadores que o texto usa; `null` se não fecha. */
+function splitSeparators(body: string): [string, string] | null {
+  const lastComma = body.lastIndexOf(',');
+  const lastDot = body.lastIndexOf('.');
+  if (lastComma >= 0 && lastDot >= 0) {
+    // os dois: o último é o decimal e o outro, o milhar ("1.480,50" e "1,480.50")
+    const decimal = lastComma > lastDot ? ',' : '.';
+    const thousands = decimal === ',' ? '.' : ',';
+    const at = body.lastIndexOf(decimal);
+    const integer = body.slice(0, at);
+    const fraction = body.slice(at + 1);
+    if (fraction.includes(thousands) || !grouped(thousands).test(integer)) return null;
+    return [integer.replaceAll(thousands, ''), fraction];
+  }
+  if (lastComma >= 0) {
+    // só vírgula: é o decimal, como se escreve em pt-BR
+    const parts = body.split(',');
+    return parts.length === 2 ? [parts[0] ?? '', parts[1] ?? ''] : null;
+  }
+  // Só ponto: milhar quando agrupa como milhar ("1.480", que é como o campo
+  // exibe 1480), decimal quando aparece uma vez fora disso ("1480.5", "0.500").
+  if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(body)) return [body.replaceAll('.', ''), ''];
+  const parts = body.split('.');
+  return parts.length <= 2 ? [parts[0] ?? '', parts[1] ?? ''] : null;
+}
+
+/**
+ * Lê o que a pessoa digitou: milhar com ponto e decimal com vírgula
+ * (`"1.480,50"`), ou decimal com ponto (`"1480.5"`), com sinal opcional.
+ * Arredonda em `scale` casas e devolve o decimal canônico.
+ */
+export function parseDecimal(text: string, scale: number): ParsedDecimal {
+  const compact = text.replace(/\s/g, '');
+  if (compact === '') return { ok: true, value: null };
+  const match = /^([+-]?)([\d.,]+)$/.exec(compact);
+  if (!match) return { ok: false };
+  const [, sign = '', body = ''] = match;
+  const parts = splitSeparators(body);
+  if (!parts) return { ok: false };
+  const [integer, fraction] = parts;
+  if (!/^\d*$/.test(integer) || !/^\d*$/.test(fraction) || integer + fraction === '') return { ok: false };
+  const canonical = `${sign === '-' ? '-' : ''}${integer || '0'}${fraction ? `.${fraction}` : ''}`;
+  return { ok: true, value: roundDecimal(canonical, scale) };
+}
+
+export type DecimalFormat = {
+  /** Casas sempre mostradas, completando com zero: 2 no dinheiro. */
+  minScale: number;
+  /** Casas no máximo; o que passa é arredondado. */
+  maxScale: number;
+};
+
+/** Exibe um decimal canônico em pt-BR: `"1480.5"` vira `"1.480,50"` com duas casas fixas. */
+export function formatDecimal(value: string, { minScale, maxScale }: DecimalFormat): string {
+  const canonical = roundDecimal(value, maxScale);
+  const negative = canonical.startsWith('-');
+  const [integer = '', fraction = ''] = (negative ? canonical.slice(1) : canonical).split('.');
+  const thousands = integer.replace(/\B(?=(\d{3})+$)/g, '.');
+  const decimals = fraction.padEnd(minScale, '0');
+  return `${negative ? '-' : ''}${thousands}${decimals ? `,${decimals}` : ''}`;
+}
+
+/** Multiplica dois decimais canônicos, arredondando o produto em `scale` casas. */
+function multiply(a: string, b: string, scale: number): string {
+  const left = toScaled(a);
+  const right = toScaled(b);
+  const units = divRound(left.units * right.units * pow10(scale), pow10(left.scale + right.scale));
+  return toCanonical(units, scale);
+}
+
+/** Divide dois decimais canônicos, arredondando o quociente em `scale` casas. */
+function divide(a: string, b: string, scale: number): string {
+  const left = toScaled(a);
+  const right = toScaled(b);
+  const units = divRound(left.units * pow10(right.scale + scale), right.units * pow10(left.scale));
+  return toCanonical(units, scale);
+}
+
+/** Alqueires do tipo dado em hectares, nas casas da área. */
+export function alqueiresToHectares(alqueires: string, type: AlqueireType): string {
+  return multiply(alqueires, ALQUEIRE_HECTARES[type], AREA_SCALE);
+}
+
+/** Hectares em alqueires do tipo dado, nas casas da área. */
+export function hectaresToAlqueires(hectares: string, type: AlqueireType): string {
+  return divide(hectares, ALQUEIRE_HECTARES[type], AREA_SCALE);
+}

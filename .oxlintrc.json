@@ -98,6 +98,18 @@
         "message": "<Input> size aceita só 'sm' | 'md' | 'lg'."
       },
       {
+        "selector": "JSXOpeningElement[name.name=/^(?:MoneyInput|AreaInput|PercentInput)$/] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
+        "message": "<MoneyInput>, <AreaInput> e <PercentInput> size aceitam só 'sm' | 'md' | 'lg'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='AreaInput'] > JSXAttribute[name.name='unit'] > Literal[value!=/^(?:hectare|alqueire)$/]",
+        "message": "<AreaInput> unit aceita só 'hectare' | 'alqueire'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='AreaInput'] > JSXAttribute[name.name='alqueireType'] > Literal[value!=/^(?:goiano|paulista|norte)$/]",
+        "message": "<AreaInput> alqueireType aceita só 'goiano' | 'paulista' | 'norte'."
+      },
+      {
         "selector": "JSXOpeningElement[name.name='ProgressBar'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:brand|gold|success|danger)$/]",
         "message": "<ProgressBar> tone aceita só 'brand' | 'gold' | 'success' | 'danger'."
       },
