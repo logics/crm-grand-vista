@@ -23,12 +23,14 @@ export const fieldSurface = [
 
 /**
  * A mesma superfície de `fieldSurface`, numa moldura em volta do campo (o
- * `Input` com ícone, prefixo e sufixo): reage a `focus-within` e ao
- * `aria-invalid` do filho. As duas mudam juntas.
+ * `Input` com ícone, prefixo e sufixo; o gatilho do `AsyncCombobox`): reage a
+ * `focus-within`, ao `aria-expanded` (lista aberta) e ao `aria-invalid` do
+ * filho. As duas mudam juntas.
  */
 export const fieldFrameSurface = [
   'bg-surface-sunken text-text-body inset-ring inset-ring-transparent transition-control',
   'focus-within:bg-surface-card focus-within:inset-ring-brand-accent focus-within:shadow-ring-focus',
+  'has-[[aria-expanded=true]]:bg-surface-card has-[[aria-expanded=true]]:inset-ring-brand-accent has-[[aria-expanded=true]]:shadow-ring-focus',
   'has-[[aria-invalid=true]]:inset-ring-status-danger-fg has-[[aria-invalid=true]]:focus-within:shadow-ring-danger',
   'has-disabled:cursor-not-allowed has-disabled:opacity-45',
 ].join(' ');

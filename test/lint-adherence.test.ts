@@ -30,6 +30,10 @@ const violations: Record<string, { source: string; expected: RegExp }> = {
     source: `export const el = <CompatibilityGauge value={80} size="xl" />;`,
     expected: /<CompatibilityGauge> size/,
   },
+  'tamanho inexistente de AsyncCombobox': {
+    source: `export const el = <AsyncCombobox size="xl" />;`,
+    expected: /<AsyncCombobox> size/,
+  },
   'tom inexistente de Wordmark': { source: `export const el = <Wordmark tone="gold" />;`, expected: /<Wordmark> tone/ },
   'glifo direto do lucide-react': {
     source: `import { Tractor } from 'lucide-react';\nexport const glyph = Tractor;`,
@@ -47,6 +51,7 @@ const conforming: Record<string, string> = {
     <Button variant="accent" size="lg" type="submit" onClick={() => {}} aria-label="Salvar">Salvar</Button>
     <Badge tone="gold" size="sm">Destaque</Badge>
     <CompatibilityGauge value={80} size="lg" />
+    <AsyncCombobox size="sm" />
     <Wordmark tone="light" />
   </>
 );`,
