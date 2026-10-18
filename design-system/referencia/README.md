@@ -82,6 +82,8 @@ Desktop keeps the power features: column picker, multi-select with a floating bu
 
 **Controls.** Buttons are pills: primary green, secondary white + xs shadow, soft stone, dark, ghost, soft-red danger. Icon buttons are 40px circles (outline variant = white + inset line, used in the topbar). Inputs are stone-filled with no visible border; on focus they turn white with a gold 1px inset + `--ring-focus`. Tabs come in two forms: **segmented** pill track with a raised white thumb (filters, periods, views) and **underline** for record sections. Badges are soft pills with a 6px dot. Deltas are tiny semibold pills with an arrow.
 
+> **Superado em `packages/ui`:** o campo é branco com filete `border-default` em repouso e afundado só quando desabilitado; o foco segue como acima. Estados completos em `docs/specs/design-system.md`, "Divisão de camadas".
+
 **Tables.** Inside a card with no padding; header band `--surface-sunken` with 12px faint sentence-case labels; 56px rows separated by hairlines; hover `--surface-hover`; selected `--surface-selected`; row actions fade in on hover. On mobile each row becomes a record card.
 
 **Hover / press / focus / disabled.** Hover darkens filled buttons one step and gives ghost controls a stone fill. Press translates +1px. Focus is always the gold ring (never blue). Disabled = opacity .45 + not-allowed.

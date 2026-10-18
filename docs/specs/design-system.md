@@ -65,6 +65,17 @@ Nos componentes de domínio, os desvios são de forma, não de aparência. As en
 
 O `Field` liga rótulo, dica e erro ao controle por contexto, não por prop injetada no filho: o controle pode estar aninhado (o `SelectTrigger` dentro do `Select`). `Input`, `SelectTrigger`, `Checkbox` e `Switch` leem esse contexto (`id`, `aria-describedby`, `aria-invalid`, `aria-required`), e o que o controle declara vence. `Input` é primitivo do shadcn com a moldura do export (ícone, prefixo, sufixo); entra junto dos componentes núcleo porque `Field` e `SearchBar` dependem dele.
 
+A superfície dos campos de formulário é **desvio deliberado de aparência**: no export o campo era afundado (`--surface-sunken`) sem filete, e quase não se separava do fundo da tela nem do cartão branco. Em `packages/ui` os estados são:
+
+| Estado | Superfície |
+|---|---|
+| Repouso | branca (`bg-surface-card`) com filete `border-default` |
+| Focado ou aberto (lista, calendário) | branca, contorno `brand-accent` e anel `shadow-ring-focus` |
+| Inválido (`aria-invalid`) | contorno `status-danger-fg`; com foco, anel `shadow-ring-danger` |
+| Desabilitado | afundada (`bg-surface-sunken`) e esmaecida |
+
+Afundado, num campo, quer dizer desabilitado — não é cor de repouso nem de destaque. Os estados vivem em duas receitas de `src/lib/styles.ts`, que mudam juntas: `fieldSurface`, no próprio controle (`SelectTrigger`), e `fieldFrameSurface`, na moldura em volta dele (`Input` — e, por ele, `SearchBar`, `MoneyInput`, `AreaInput` e `PercentInput` —; gatilho do `AsyncCombobox`). Controle novo usa uma das duas, não reescreve as classes. O que faz papel de campo sem ser um — a área de envio do `MediaUploader`, com filete tracejado — segue os mesmos estados: branca em repouso, contorno dourado e anel de foco ao receber arquivos, afundada quando desabilitada. Chip ou etiqueta dentro do campo usa o `Tag` de pedra, que contrasta com o branco.
+
 Os estilos inline do export **não atravessam**: não suportam media query, container query, pseudo-classe nem tema escuro. O próprio kit `crm-v2` do export abandonou inline em favor de um arquivo CSS.
 
 `ui_kits/crm-v2/ui.jsx` é uma implementação **paralela** (`A2Btn`, `A2Icon`, classes `a2-*`) que não importa nada de `components/` e carrega ícones de CDN. Não é uma versão alternativa dos componentes: é andaime de protótipo. Ler para extrair decisões de layout, nunca portar.
