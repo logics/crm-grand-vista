@@ -8,10 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../primitives/dialog.js';
-import { Button, type ButtonProps } from './button.js';
+import { Button } from './button.js';
 import type { IconName } from './icon.js';
 
-// Pergunta antes de uma ação que não se desfaz: remover um arquivo, descartar
+// Pergunta antes de uma ação que não se desfaz (o botão de confirmar é `danger`): remover um arquivo, descartar
 // o que foi preenchido. Cancelar e Escape fecham sem agir, e o foco volta a
 // quem abriu. Ao confirmar, quem abriu costuma sair da tela junto com o item:
 // `focusAfterConfirm` diz para onde o foco vai.
@@ -26,8 +26,6 @@ export type ConfirmDialogProps = {
   /** Verbo da ação: "Remover", "Descartar". */
   confirmLabel: string;
   confirmIcon?: IconName;
-  /** danger para o que apaga ou perde dado. */
-  confirmVariant?: ButtonProps['variant'];
   cancelLabel?: string;
   onConfirm: () => void;
   /** Destino do foco depois de confirmar, quando quem abriu não existe mais. */
@@ -41,7 +39,6 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   confirmIcon,
-  confirmVariant = 'danger',
   cancelLabel = 'Cancelar',
   onConfirm,
   focusAfterConfirm,
@@ -69,7 +66,7 @@ export function ConfirmDialog({
             <Button variant="ghost">{cancelLabel}</Button>
           </DialogClose>
           <Button
-            variant={confirmVariant}
+            variant="danger"
             icon={confirmIcon}
             onClick={() => {
               confirmed.current = true;

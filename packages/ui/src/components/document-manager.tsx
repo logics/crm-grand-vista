@@ -147,7 +147,14 @@ export function DocumentManager<T>({
 
       <RejectedFiles files={rejected} />
 
-      {groups.length === 0 ? (
+      {categories.length === 0 ? (
+        <EmptyState
+          compact
+          icon="file-text"
+          title="Nenhuma categoria de documento"
+          description="Cadastre as categorias da empresa para organizar os documentos."
+        />
+      ) : groups.length === 0 ? (
         <EmptyState
           compact
           icon="search-x"

@@ -100,6 +100,12 @@ describe('DocumentManager — agrupamento', () => {
       'Arquivo',
     ]);
   });
+
+  it('sem categorias, diz que elas faltam, sem mencionar busca', () => {
+    render(<DocumentManager categories={[]} />);
+    expect(screen.getByText('Nenhuma categoria de documento')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum documento encontrado')).not.toBeInTheDocument();
+  });
 });
 
 describe('DocumentManager — ações', () => {
@@ -160,6 +166,19 @@ describe('DocumentManager — ações', () => {
 
     expect(onEdit).toHaveBeenCalledWith(documents[0], { name: 'matricula-atualizada.pdf', notes: 'Registro de 2026' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('Escape fecha a edição sem salvar e devolve o foco ao botão', async () => {
+    const onEdit = vi.fn();
+    render(<DocumentManager categories={categories} documents={documents} onEdit={onEdit} />);
+    const edit = screen.getByRole('button', { name: 'Editar certidao-itr.pdf' });
+    await userEvent.click(edit);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Nota' }), 'rascunho');
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(edit).toHaveFocus();
   });
 
   it('não salva sem nome, e diz o que falta', async () => {
