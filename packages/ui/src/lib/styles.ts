@@ -44,6 +44,13 @@ export const fieldSize = {
 
 export type FieldSize = keyof typeof fieldSize;
 
+/** Altura mínima, por tamanho, do campo que cresce com o conteúdo (os chips do `AsyncCombobox`). */
+export const fieldMinHeight = {
+  sm: 'min-h-control-height-sm',
+  md: 'min-h-control-height',
+  lg: 'min-h-control-height-lg',
+} as const satisfies Record<FieldSize, string>;
+
 /** Distância, em px, entre o gatilho e o painel flutuante (prop `sideOffset` do Radix, que não lê token). */
 export const floatingOffset = 6;
 

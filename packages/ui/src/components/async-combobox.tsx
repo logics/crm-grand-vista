@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { cn } from '../lib/cn.js';
 import { useFieldControl } from '../lib/field-control.js';
-import { type FieldSize, fieldFrameSurface, fieldSize, focusRing } from '../lib/styles.js';
+import { type FieldSize, fieldFrameSurface, fieldMinHeight, fieldSize, focusRing } from '../lib/styles.js';
 import { Command, CommandInput, CommandItem, CommandList } from '../primitives/command.js';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '../primitives/popover.js';
 import { Button } from './button.js';
@@ -51,8 +51,9 @@ type AsyncComboboxBaseProps<T> = Pick<
   /** Conteúdo do item na lista, quando o rótulo não basta (cidade, documento…). */
   renderItem?: (item: T) => ReactNode;
   /**
-   * Hidrata os itens de que o valor só tem o ID (string). ID que não volta
-   * aparece como travessão e sai do valor na próxima mudança.
+   * Hidrata os itens de que o valor só tem o ID (string). Até voltar, o
+   * valor não muda (não abre, não remove); ID que não volta aparece como
+   * travessão e sai do valor na próxima mudança.
    */
   resolve?: (ids: string[]) => Promise<T[]>;
   /** Texto do gatilho sem seleção. */
@@ -117,9 +118,17 @@ function useLatest<V>(value: V) {
  * anterior é abortada a cada nova; resposta que não é da busca mais recente é
  * descartada, mesmo que o `search` ignore o `signal`.
  */
-function useSearch<T>(search: AsyncComboboxSearch<T>, term: string, active: boolean, minChars: number, debounceMs: number) {
+function useSearch<T>(
+  search: AsyncComboboxSearch<T>,
+  getKey: (item: T) => string,
+  term: string,
+  active: boolean,
+  minChars: number,
+  debounceMs: number,
+) {
   const [state, setState] = useState<SearchState<T>>(idleSearch);
   const latestSearch = useLatest(search);
+  const latestGetKey = useLatest(getKey);
   const pending = useRef<AbortController | null>(null);
   const opened = useRef(false);
 
@@ -141,7 +150,7 @@ function useSearch<T>(search: AsyncComboboxSearch<T>, term: string, active: bool
           setState((prev) => ({
             status: 'ready',
             term,
-            items: cursor === undefined ? page.items : [...prev.items, ...page.items],
+            items: cursor === undefined ? page.items : appendNew(prev.items, page.items, latestGetKey.current),
             nextCursor: page.nextCursor,
           }));
         },
@@ -152,7 +161,7 @@ function useSearch<T>(search: AsyncComboboxSearch<T>, term: string, active: bool
         },
       );
     },
-    [cancel, latestSearch],
+    [cancel, latestSearch, latestGetKey],
   );
 
   useEffect(() => {
@@ -186,6 +195,12 @@ function useSearch<T>(search: AsyncComboboxSearch<T>, term: string, active: bool
 
   // abaixo do mínimo de caracteres, a lista só pede que se digite mais
   return { state: active && term.length < minChars ? idleSearch : state, loadMore, retry, reset };
+}
+
+/** Acrescenta a página seguinte sem repetir item que já veio (a lista mudou entre as páginas). */
+function appendNew<T>(items: T[], page: T[], getKey: (item: T) => string) {
+  const seen = new Set(items.map(getKey));
+  return [...items, ...page.filter((item) => !seen.has(getKey(item)))];
 }
 
 /** Item hidratado por `resolve`; `null` é ID que não voltou. */
@@ -241,7 +256,9 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   const [open, setOpen] = useState(defaultOpen && !disabled);
   const [term, setTerm] = useState('');
   const [highlighted, setHighlighted] = useState('');
-  const { state, loadMore, retry, reset } = useSearch(search, term, open, minChars, debounceMs);
+  const { state, loadMore, retry, reset } = useSearch(search, getKey, term, open, minChars, debounceMs);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const entries: ReadonlyArray<T | string> = props.multiple ? props.value : props.value === null ? [] : [props.value];
   const keyOf = (entry: T | string) => (typeof entry === 'string' ? entry : getKey(entry));
@@ -259,6 +276,9 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     return typeof entry === 'string' && resolve && !known.has(entry) ? 'Carregando…' : '—';
   };
   const selectedItems = entries.map(itemOf).filter((item): item is T => item != null);
+  // enquanto `resolve` não volta, o valor fica parado: mudar agora perderia os IDs ainda sem item
+  const hydrating = resolve !== undefined && entries.some((entry) => typeof entry === 'string' && !known.has(entry));
+  const locked = disabled || hydrating;
 
   const change = (items: T[]) => {
     if (props.multiple) props.onChange(items);
@@ -266,7 +286,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   };
 
   const changeOpen = (next: boolean) => {
-    if (disabled) return;
+    if (next && locked) return;
     setOpen(next);
     if (!next) {
       setTerm('');
@@ -287,7 +307,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   };
 
   const removeLast = () => {
-    if (props.multiple && entries.length > 0) {
+    if (props.multiple && entries.length > 0 && !locked) {
       const last = keyOf(entries[entries.length - 1]!);
       change(selectedItems.filter((item) => getKey(item) !== last));
     }
@@ -302,6 +322,12 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     }
   };
 
+  /** Remoção pelo chip ou pelo limpar: o botão clicado some, o foco volta ao gatilho. */
+  const removeAndRefocus = (items: T[]) => {
+    change(items);
+    triggerRef.current?.focus();
+  };
+
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Backspace' && term === '') removeLast();
   };
@@ -314,6 +340,13 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     setHighlighted(key);
     if (key !== '' && key === lastKey) loadMore();
   };
+
+  // primeira página que não enche a lista não tem rolagem: pede a seguinte já
+  const latestLoadMore = useLatest(loadMore);
+  useEffect(() => {
+    const list = listRef.current;
+    if (list && list.clientHeight > 0 && list.scrollHeight <= list.clientHeight) latestLoadMore.current();
+  }, [state.items, latestLoadMore]);
 
   // rolar até perto do fim (um quarto da altura visível) também
   const onListScroll = (event: UIEvent<HTMLDivElement>) => {
@@ -344,7 +377,8 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   })();
 
   const hasValue = entries.length > 0;
-  const lifted = 'relative z-10';
+  /** Chips e limpar ficam acima do `::after` do gatilho, que cobre a moldura. */
+  const aboveTrigger = 'relative z-10';
 
   return (
     <Popover open={open} onOpenChange={changeOpen}>
@@ -355,7 +389,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
             fieldFrameSurface,
             fieldSize[size],
             'relative flex w-full items-center gap-3 rounded-input pr-4 pl-5',
-            props.multiple && hasValue && ['h-auto flex-wrap py-2', minHeight[size]],
+            props.multiple && hasValue && ['h-auto flex-wrap py-2', fieldMinHeight[size]],
             className,
           )}
         >
@@ -366,8 +400,12 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
               return (
                 <Tag
                   key={keyOf(entry)}
-                  className={lifted}
-                  onRemove={disabled || !item ? undefined : () => toggle(item)}
+                  className={aboveTrigger}
+                  onRemove={
+                    locked || !item
+                      ? undefined
+                      : () => removeAndRefocus(selectedItems.filter((chosen) => getKey(chosen) !== getKey(item)))
+                  }
                 >
                   {label}
                 </Tag>
@@ -375,30 +413,40 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
             })}
           <PopoverTrigger asChild>
             <button
+              ref={triggerRef}
               type="button"
               role="combobox"
               disabled={disabled}
+              aria-busy={hydrating || undefined}
               onKeyDown={onTriggerKeyDown}
               className={cn(
                 'h-full min-w-0 flex-1 cursor-pointer truncate text-left outline-none focus-visible:shadow-none',
                 "after:absolute after:inset-0 after:rounded-input after:content-['']",
                 'disabled:cursor-not-allowed',
-                // na múltipla com chips, o placeholder sai e o botão vira só área de clique
+                // na múltipla com chips, o placeholder sai e o botão vira só área de clique;
+                // sem eles, 120px (3 × --space-10) bastam para o placeholder
                 (!hasValue || !props.multiple) && 'min-w-[calc(3*var(--space-10))]',
                 !hasValue && 'text-text-faint',
               )}
               {...control}
             >
-              {props.multiple ? (!hasValue && placeholder) : hasValue ? labelOf(entries[0]!) : placeholder}
+              {!hasValue ? (
+                placeholder
+              ) : props.multiple ? (
+                // os chips mostram a seleção; o leitor de tela a ouve no gatilho
+                <span className="sr-only">{entries.map(labelOf).join(', ')}</span>
+              ) : (
+                labelOf(entries[0]!)
+              )}
             </button>
           </PopoverTrigger>
-          {hasValue && !disabled && (
+          {hasValue && !locked && (
             <button
               type="button"
               aria-label="Limpar seleção"
-              onClick={() => change([])}
+              onClick={() => removeAndRefocus([])}
               className={cn(
-                lifted,
+                aboveTrigger,
                 'inline-flex cursor-pointer rounded-pill p-1 text-text-faint transition-control hover:text-text-body',
                 focusRing,
               )}
@@ -412,6 +460,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
       <PopoverContent
         align="start"
         aria-label={searchPlaceholder}
+        // a largura da moldura, nunca menos que 280px (7 × --space-10), a de um campo do kit crm-v2
         className="w-(--radix-popover-trigger-width) min-w-[calc(7*var(--space-10))] p-0"
       >
         <Command shouldFilter={false} value={highlighted} onValueChange={onHighlight} label={searchPlaceholder}>
@@ -422,6 +471,8 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
             onKeyDown={onSearchKeyDown}
           />
           <CommandList
+            ref={listRef}
+            aria-multiselectable={props.multiple || undefined}
             aria-busy={state.status === 'loading' || undefined}
             onScroll={onListScroll}
             className={cn(
@@ -455,13 +506,6 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     </Popover>
   );
 }
-
-/** Altura mínima da moldura que cresce com os chips, por tamanho. */
-const minHeight = {
-  sm: 'min-h-control-height-sm',
-  md: 'min-h-control-height',
-  lg: 'min-h-control-height-lg',
-} as const satisfies Record<FieldSize, string>;
 
 /** Linha de estado sob a lista (carregando, vazio, erro), na altura do vazio do `Command`. */
 function StatusRow({ loading = false, action, children }: { loading?: boolean; action?: ReactNode; children: ReactNode }) {

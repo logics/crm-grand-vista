@@ -296,6 +296,17 @@ describe('AsyncCombobox', () => {
       expect(search).toHaveBeenCalledTimes(2);
     });
 
+    it('item repetido na página seguinte não se duplica', async () => {
+      const user = setup();
+      const { search, calls } = fakeSearch();
+      render(<Single search={search} />);
+      await open(user);
+      await answer(calls[0], { items: farms.slice(0, 2), nextCursor: 'p2' });
+      await user.keyboard('{ArrowDown}');
+      await answer(calls[1], { items: farms.slice(1) });
+      expect(optionNames()).toEqual(farms.map((farm) => farm.name));
+    });
+
     it('ao rolar até o fim da lista, busca a página seguinte', async () => {
       const user = setup();
       const { search, calls } = fakeSearch();
@@ -368,6 +379,7 @@ describe('AsyncCombobox', () => {
       await user.click(screen.getByRole('button', { name: 'Limpar seleção' }));
       expect(onChange).toHaveBeenCalledWith(null);
       expect(screen.queryByRole('button', { name: 'Limpar seleção' })).toBeNull();
+      expect(screen.getByRole('combobox', { name: 'Fazenda' })).toHaveFocus();
     });
 
     it('hidrata o rótulo do valor inicial por ID com o resolve', async () => {
@@ -411,8 +423,12 @@ describe('AsyncCombobox', () => {
       await open(user, 'Fazendas');
       await answer(calls[0], { items: farms });
 
+      expect(screen.getByRole('listbox')).toHaveAttribute('aria-multiselectable', 'true');
       await user.keyboard('{Enter}{ArrowDown}{Enter}');
       expect(onChange).toHaveBeenLastCalledWith([farms[0], farms[1]]);
+      expect(screen.getByRole('combobox', { name: 'Fazendas' })).toHaveTextContent(
+        'Fazenda Três Barras, Fazenda Boa Esperança',
+      );
       expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByRole('option', { name: 'Fazenda Três Barras' })).toHaveAttribute('aria-checked', 'true');
       expect(screen.getByRole('button', { name: 'Remover Fazenda Boa Esperança' })).toBeInTheDocument();
@@ -454,6 +470,7 @@ describe('AsyncCombobox', () => {
 
       await user.click(screen.getByRole('button', { name: 'Remover Fazenda Boa Esperança' }));
       expect(onChange).toHaveBeenLastCalledWith([farms[0], farms[2]]);
+      expect(screen.getByRole('combobox', { name: 'Fazendas' })).toHaveFocus();
       await user.click(screen.getByRole('button', { name: 'Limpar seleção' }));
       expect(onChange).toHaveBeenLastCalledWith([]);
       expect(screen.getByRole('combobox', { name: 'Fazendas' })).toHaveTextContent('Escolha as fazendas');
@@ -475,6 +492,30 @@ describe('AsyncCombobox', () => {
       expect(screen.getByRole('option', { name: 'Fazenda Santa Helena' })).toHaveAttribute('aria-checked', 'true');
       await user.click(screen.getByRole('option', { name: 'Fazenda Boa Esperança' }));
       expect(resolve).toHaveBeenCalledTimes(1);
+    });
+
+    it('enquanto hidrata, não muda o valor: nada de perder os IDs ainda sem rótulo', async () => {
+      const user = setup();
+      const onChange = vi.fn();
+      let finish!: (farms: Farm[]) => void;
+      const resolve = vi.fn(() => new Promise<Farm[]>((done) => (finish = done)));
+      const { search, calls } = fakeSearch();
+      render(<Multiple search={search} initial={[farms[0]!, 'f3']} resolve={resolve} onChange={onChange} />);
+      const trigger = screen.getByRole('combobox', { name: 'Fazendas' });
+
+      expect(trigger).toHaveAttribute('aria-busy', 'true');
+      expect(screen.queryByRole('button', { name: /^Remover|Limpar/ })).toBeNull();
+      trigger.focus();
+      await user.keyboard('{Backspace}{ArrowDown}');
+      expect(onChange).not.toHaveBeenCalled();
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      await act(async () => finish([farms[2]!]));
+      expect(trigger).not.toHaveAttribute('aria-busy');
+      await user.keyboard('{ArrowDown}');
+      await answer(calls[0], { items: farms });
+      await user.click(screen.getByRole('option', { name: 'Fazenda Boa Esperança' }));
+      expect(onChange).toHaveBeenLastCalledWith([farms[0], farms[2], farms[1]]);
     });
 
     it('desabilitado, os chips não têm botão de remover', () => {

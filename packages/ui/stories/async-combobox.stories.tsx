@@ -63,7 +63,7 @@ type SingleArgs = {
   minChars?: number;
 };
 
-function FarmPicker({ search = searchFarms, initial = null, label = 'Fazenda', hint, error, ...props }: SingleArgs) {
+function FarmField({ search = searchFarms, initial = null, label = 'Fazenda', hint, error, ...props }: SingleArgs) {
   const [value, setValue] = useState<Farm | string | null>(initial);
   return (
     <Field label={label} hint={hint} error={error}>
@@ -83,7 +83,7 @@ function FarmPicker({ search = searchFarms, initial = null, label = 'Fazenda', h
   );
 }
 
-function FarmsPicker({ initial = [], defaultOpen }: { initial?: Array<Farm | string>; defaultOpen?: boolean }) {
+function FarmsField({ initial = [], defaultOpen }: { initial?: Array<Farm | string>; defaultOpen?: boolean }) {
   const [value, setValue] = useState<Array<Farm | string>>(initial);
   return (
     <Field label="Fazendas de interesse" hint="Escolha quantas quiser">
@@ -106,10 +106,10 @@ function FarmsPicker({ initial = [], defaultOpen }: { initial?: Array<Farm | str
 // Aberto, o conteúdo cobre a página de documentação: as stories ficam só no canvas.
 const meta = {
   title: 'Formulário/AsyncCombobox',
-  component: FarmPicker,
+  component: FarmField,
   tags: ['!autodocs'],
   decorators: [constrained('md')],
-} satisfies Meta<typeof FarmPicker>;
+} satisfies Meta<typeof FarmField>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -122,12 +122,12 @@ export const ValorPorId: Story = { name: 'Valor por ID', args: { initial: 'f4', 
 
 export const Multipla: Story = {
   name: 'Múltipla',
-  render: () => <FarmsPicker initial={['f1', farms[4]!, 'f7']} />,
+  render: () => <FarmsField initial={['f1', farms[4]!, 'f7']} />,
 };
 
 export const MultiplaAberta: Story = {
   name: 'Múltipla aberta',
-  render: () => <FarmsPicker initial={[farms[0]!]} defaultOpen />,
+  render: () => <FarmsField initial={[farms[0]!]} defaultOpen />,
 };
 
 export const Carregando: Story = { args: { search: neverAnswers, defaultOpen: true } };
