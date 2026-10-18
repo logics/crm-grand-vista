@@ -11,6 +11,11 @@ element.setPointerCapture ??= () => {};
 element.releasePointerCapture ??= () => {};
 element.scrollIntoView ??= () => {};
 
+// Nem URLs de objeto, que o `MediaUploader` cria para a prévia local. Os testes
+// do componente trocam estas por espiãs que contam o que foi criado e revogado.
+URL.createObjectURL ??= () => 'blob:previa';
+URL.revokeObjectURL ??= () => {};
+
 globalThis.ResizeObserver ??= class {
   observe() {}
   unobserve() {}
