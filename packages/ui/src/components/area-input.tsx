@@ -1,4 +1,10 @@
-import { AREA_SCALE, type AlqueireType, alqueiresToHectares, hectaresToAlqueires } from '@crm/shared';
+import {
+  ALQUEIRE_LABELS,
+  AREA_SCALE,
+  type AlqueireType,
+  alqueiresToHectares,
+  hectaresToAlqueires,
+} from '@crm/shared';
 import { type DecimalInputProps, useDecimalInput } from '../lib/decimal-input.js';
 import { Input } from '../primitives/input.js';
 
@@ -19,25 +25,18 @@ export type AreaInputProps = DecimalInputProps & {
 
 const format = { minScale: 0, maxScale: AREA_SCALE };
 
-const alqueireLabel: Record<AlqueireType, string> = {
-  goiano: 'alq. goiano',
-  paulista: 'alq. paulista',
-  norte: 'alq. do norte',
-};
-
 export function AreaInput({ unit = 'hectare', alqueireType = 'goiano', min = '0', ...props }: AreaInputProps) {
   const alqueire = unit === 'alqueire';
   const decimal = useDecimalInput(
     { min, ...props },
-    alqueire
-      ? {
-          scale: AREA_SCALE,
-          format,
-          toDisplay: (hectares) => hectaresToAlqueires(hectares, alqueireType),
-          fromDisplay: (alqueires) => alqueiresToHectares(alqueires, alqueireType),
-          displayKey: alqueireType,
-        }
-      : { scale: AREA_SCALE, format, displayKey: 'hectare' },
+    {
+      format,
+      displayKey: alqueire ? alqueireType : unit,
+      ...(alqueire && {
+        toDisplay: (hectares: string) => hectaresToAlqueires(hectares, alqueireType),
+        fromDisplay: (alqueires: string) => alqueiresToHectares(alqueires, alqueireType),
+      }),
+    },
   );
-  return <Input suffix={alqueire ? alqueireLabel[alqueireType] : 'ha'} {...decimal} />;
+  return <Input suffix={alqueire ? ALQUEIRE_LABELS[alqueireType] : 'ha'} {...decimal} />;
 }

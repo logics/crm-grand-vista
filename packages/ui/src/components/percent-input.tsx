@@ -11,5 +11,5 @@ export type PercentInputProps = DecimalInputProps;
 const format = { minScale: 0, maxScale: PERCENT_SCALE };
 
 export function PercentInput({ min = '0', max = '100', ...props }: PercentInputProps) {
-  return <Input suffix="%" {...useDecimalInput({ min, max, ...props }, { scale: PERCENT_SCALE, format })} />;
+  return <Input suffix="%" {...useDecimalInput({ min, max, ...props }, { format })} />;
 }

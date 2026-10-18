@@ -3,7 +3,7 @@ import '../support/dom.js';
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { AreaInput } from '../../src/index.js';
+import { AreaInput, Field } from '../../src/index.js';
 
 describe('AreaInput', () => {
   it('em hectares: sufixo ha, até quatro casas', async () => {
@@ -51,5 +51,20 @@ describe('AreaInput', () => {
     expect(screen.getByRole('textbox')).toHaveValue('88,9706');
     rerender(<AreaInput aria-label="Área total" value="242" />);
     expect(screen.getByRole('textbox')).toHaveValue('242');
+  });
+
+  it('em alqueire, dentro do `Field`: o erro de faixa vale em hectares', async () => {
+    const user = userEvent.setup();
+    render(
+      <Field label="Área útil" hint="Até a área total">
+        <AreaInput unit="alqueire" alqueireType="goiano" max="484" />
+      </Field>,
+    );
+    const input = screen.getByRole('textbox', { name: 'Área útil' });
+    expect(input).toHaveAccessibleDescription('Até a área total');
+    await user.type(input, '100');
+    expect(input).not.toHaveAttribute('aria-invalid');
+    await user.type(input, ',1');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
   });
 });

@@ -25,8 +25,7 @@ export type DecimalInputProps = Omit<
 };
 
 export type DecimalSpec = {
-  /** Casas do texto digitado; o que passa é arredondado. */
-  scale: number;
+  /** Casas exibidas; `maxScale` é também a do texto digitado, que é arredondado nelas. */
   format: DecimalFormat;
   /** Unidade de exibição diferente da do valor: converte do valor para o que se mostra. */
   toDisplay?: (value: string) => string;
@@ -38,18 +37,21 @@ export type DecimalSpec = {
 
 type State = { text: string; value: string | null; unreadable: boolean; displayKey?: string };
 
+// `""` é o vazio de quem inicia o formulário com string (React Hook Form): vale `null`
+const emptyToNull = (value: string | null) => (value === '' ? null : value);
+
 const sameDecimal = (a: string | null, b: string | null) =>
   a === null || b === null ? a === b : compareDecimal(a, b) === 0;
 
 /** Liga as props de um campo decimal às do `Input`. */
 export function useDecimalInput(
   { value, defaultValue = null, onChange, min, max, onBlur, ...props }: DecimalInputProps,
-  { scale, format, toDisplay, fromDisplay, displayKey }: DecimalSpec,
+  { format, toDisplay, fromDisplay, displayKey }: DecimalSpec,
 ): InputProps {
   const show = (decimal: string | null) =>
     decimal === null ? '' : formatDecimal(toDisplay ? toDisplay(decimal) : decimal, format);
 
-  const initial = value === undefined ? defaultValue : value;
+  const initial = value === undefined ? emptyToNull(defaultValue) : emptyToNull(value);
   const [state, setState] = useState<State>(() => ({
     text: show(initial),
     value: initial,
@@ -58,14 +60,14 @@ export function useDecimalInput(
   }));
 
   // valor de fora que mudou (controlado) ou unidade nova: o texto é refeito
-  const external = value === undefined ? state.value : value;
+  const external = value === undefined ? state.value : emptyToNull(value);
   if (state.displayKey !== displayKey || !sameDecimal(external, state.value)) {
     setState({ text: show(external), value: external, unreadable: false, displayKey });
   }
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const text = event.target.value;
-    const parsed = parseDecimal(text, scale);
+    const parsed = parseDecimal(text, format.maxScale);
     if (!parsed.ok) {
       setState({ ...state, text, unreadable: true });
       return;

@@ -3,7 +3,7 @@ import '../support/dom.js';
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { PercentInput } from '../../src/index.js';
+import { Field, PercentInput } from '../../src/index.js';
 
 describe('PercentInput', () => {
   it('sufixo %, até quatro casas', async () => {
@@ -40,5 +40,18 @@ describe('PercentInput', () => {
     await user.clear(input);
     await user.type(input, '-20');
     expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('o `Field` nomeia o campo; desabilitado não recebe digitação', async () => {
+    const user = userEvent.setup();
+    render(
+      <Field label="Comissão padrão" hint="Das configurações da empresa">
+        <PercentInput defaultValue="6" disabled />
+      </Field>,
+    );
+    const input = screen.getByRole('textbox', { name: 'Comissão padrão' });
+    expect(input).toHaveAccessibleDescription('Das configurações da empresa');
+    await user.type(input, '1');
+    expect(input).toHaveValue('6');
   });
 });

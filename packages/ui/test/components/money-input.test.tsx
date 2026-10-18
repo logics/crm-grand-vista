@@ -56,6 +56,11 @@ describe('MoneyInput', () => {
     expect(input).toHaveValue('200,00');
   });
 
+  it('string vazia de fora vale vazio', () => {
+    render(<MoneyInput aria-label="Preço pedido" value="" />);
+    expect(screen.getByRole('textbox')).toHaveValue('');
+  });
+
   it('apagar tudo entrega null', async () => {
     const user = userEvent.setup();
     render(<Controlled initial="12" />);

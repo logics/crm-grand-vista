@@ -33,6 +33,7 @@ export {
 } from './tenant.js';
 export {
   ALQUEIRE_HECTARES,
+  ALQUEIRE_LABELS,
   ALQUEIRE_TYPES,
   AREA_SCALE,
   MONEY_SCALE,

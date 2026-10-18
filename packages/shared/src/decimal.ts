@@ -21,6 +21,13 @@ export const ALQUEIRE_HECTARES: Record<AlqueireType, string> = {
   norte: '2.72',
 };
 
+/** Sufixo de cada tipo nos campos e nas tabelas, como `"1.480 alq. goiano"`. */
+export const ALQUEIRE_LABELS: Record<AlqueireType, string> = {
+  goiano: 'alq. goiano',
+  paulista: 'alq. paulista',
+  norte: 'alq. do norte',
+};
+
 /** Leitura de um texto digitado: vazio é `null`; texto que não é número é `ok: false`. */
 export type ParsedDecimal = { ok: true; value: string | null } | { ok: false };
 

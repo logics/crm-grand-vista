@@ -10,5 +10,5 @@ export type MoneyInputProps = DecimalInputProps;
 const format = { minScale: MONEY_SCALE, maxScale: MONEY_SCALE };
 
 export function MoneyInput(props: MoneyInputProps) {
-  return <Input prefix="R$" {...useDecimalInput(props, { scale: MONEY_SCALE, format })} />;
+  return <Input prefix="R$" {...useDecimalInput(props, { format })} />;
 }
