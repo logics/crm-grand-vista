@@ -22,11 +22,10 @@ export type UploadEntry<P> = {
 };
 
 export type UploadQueueOptions<T, P> = {
-  upload: (file: File, options: UploadOptions) => Promise<T>;
+  /** Envia o arquivo; recebe também o dado associado a ele (a categoria de um documento, por exemplo). */
+  upload: (file: File, options: UploadOptions, payload: P) => Promise<T>;
   /** Quantos arquivos sobem ao mesmo tempo. */
   concurrency: number;
-  /** Associa um dado a cada arquivo que entra na fila. */
-  prepare: (file: File) => P;
   /** Libera o dado associado quando o arquivo sai da fila ou o componente sai da tela. */
   release?: (payload: P) => void;
   /** Envio concluído; o arquivo sai da fila quando a promessa devolvida termina. */
@@ -61,12 +60,16 @@ export function useUploadQueue<T, P>(options: UploadQueueOptions<T, P>) {
     controllers.current.set(entry.key, controller);
     update(entry.key, { status: 'uploading', progress: 0 });
     latest.current.options
-      .upload(entry.file, {
-        signal: controller.signal,
-        onProgress: (percent) => {
-          if (!controller.signal.aborted) update(entry.key, { progress: percent });
+      .upload(
+        entry.file,
+        {
+          signal: controller.signal,
+          onProgress: (percent) => {
+            if (!controller.signal.aborted) update(entry.key, { progress: percent });
+          },
         },
-      })
+        entry.payload,
+      )
       .then(
         async (result) => {
           if (controller.signal.aborted) return;
@@ -107,14 +110,15 @@ export function useUploadQueue<T, P>(options: UploadQueueOptions<T, P>) {
 
   return {
     entries,
-    add(files: File[]) {
+    /** Enfileira os arquivos; `prepare` associa um dado a cada um. */
+    add(files: File[], prepare: (file: File) => P) {
       const added = files.map(
         (file): UploadEntry<P> => ({
           key: `upload-${nextKey++}`,
           file,
           status: 'queued',
           progress: 0,
-          payload: options.prepare(file),
+          payload: prepare(file),
         }),
       );
       setEntries((current) => [...current, ...added]);

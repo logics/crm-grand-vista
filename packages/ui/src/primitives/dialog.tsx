@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import type { ComponentProps } from 'react';
+import { type ComponentProps, useRef } from 'react';
 import { Icon } from '../components/icon.js';
 import { cn } from '../lib/cn.js';
 import { focusRing } from '../lib/styles.js';
@@ -7,7 +7,9 @@ import { focusRing } from '../lib/styles.js';
 // Diálogo do shadcn sobre o Radix: foco preso, retorno de foco ao gatilho,
 // Escape, trava de rolagem e ARIA vêm do Radix. Do export (`Dialog.jsx`) vem só
 // a aparência: scrim verde, cabeçalho com sobretítulo, rodapé com filete e a
-// variante `sheet`, que sobe da borda inferior no mobile.
+// variante `sheet`, que sobe da borda inferior no mobile. O Radix devolve o foco
+// só ao `DialogTrigger`; diálogo aberto por estado (a ação de uma linha) devolve
+// o foco a quem estava focado quando abriu.
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -54,8 +56,11 @@ export function DialogContent({
   children,
   variant = 'center',
   showCloseButton = true,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: DialogContentProps) {
+  const opener = useRef<HTMLElement | null>(null);
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -67,6 +72,17 @@ export function DialogContent({
           contentVariant[variant],
           className,
         )}
+        onOpenAutoFocus={(event) => {
+          opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          onOpenAutoFocus?.(event);
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          // com gatilho, o Radix já sabe para onde voltar
+          if (event.defaultPrevented || !opener.current?.isConnected) return;
+          event.preventDefault();
+          opener.current.focus();
+        }}
         {...props}
       >
         {variant === 'sheet' && (

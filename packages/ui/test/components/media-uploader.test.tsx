@@ -3,25 +3,8 @@ import '../support/dom.js';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Field, type MediaItem, MediaUploader, type MediaUploadOptions } from '../../src/index.js';
-
-// O `upload` falso guarda cada chamada com as alavancas para o teste conduzir o
-// envio: avançar o progresso, concluir, falhar — e ver se o sinal foi abortado.
-function fakeUpload() {
-  const calls: {
-    file: File;
-    options: MediaUploadOptions;
-    resolve: (value: string) => void;
-    reject: (error: Error) => void;
-  }[] = [];
-  const upload = vi.fn(
-    (file: File, options: MediaUploadOptions) =>
-      new Promise<string>((resolve, reject) => {
-        calls.push({ file, options, resolve, reject });
-      }),
-  );
-  return { upload, calls };
-}
+import { Field, type MediaItem, MediaUploader } from '../../src/index.js';
+import { fakeUpload } from '../support/upload.js';
 
 const photo = (name = 'sede.jpg', size = 1024) => new File([new Uint8Array(size)], name, { type: 'image/jpeg' });
 const video = (name = 'voo.mp4') => new File([new Uint8Array(10)], name, { type: 'video/mp4' });
@@ -63,17 +46,6 @@ describe('MediaUploader', () => {
 
     act(() => calls[0]!.options.onProgress(45));
     expect(bar).toHaveAttribute('aria-valuenow', '45');
-  });
-
-  it('envia no máximo três por vez e começa o próximo quando um termina', async () => {
-    const { upload, calls } = fakeUpload();
-    render(<MediaUploader upload={upload} />);
-    await chooseFiles(photo('a.jpg'), photo('b.jpg'), photo('c.jpg'), photo('d.jpg'), photo('e.jpg'));
-
-    expect(calls.map((call) => call.file.name)).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
-    loadPreview('b.jpg');
-    await act(async () => calls[1]!.resolve('b'));
-    expect(calls.map((call) => call.file.name)).toEqual(['a.jpg', 'b.jpg', 'c.jpg', 'd.jpg']);
   });
 
   it('aceita outro limite de envios simultâneos', async () => {
@@ -144,22 +116,18 @@ describe('MediaUploader', () => {
     expect(screen.getByRole('progressbar', { name: 'Enviando sede.heic' })).toBeInTheDocument();
   });
 
-  it('cancela o envio: aborta o sinal, tira o arquivo da fila e libera a vaga', async () => {
+  // a mecânica da fila (vagas, cancelamento, nova tentativa) é de `useUploadQueue`,
+  // testada em `test/lib/upload-queue.test.tsx`; aqui, os botões que a acionam
+
+  it('cancela o envio pelo botão do ladrilho', async () => {
     const { upload, calls } = fakeUpload();
-    const onUploaded = vi.fn();
-    render(<MediaUploader upload={upload} onUploaded={onUploaded} concurrency={1} />);
-    await chooseFiles(photo('a.jpg'), photo('b.jpg'));
+    render(<MediaUploader upload={upload} />);
+    await chooseFiles(photo('a.jpg'));
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar envio de a.jpg' }));
 
     expect(calls[0]!.options.signal.aborted).toBe(true);
     expect(screen.queryByRole('progressbar', { name: 'Enviando a.jpg' })).not.toBeInTheDocument();
-    expect(calls.map((call) => call.file.name)).toEqual(['a.jpg', 'b.jpg']);
-
-    // a promessa abortada rejeita depois: não vira erro nem resultado
-    await act(async () => calls[0]!.reject(new DOMException('Cancelado', 'AbortError')));
-    expect(screen.queryByText('Falha no envio')).not.toBeInTheDocument();
-    expect(onUploaded).not.toHaveBeenCalled();
   });
 
   it('no erro, mostra a falha e envia de novo ao pedir', async () => {
@@ -178,14 +146,12 @@ describe('MediaUploader', () => {
     expect(screen.getByRole('progressbar', { name: 'Enviando sede.jpg' })).toHaveAttribute('aria-valuenow', '0');
   });
 
-  it('arquivo com falha não ocupa vaga e pode ser descartado', async () => {
+  it('arquivo com falha pode ser descartado', async () => {
     const { upload, calls } = fakeUpload();
-    render(<MediaUploader upload={upload} concurrency={1} />);
-    await chooseFiles(photo('a.jpg'), photo('b.jpg'));
+    render(<MediaUploader upload={upload} />);
+    await chooseFiles(photo('a.jpg'));
 
     await act(async () => calls[0]!.reject(new Error('rede')));
-    expect(calls.map((call) => call.file.name)).toEqual(['a.jpg', 'b.jpg']);
-
     await userEvent.click(screen.getByRole('button', { name: 'Descartar a.jpg' }));
     expect(screen.queryByRole('listitem', { name: 'a.jpg' })).not.toBeInTheDocument();
   });

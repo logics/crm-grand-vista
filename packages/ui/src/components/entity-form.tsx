@@ -12,17 +12,9 @@ import {
 import type { z } from 'zod';
 import { cn } from '../lib/cn.js';
 import { formErrorMap, isRequiredField } from '../lib/form-schema.js';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../primitives/dialog.js';
 import { Button } from './button.js';
 import { Card } from './card.js';
+import { ConfirmDialog } from './confirm-dialog.js';
 import { Field } from './field.js';
 import { Icon } from './icon.js';
 
@@ -219,28 +211,15 @@ export function EntityForm<TSchema extends FormSchema>({
           {submitLabel}
         </Button>
       </div>
-      <Dialog open={confirmingDiscard} onOpenChange={setConfirmingDiscard}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Descartar alterações?</DialogTitle>
-            <DialogDescription>O que foi preenchido e não foi salvo se perde.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost">Continuar editando</Button>
-            </DialogClose>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setConfirmingDiscard(false);
-                onCancel();
-              }}
-            >
-              Descartar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmingDiscard}
+        onOpenChange={setConfirmingDiscard}
+        title="Descartar alterações?"
+        description="O que foi preenchido e não foi salvo se perde."
+        confirmLabel="Descartar"
+        cancelLabel="Continuar editando"
+        onConfirm={onCancel}
+      />
     </form>
   );
 }
