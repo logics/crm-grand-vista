@@ -18,6 +18,7 @@ export * from './components/checklist.js';
 export * from './components/compatibility-gauge.js';
 export * from './components/data-table.js';
 export * from './components/empty-state.js';
+export * from './components/entity-form.js';
 export * from './components/farm-card.js';
 export * from './components/field.js';
 export * from './components/icon.js';

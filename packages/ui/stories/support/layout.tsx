@@ -27,15 +27,16 @@ export function OnInverse({ children }: { children: ReactNode }) {
 
 /**
  * Larguras máximas da vitrine, em múltiplos de `--space-10` (40px): 280, 320,
- * 360 e 480px — a largura de um campo, de um cartão de funil, de uma coluna de
- * cartões e de um painel lateral do kit `crm-v2`. Classes estáticas, para o
- * Tailwind gerá-las.
+ * 360, 480 e 720px — a largura de um campo, de um cartão de funil, de uma
+ * coluna de cartões, de um painel lateral e de um formulário de duas colunas do
+ * kit `crm-v2`. Classes estáticas, para o Tailwind gerá-las.
  */
 const maxWidth = {
   sm: 'max-w-[calc(7*var(--space-10))]',
   md: 'max-w-[calc(8*var(--space-10))]',
   lg: 'max-w-[calc(9*var(--space-10))]',
   xl: 'max-w-[calc(12*var(--space-10))]',
+  form: 'max-w-[calc(18*var(--space-10))]',
 } as const;
 
 /** Decorator que limita a largura da story, para o componente não esticar no canvas. */
