@@ -400,7 +400,8 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
               return (
                 <Tag
                   key={keyOf(entry)}
-                  className={aboveTrigger}
+                  // branco com filete: o chip de pedra sumiria no campo afundado
+                  className={cn(aboveTrigger, 'bg-surface-card inset-ring inset-ring-border-default')}
                   onRemove={
                     locked || !item
                       ? undefined

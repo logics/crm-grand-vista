@@ -9,12 +9,13 @@ export const disabledControl =
   'disabled:cursor-not-allowed disabled:opacity-45 data-disabled:cursor-not-allowed data-disabled:opacity-45';
 
 /**
- * Superfície de campo de formulário: afundada em repouso; branca, com contorno
- * dourado e anel de foco quando focada ou aberta; contorno vermelho quando
- * `aria-invalid`.
+ * Superfície de campo de formulário: afundada e com filete em repouso — sem o
+ * filete, o afundado (`--surface-sunken`) quase não se separa do fundo da tela
+ * nem do cartão; branca, com contorno dourado e anel de foco quando focada ou
+ * aberta; contorno vermelho quando `aria-invalid`.
  */
 export const fieldSurface = [
-  'bg-surface-sunken text-text-body inset-ring inset-ring-transparent outline-none transition-control',
+  'bg-surface-sunken text-text-body inset-ring inset-ring-border-default outline-none transition-control',
   'focus-visible:bg-surface-card focus-visible:inset-ring-brand-accent focus-visible:shadow-ring-focus',
   'data-[state=open]:bg-surface-card data-[state=open]:inset-ring-brand-accent data-[state=open]:shadow-ring-focus',
   'aria-invalid:inset-ring-status-danger-fg aria-invalid:focus-visible:shadow-ring-danger',
@@ -28,7 +29,7 @@ export const fieldSurface = [
  * filho. As duas mudam juntas.
  */
 export const fieldFrameSurface = [
-  'bg-surface-sunken text-text-body inset-ring inset-ring-transparent transition-control',
+  'bg-surface-sunken text-text-body inset-ring inset-ring-border-default transition-control',
   'focus-within:bg-surface-card focus-within:inset-ring-brand-accent focus-within:shadow-ring-focus',
   'has-[[aria-expanded=true]]:bg-surface-card has-[[aria-expanded=true]]:inset-ring-brand-accent has-[[aria-expanded=true]]:shadow-ring-focus',
   'has-[[aria-invalid=true]]:inset-ring-status-danger-fg has-[[aria-invalid=true]]:focus-within:shadow-ring-danger',
