@@ -1,5 +1,16 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { apiEnvSchema, cliEnvSchema, InvalidEnvError, migrationEnvSchema, parseEnv } from '../src/env.js';
+import { z } from 'zod';
+import {
+  apiEnvSchema,
+  cliEnvSchema,
+  InvalidEnvError,
+  loadEnvFileIfPresent,
+  migrationEnvSchema,
+  parseEnv,
+} from '../src/env.js';
 
 const validApiEnv = {
   DATABASE_URL: 'postgres://crm_app:senha@localhost:5432/crm_dev',
@@ -77,5 +88,30 @@ describe('parseEnv', () => {
     expect(env).toEqual({
       MIGRATION_DATABASE_URL: 'postgres://crm_owner:senha@localhost:5432/crm_dev',
     });
+  });
+});
+
+describe('loadEnvFileIfPresent', () => {
+  const tempEnvFile = (content: string) => {
+    const path = join(mkdtempSync(join(tmpdir(), 'env-')), '.env');
+    writeFileSync(path, content);
+    return path;
+  };
+  const schema = z.object({ CRM_TESTE_ARQUIVO_ENV: z.string() });
+
+  it('carrega as variáveis do arquivo para a validação', () => {
+    loadEnvFileIfPresent(tempEnvFile('CRM_TESTE_ARQUIVO_ENV=do-arquivo\n'));
+
+    expect(parseEnv(schema)).toEqual({ CRM_TESTE_ARQUIVO_ENV: 'do-arquivo' });
+  });
+
+  it('não sobrescreve variável que o processo já recebeu', () => {
+    loadEnvFileIfPresent(tempEnvFile('CRM_TESTE_ARQUIVO_ENV=outro-valor\n'));
+
+    expect(parseEnv(schema)).toEqual({ CRM_TESTE_ARQUIVO_ENV: 'do-arquivo' });
+  });
+
+  it('não faz nada sem o arquivo', () => {
+    expect(() => loadEnvFileIfPresent(join(tmpdir(), 'nao-existe', '.env'))).not.toThrow();
   });
 });

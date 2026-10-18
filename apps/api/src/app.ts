@@ -2,7 +2,8 @@ import type { Database } from '@crm/db';
 import type { ApiEnv } from '@crm/shared/env';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { assertRouteAccess, noPermissionRequired } from './authorization/route-access.js';
+import { assertRouteAccess } from './authorization/route-access.js';
+import { createHealthRoutes } from './health.js';
 import type { Auth } from './modules/auth/auth.js';
 import { createAuthRoutes } from './modules/auth/routes.js';
 import { createPermissionsRoutes } from './modules/permissions/routes.js';
@@ -30,7 +31,7 @@ export function createApp({ auth, db, env }: AppDependencies) {
   const app = new Hono()
     // O front roda em outra origem e manda o cookie de sessão: só ela é aceita.
     .use(cors({ origin: env.WEB_URL, credentials: true }))
-    .get('/health', noPermissionRequired, (c) => c.json({ status: 'ok' }))
+    .route('/health', createHealthRoutes({ db }))
     .route('/auth', createAuthRoutes({ auth, db }))
     .route(`/e/:${TENANT_PARAM}`, tenantRoutes);
 

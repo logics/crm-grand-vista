@@ -2,6 +2,7 @@
 // nem a superusuário: se `crm_app` for qualquer um dos dois, toda a suíte de
 // isolamento passa sem o RLS fazer nada.
 import { loadApiEnv, loadMigrationEnv } from '@crm/shared/env';
+import { assertApplicationRole, createPool } from '../src/index.js';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -52,6 +53,15 @@ describe('papéis do database', () => {
     `);
 
     expect(rows).toEqual([]);
+  });
+
+  it('passa pela trava de boot da API', async () => {
+    const pool = createPool(DATABASE_URL);
+    try {
+      await expect(assertApplicationRole(pool)).resolves.toBeUndefined();
+    } finally {
+      await pool.end();
+    }
   });
 
   it('crm_app não é dono de nenhum schema', async () => {

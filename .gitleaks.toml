@@ -1,0 +1,13 @@
+# Varredura de segredos do repositório (passo "Varredura de segredos" do CI).
+# Regras padrão do gitleaks, mais as exceções abaixo — cada uma é um valor
+# exato, nunca um arquivo inteiro: um segredo real colado no mesmo arquivo
+# continua sendo pego.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores de teste versionados de propósito, sem uso fora do container local"
+regexes = [
+  # BETTER_AUTH_SECRET do `.env.test`: só assina sessões da suíte de integração.
+  '''^segredo-de-teste-com-pelo-menos-32-caracteres$''',
+]

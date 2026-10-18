@@ -64,6 +64,21 @@ export function parseEnv<S extends z.ZodObject>(schema: S, source: EnvSource = p
   );
 }
 
+/**
+ * Carrega um arquivo `.env` para o ambiente do processo, se ele existir, sem
+ * sobrescrever o que o processo já recebeu. É como a API de produção lê o
+ * `shared/.env` do servidor (dono root, legível só pelo usuário da API), em
+ * vez de receber os segredos pelo painel. A validação continua sendo a de
+ * `parseEnv`.
+ */
+export function loadEnvFileIfPresent(path: string): void {
+  try {
+    process.loadEnvFile(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+}
+
 export const loadApiEnv = (): ApiEnv => parseEnv(apiEnvSchema);
 export const loadMigrationEnv = (): MigrationEnv => parseEnv(migrationEnvSchema);
 export const loadCliEnv = (): CliEnv => parseEnv(cliEnvSchema);

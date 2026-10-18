@@ -17,7 +17,7 @@ describe('Better Auth', () => {
 
   it('fala com o banco só por semTenant(), com o motivo de login', async () => {
     const user = await createUserWithPassword(db, 'Auditada');
-    const calls: (SemTenantContext['reason'] | 'withTenant')[] = [];
+    const calls: (SemTenantContext['reason'] | 'withTenant' | 'ping')[] = [];
     const recording: Database = {
       withTenant: (tenantId, fn) => {
         calls.push('withTenant');
@@ -26,6 +26,10 @@ describe('Better Auth', () => {
       semTenant: (context, fn) => {
         calls.push(context.reason);
         return db.semTenant(context, fn);
+      },
+      ping: () => {
+        calls.push('ping');
+        return db.ping();
       },
     };
     const app = createApp({ auth: createAuth({ db: recording, env }), db: recording, env });
