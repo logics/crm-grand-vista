@@ -10,7 +10,7 @@ import {
   CommandShortcut,
 } from '../src/index.js';
 
-// Base do `AsyncCombobox`, que chega com a spec do módulo que o usa.
+// Base do `AsyncCombobox`, que o compõe com o Popover e a busca assíncrona.
 const meta = {
   title: 'Primitivos/Command',
   component: Command,
