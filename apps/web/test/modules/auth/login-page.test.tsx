@@ -125,4 +125,15 @@ describe('tela de login', () => {
     await app.router.navigate('/e/grand-vista');
     await waitFor(() => expect(app.pathname()).toBe('/login'));
   });
+
+  it('logout que falha avisa o usuário e o mantém na empresa', async () => {
+    stubFakeApi({ session: account.session, logoutFails: true });
+    const app = renderApp('/e/grand-vista');
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Sair' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível sair agora.');
+    expect(app.pathname()).toBe('/e/grand-vista');
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeEnabled();
+  });
 });

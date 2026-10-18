@@ -11,6 +11,8 @@ interface FakeApiOptions {
   account?: LoginInput & { session: Session };
   /** Força uma falha do servidor em `/auth/login`. */
   loginFails?: boolean;
+  /** Força uma falha do servidor em `/auth/logout`: a sessão continua aberta. */
+  logoutFails?: boolean;
 }
 
 export interface FakeApi {
@@ -29,7 +31,12 @@ export function session(overrides: Partial<Session> = {}): Session {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-export function stubFakeApi({ session: initial = null, account, loginFails = false }: FakeApiOptions = {}): FakeApi {
+export function stubFakeApi({
+  session: initial = null,
+  account,
+  loginFails = false,
+  logoutFails = false,
+}: FakeApiOptions = {}): FakeApi {
   let current = initial;
   const api: FakeApi = { requests: [] };
 
@@ -55,6 +62,7 @@ export function stubFakeApi({ session: initial = null, account, loginFails = fal
         return json({ error: { code: 'invalid_credentials', message: INVALID_CREDENTIALS_MESSAGE } }, 401);
       }
       if (method === 'POST' && url.pathname === '/auth/logout') {
+        if (logoutFails) return json({ error: { code: 'internal', message: 'Erro interno.' } }, 500);
         current = null;
         return new Response(null, { status: 204 });
       }

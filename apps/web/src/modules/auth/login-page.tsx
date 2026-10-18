@@ -2,6 +2,7 @@ import { INVALID_CREDENTIALS_MESSAGE, loginSchema, type LoginInput } from '@crm/
 import { Button, Card, Field, Input, Wordmark } from '@crm/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { ErrorMessage } from '../../shell/error-message.js';
 import { LandingRedirect } from './landing-redirect.js';
 import { InvalidCredentialsError, useLogin, useSession } from './session.js';
 
@@ -46,11 +47,7 @@ export function LoginPage() {
           <Field label="Senha" error={errors.password?.message}>
             <Input type="password" autoComplete="current-password" {...register('password')} />
           </Field>
-          {formError && (
-            <p role="alert" className="text-sm text-status-danger-fg">
-              {formError}
-            </p>
-          )}
+          {formError && <ErrorMessage>{formError}</ErrorMessage>}
           <Button type="submit" size="lg" block disabled={login.isPending}>
             Entrar
           </Button>
