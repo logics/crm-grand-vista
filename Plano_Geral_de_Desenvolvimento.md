@@ -31,7 +31,7 @@ O documento de escopo (`Escopo CRM.md`, na raiz do projeto, revisão de 24/07/20
 | Storage de mídia | Cloudflare R2 (upload direto via URL assinada), organizada em galerias nomeadas |
 | Mapas | MapLibre + tiles gratuitos |
 | Qualidade | **TDD** — unitários mockados + integração + E2E |
-| Runtime | **Node 22 LTS + pnpm**. Bun avaliado e recusado: o gerenciador de aplicações do aaPanel é construído em torno de Node/PM2, e sair dele custaria o SSL, o backup e o deploy que motivaram usar processo nativo |
+| Runtime | **Node 24 LTS + pnpm**. Bun avaliado e recusado: o gerenciador de aplicações do aaPanel é construído em torno de Node/PM2, e sair dele custaria o SSL, o backup e o deploy que motivaram usar processo nativo |
 | Hospedagem | API em **processo nativo no VPS com aaPanel**, Postgres em servidor próprio na **mesma rede privada**, build no **CI** com artefato enviado por SSH, frontend no **Netlify**, mídia no R2 |
 | Empresa ativa | **Contexto da requisição**, via slug na URL (`/e/<tenant>/...`) — nunca filtro de módulo. Ver ADR 0002 |
 | Venda | **Entidade própria** (`sales`), uma linha por fazenda vendida; a comissão pertence à venda, não à oportunidade. Ver ADR 0001 |
@@ -121,7 +121,7 @@ Detalhe de implementação: a tabela `buyer_profiles` agrupa todas as caracterí
 
 ## Stack
 
-**Runtime:** Node 22 LTS
+**Runtime:** Node 24 LTS
 **Backend:** Hono + Drizzle ORM + PostgreSQL 18 + Zod
 **Frontend:** React + Vite + Tailwind + shadcn/ui (Radix) + TanStack Query + React Hook Form + MapLibre
 **Auth:** Better Auth (organizations plugin)

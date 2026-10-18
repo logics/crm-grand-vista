@@ -67,7 +67,7 @@ O usuário próprio da API é o que protege os segredos: os sites PHP do servido
 
 No aaPanel, o **projeto PM2** da API (*Site → Node → Adicionar projeto Node → Projeto PM2*):
 
-- **arquivo de início:** `<DEPLOY_PATH>/current/dist/index.js`; **diretório:** `<DEPLOY_PATH>/current`; **Node:** v22.18.0; **instâncias:** 1; **usuário:** `crmgv`; **porta:** 3010 (3000 e 3001 já são de outros projetos); domínio `api.crmgv.logics.com.br`, com SSL Let's Encrypt;
+- **arquivo de início:** `<DEPLOY_PATH>/current/dist/index.js`; **diretório:** `<DEPLOY_PATH>/current`; **Node:** v24.22.0; **instâncias:** 1; **usuário:** `crmgv`; **porta:** 3010 (3000 e 3001 já são de outros projetos); domínio `api.crmgv.logics.com.br`, com SSL Let's Encrypt;
 - **"Não instalar o node_module" marcado:** o artefato chega com as dependências; sem isso, o painel instalaria no servidor;
 - **variáveis ambientais vazias:** a API carrega o `shared/.env` no boot, pelo link no release (`loadEnvFileIfPresent`, em `apps/api/src/index.ts`). O arquivo tem as de `packages/shared/src/env.ts` — `DATABASE_URL` (papel `crm_app`, `localhost`), `BETTER_AUTH_SECRET`, `API_URL`, `WEB_URL`, `PORT`. Nunca `MIGRATION_DATABASE_URL`: a API não a lê.
 

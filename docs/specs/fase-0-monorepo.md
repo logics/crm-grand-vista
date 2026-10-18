@@ -14,7 +14,7 @@ Nenhum termo de domínio. Um único termo de infraestrutura importa: **papel do 
 
 ## Decisões que governam
 
-- **Runtime Node 22 LTS.** Bun foi avaliado e recusado: o ganho é em velocidade de instalação e de teste, e o custo é a compatibilidade com Better Auth, Drizzle e o ambiente de produção administrado por aaPanel, que roda Node nativo.
+- **Runtime Node 24 LTS.** Bun foi avaliado e recusado: o ganho é em velocidade de instalação e de teste, e o custo é a compatibilidade com Better Auth, Drizzle e o ambiente de produção administrado por aaPanel, que roda Node nativo.
 - **Docker só em desenvolvimento e CI.** Em produção a API roda como processo nativo e o Postgres é instalado no servidor — o painel resolve SSL, backup e deploy, e foi isso que motivou não containerizar. O Compose desta spec nunca é usado em produção.
 - **Postgres 18** em qualquer ambiente, fixado por tag exata. A produção já está em 18.0; divergir de major version no local é descobrir incompatibilidade de migration no deploy.
 - **Build no CI, nunca no servidor** — fora do escopo desta spec, mas define a estrutura: nenhum script de build pode depender de algo que só existe na máquina do desenvolvedor.
