@@ -2,6 +2,7 @@
 import '../support/dom.js';
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import {
   Dialog,
@@ -98,5 +99,35 @@ describe('Dialog', () => {
     expect(document.body).toHaveAttribute('data-scroll-locked');
     await user.keyboard('{Escape}');
     expect(document.body).not.toHaveAttribute('data-scroll-locked');
+  });
+
+  it('aberto por estado, sem DialogTrigger, devolve o foco a quem estava focado ao abrir', async () => {
+    function Controlled() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Editar laudo.pdf
+          </button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent>
+              <DialogTitle>Editar documento</DialogTitle>
+              <DialogClose>Cancelar</DialogClose>
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const opener = screen.getByRole('button', { name: 'Editar laudo.pdf' });
+
+    await user.click(opener);
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(opener).toHaveFocus();
+
+    await user.click(opener);
+    await user.keyboard('{Escape}');
+    expect(opener).toHaveFocus();
   });
 });

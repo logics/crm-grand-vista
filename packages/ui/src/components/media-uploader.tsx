@@ -1,5 +1,4 @@
 import { type ComponentProps, type DragEvent, type ReactNode, type SyntheticEvent, useRef, useState } from 'react';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../primitives/dialog.js';
 import { cn } from '../lib/cn.js';
 import { mediaFill, mediaFrame } from '../lib/styles.js';
 import { type FieldControlProps, useFieldControl } from '../lib/field-control.js';
@@ -7,9 +6,10 @@ import { formatBytes, type RejectedFile, screenFiles } from '../lib/media-files.
 import { reorderInstructions, useReorder } from '../lib/reorder.js';
 import { type UploadEntry, type UploadOptions, useUploadQueue } from '../lib/upload-queue.js';
 import { Button } from './button.js';
+import { ConfirmDialog } from './confirm-dialog.js';
 import { Icon } from './icon.js';
 import { IconButton, type IconButtonProps } from './icon-button.js';
-import { ProgressBar } from './progress-bar.js';
+import { RejectedFiles, UploadStatus, uploadDismissLabel } from './upload-status.js';
 
 // Envio de fotos e vídeos de uma galeria. Não conhece R2 nem API: o envio é a
 // função `upload` recebida, que reporta o progresso e respeita o cancelamento;
@@ -145,12 +145,12 @@ export function MediaUploader<T>({
   const [rejected, setRejected] = useState<RejectedFile[]>([]);
   const [dragging, setDragging] = useState(false);
   // o item fica guardado depois de fechar: o título não some durante a animação de saída
-  const [removal, setRemoval] = useState<{ item: MediaItem; open: boolean; confirmed: boolean } | null>(null);
+  const [removal, setRemoval] = useState<{ item: MediaItem; open: boolean } | null>(null);
 
   const queue = useUploadQueue<T, Preview>({
-    upload,
+    // a prévia é interna: não vai para o `upload` de quem usa
+    upload: (file, options) => upload(file, options),
     concurrency,
-    prepare: createPreview,
     release: (preview) => URL.revokeObjectURL(preview.url),
     async complete(result, { file, payload }) {
       const dimensions = await Promise.race([payload.dimensions, withoutDimensions()]);
@@ -168,7 +168,7 @@ export function MediaUploader<T>({
       current: items.length + queue.entries.length,
     });
     setRejected(screened.rejected);
-    queue.add(screened.accepted);
+    queue.add(screened.accepted, createPreview);
   };
 
   // só arquivos do sistema: o arrastar da grade é reordenação, não envio
@@ -241,16 +241,7 @@ export function MediaUploader<T>({
         />
       </div>
 
-      {rejected.length > 0 && (
-        <ul role="alert" className="flex flex-col gap-2">
-          {rejected.map(({ file, reason }, index) => (
-            <li key={index} className="flex items-center gap-3 text-xs text-status-danger-fg">
-              <Icon name="alert-circle" size="sm" />
-              {file.name}: {reason}
-            </li>
-          ))}
-        </ul>
-      )}
+      <RejectedFiles files={rejected} />
 
       {items.length > 0 && (
         <ul aria-label="Mídia enviada" className={tileGrid} {...reorder.listProps}>
@@ -279,7 +270,7 @@ export function MediaUploader<T>({
                     icon="trash-2"
                     label={`Remover ${item.name}`}
                     disabled={disabled}
-                    onClick={() => setRemoval({ item, open: true, confirmed: false })}
+                    onClick={() => setRemoval({ item, open: true })}
                   />
                 )
               }
@@ -303,37 +294,17 @@ export function MediaUploader<T>({
         {reorder.announcement}
       </div>
 
-      <Dialog open={removal?.open ?? false} onOpenChange={(open) => !open && setRemoval((current) => current && { ...current, open })}>
-        <DialogContent
-          onCloseAutoFocus={(event) => {
-            // o botão que abriu o diálogo saiu da grade com o item: o foco vai para o envio
-            if (!removal?.confirmed) return;
-            event.preventDefault();
-            uploadButton.current?.focus();
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Remover {removal?.item.name}?</DialogTitle>
-            <DialogDescription>O arquivo sai da galeria.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost">Cancelar</Button>
-            </DialogClose>
-            <Button
-              variant="danger"
-              icon="trash-2"
-              onClick={() => {
-                if (!removal) return;
-                onRemove?.(removal.item);
-                setRemoval({ ...removal, open: false, confirmed: true });
-              }}
-            >
-              Remover
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={removal?.open ?? false}
+        onOpenChange={(open) => setRemoval((current) => current && { ...current, open })}
+        title={`Remover ${removal?.item.name}?`}
+        description="O arquivo sai da galeria."
+        confirmLabel="Remover"
+        confirmIcon="trash-2"
+        onConfirm={() => removal && onRemove?.(removal.item)}
+        // o botão que abriu o diálogo saiu da grade com o item: o foco vai para o envio
+        focusAfterConfirm={() => uploadButton.current}
+      />
     </div>
   );
 }
@@ -378,27 +349,10 @@ function QueueTile({ entry, disabled, onRemove, onRetry }: QueueTileProps) {
         )
       }
       end={
-        <TileAction
-          icon="x"
-          label={failed ? `Descartar ${file.name}` : `Cancelar envio de ${file.name}`}
-          disabled={disabled}
-          onClick={() => onRemove(entry)}
-        />
+        <TileAction icon="x" label={uploadDismissLabel(entry)} disabled={disabled} onClick={() => onRemove(entry)} />
       }
     >
-      {failed ? (
-        <div className="flex items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-2 text-xs text-status-danger-fg">
-            <Icon name="alert-circle" size="sm" />
-            Falha no envio
-          </span>
-          <Button size="sm" variant="soft" icon="refresh-cw" disabled={disabled} onClick={() => onRetry(entry)}>
-            Tentar de novo
-          </Button>
-        </div>
-      ) : (
-        <ProgressBar value={entry.progress} height="sm" aria-label={`Enviando ${file.name}`} />
-      )}
+      <UploadStatus entry={entry} disabled={disabled} onRetry={() => onRetry(entry)} />
     </MediaTile>
   );
 }
