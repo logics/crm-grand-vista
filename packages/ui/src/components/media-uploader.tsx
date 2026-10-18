@@ -1,13 +1,14 @@
 import { type ComponentProps, type DragEvent, type ReactNode, type SyntheticEvent, useRef, useState } from 'react';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../primitives/dialog.js';
 import { cn } from '../lib/cn.js';
+import { mediaFill, mediaFrame } from '../lib/styles.js';
 import { type FieldControlProps, useFieldControl } from '../lib/field-control.js';
 import { formatBytes, type RejectedFile, screenFiles } from '../lib/media-files.js';
 import { reorderInstructions, useReorder } from '../lib/reorder.js';
 import { type UploadEntry, type UploadOptions, useUploadQueue } from '../lib/upload-queue.js';
 import { Button } from './button.js';
 import { Icon } from './icon.js';
-import { IconButton } from './icon-button.js';
+import { IconButton, type IconButtonProps } from './icon-button.js';
 import { ProgressBar } from './progress-bar.js';
 
 // Envio de fotos e vídeos de uma galeria. Não conhece R2 nem API: o envio é a
@@ -78,7 +79,13 @@ const kindLabel = { photo: 'Foto', video: 'Vídeo' } as const satisfies Record<M
 /** Ladrilhos de 160px (4 × --space-10) no mínimo, quantos couberem na linha. */
 const tileGrid = 'grid grid-cols-[repeat(auto-fill,minmax(calc(4*var(--space-10)),1fr))] gap-5';
 
-const fillMedia = 'absolute inset-0 size-full object-cover';
+/** Sem resposta da prévia nesse prazo, o resultado sai sem dimensões e a vaga se libera. */
+const dimensionsTimeout = 5000;
+
+const withoutDimensions = () =>
+  new Promise<Dimensions>((resolve) => {
+    setTimeout(() => resolve({}), dimensionsTimeout);
+  });
 
 export type MediaUploaderProps<T> = Omit<ComponentProps<'div'>, 'children'> & {
   /** Envia um arquivo: reporta o progresso (0 a 100) por `onProgress` e para quando `signal` aborta. */
@@ -120,13 +127,25 @@ export function MediaUploader<T>({
   uploadLabel = 'Enviar fotos',
   placeholder = 'Fotos da propriedade',
   disabled = false,
+  id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+  'aria-required': ariaRequired,
   ...props
 }: MediaUploaderProps<T>) {
-  const control = useFieldControl<FieldControlProps>({});
+  // o botão de envio é o controle que o `Field` nomeia e descreve
+  const control = useFieldControl<FieldControlProps>({
+    id,
+    'aria-describedby': ariaDescribedBy,
+    'aria-invalid': ariaInvalid,
+    'aria-required': ariaRequired,
+  });
   const input = useRef<HTMLInputElement>(null);
+  const uploadButton = useRef<HTMLButtonElement>(null);
   const [rejected, setRejected] = useState<RejectedFile[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [removing, setRemoving] = useState<MediaItem | null>(null);
+  // o item fica guardado depois de fechar: o título não some durante a animação de saída
+  const [removal, setRemoval] = useState<{ item: MediaItem; open: boolean; confirmed: boolean } | null>(null);
 
   const queue = useUploadQueue<T, Preview>({
     upload,
@@ -134,7 +153,7 @@ export function MediaUploader<T>({
     prepare: createPreview,
     release: (preview) => URL.revokeObjectURL(preview.url),
     async complete(result, { file, payload }) {
-      const dimensions = await payload.dimensions;
+      const dimensions = await Promise.race([payload.dimensions, withoutDimensions()]);
       onUploaded?.(result, { file, kind: payload.kind, ...dimensions });
     },
   });
@@ -146,7 +165,7 @@ export function MediaUploader<T>({
       accept,
       maxSize,
       maxFiles,
-      room: maxFiles === undefined ? undefined : Math.max(0, maxFiles - items.length - queue.entries.length),
+      current: items.length + queue.entries.length,
     });
     setRejected(screened.rejected);
     queue.add(screened.accepted);
@@ -195,7 +214,14 @@ export function MediaUploader<T>({
       >
         {items.length === 0 && queue.entries.length === 0 && <span className="gv-eyebrow">{placeholder}</span>}
         <p className="m-0 text-sm text-text-muted">Arraste fotos e vídeos para cá</p>
-        <Button variant="secondary" icon="upload" disabled={disabled} onClick={() => input.current?.click()} {...control}>
+        <Button
+          ref={uploadButton}
+          variant="secondary"
+          icon="upload"
+          disabled={disabled}
+          onClick={() => input.current?.click()}
+          {...control}
+        >
           {uploadLabel}
         </Button>
         {limits.length > 0 && <span className="text-xs text-text-faint">{limits.join(' · ')}</span>}
@@ -236,7 +262,7 @@ export function MediaUploader<T>({
               {...reorder.itemProps(item)}
               thumbnail={
                 item.thumbnail ? (
-                  <img src={item.thumbnail} alt={item.name} loading="lazy" className={fillMedia} />
+                  <img src={item.thumbnail} alt={item.name} loading="lazy" className={mediaFill} />
                 ) : (
                   <KindPlaceholder kind={item.kind} />
                 )
@@ -244,18 +270,16 @@ export function MediaUploader<T>({
               badge={item.kind === 'video' && item.thumbnail && <Icon name="video" title={kindLabel.video} />}
               start={
                 onReorder && (
-                  <IconButton icon="grip-vertical" size="sm" variant="outline" label={`Mover ${item.name}`} {...reorder.handleProps(item)} />
+                  <TileAction icon="grip-vertical" label={`Mover ${item.name}`} {...reorder.handleProps(item)} />
                 )
               }
               end={
                 onRemove && (
-                  <IconButton
+                  <TileAction
                     icon="trash-2"
-                    size="sm"
-                    variant="outline"
                     label={`Remover ${item.name}`}
                     disabled={disabled}
-                    onClick={() => setRemoving(item)}
+                    onClick={() => setRemoval({ item, open: true, confirmed: false })}
                   />
                 )
               }
@@ -267,7 +291,7 @@ export function MediaUploader<T>({
       {queue.entries.length > 0 && (
         <ul aria-label="Envios em andamento" className={tileGrid}>
           {queue.entries.map((entry) => (
-            <QueueTile key={entry.key} entry={entry} onRemove={queue.remove} onRetry={queue.retry} />
+            <QueueTile key={entry.key} entry={entry} disabled={disabled} onRemove={queue.remove} onRetry={queue.retry} />
           ))}
         </ul>
       )}
@@ -279,10 +303,17 @@ export function MediaUploader<T>({
         {reorder.announcement}
       </div>
 
-      <Dialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
-        <DialogContent>
+      <Dialog open={removal?.open ?? false} onOpenChange={(open) => !open && setRemoval((current) => current && { ...current, open })}>
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            // o botão que abriu o diálogo saiu da grade com o item: o foco vai para o envio
+            if (!removal?.confirmed) return;
+            event.preventDefault();
+            uploadButton.current?.focus();
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>Remover {removing?.name}?</DialogTitle>
+            <DialogTitle>Remover {removal?.item.name}?</DialogTitle>
             <DialogDescription>O arquivo sai da galeria.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -293,8 +324,9 @@ export function MediaUploader<T>({
               variant="danger"
               icon="trash-2"
               onClick={() => {
-                if (removing) onRemove?.(removing);
-                setRemoving(null);
+                if (!removal) return;
+                onRemove?.(removal.item);
+                setRemoval({ ...removal, open: false, confirmed: true });
               }}
             >
               Remover
@@ -308,19 +340,20 @@ export function MediaUploader<T>({
 
 type QueueTileProps = {
   entry: UploadEntry<Preview>;
+  disabled: boolean;
   onRemove: (entry: UploadEntry<Preview>) => void;
   onRetry: (entry: UploadEntry<Preview>) => void;
 };
 
 /** Arquivo na fila: a prévia local, de onde saem as dimensões, e o progresso ou a falha. */
-function QueueTile({ entry, onRemove, onRetry }: QueueTileProps) {
+function QueueTile({ entry, disabled, onRemove, onRetry }: QueueTileProps) {
   const { file, payload: preview } = entry;
   const failed = entry.status === 'error';
   // HEIC no Chrome, vídeo sem codec: sem prévia, fica a areia; o envio segue
   const [unreadable, setUnreadable] = useState(false);
   const media = {
     'data-preview': file.name,
-    className: cn(fillMedia, !failed && 'opacity-60'),
+    className: cn(mediaFill, !failed && 'opacity-60'),
     onError: () => {
       preview.settle({});
       setUnreadable(true);
@@ -345,11 +378,10 @@ function QueueTile({ entry, onRemove, onRetry }: QueueTileProps) {
         )
       }
       end={
-        <IconButton
+        <TileAction
           icon="x"
-          size="sm"
-          variant="outline"
           label={failed ? `Descartar ${file.name}` : `Cancelar envio de ${file.name}`}
+          disabled={disabled}
           onClick={() => onRemove(entry)}
         />
       }
@@ -360,7 +392,7 @@ function QueueTile({ entry, onRemove, onRetry }: QueueTileProps) {
             <Icon name="alert-circle" size="sm" />
             Falha no envio
           </span>
-          <Button size="sm" variant="soft" icon="refresh-cw" onClick={() => onRetry(entry)}>
+          <Button size="sm" variant="soft" icon="refresh-cw" disabled={disabled} onClick={() => onRetry(entry)}>
             Tentar de novo
           </Button>
         </div>
@@ -369,6 +401,11 @@ function QueueTile({ entry, onRemove, onRetry }: QueueTileProps) {
       )}
     </MediaTile>
   );
+}
+
+/** Botão no canto da miniatura: branco com filete, para destacar sobre a foto. */
+function TileAction(props: Omit<IconButtonProps, 'size' | 'variant'>) {
+  return <IconButton size="sm" variant="outline" {...props} />;
 }
 
 /** Sem miniatura: o rótulo do tipo sobre a areia do ladrilho, nunca imagem genérica. */
@@ -398,7 +435,8 @@ function MediaTile({ className, name, thumbnail, badge, start, end, moving = fal
       {/* 4:3, a proporção das fotos de campo */}
       <div
         className={cn(
-          'relative grid aspect-4/3 place-items-center overflow-hidden rounded-media bg-surface-muted transition-shadow',
+          mediaFrame,
+          'aspect-4/3 transition-shadow',
           moving && 'shadow-ring-focus',
         )}
       >

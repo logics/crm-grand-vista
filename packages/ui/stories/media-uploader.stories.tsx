@@ -110,8 +110,8 @@ export const Desabilitado: Story = {
   args: { items: gallery, onReorder: fn(), onRemove: fn(), disabled: true },
 };
 
-export const NoField: Story = {
-  name: 'No Field',
+export const NoCampo: Story = {
+  name: 'No campo',
   render: (args) => (
     <Field label="Galeria principal" hint="Fotos aéreas primeiro: a primeira vira a capa do cartão.">
       <MediaUploader {...args} uploadLabel="Enviar fotos e vídeos" />

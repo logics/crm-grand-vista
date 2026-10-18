@@ -1,9 +1,11 @@
-import { type DragEvent, type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
+import { type DragEvent, type FocusEvent, type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 
 // Reordenação de uma lista por arrastar e pelo teclado, anunciada ao leitor de
 // tela. Pelo teclado, a alça de cada item é um botão: Espaço ou Enter pega o
-// item, as setas o movem, Espaço ou Enter o solta e Escape desfaz. A ordem só
-// é entregue (`onReorder`) ao soltar, e só se mudou.
+// item, as setas o movem, Espaço ou Enter o solta, Escape (ou sair da alça)
+// desfaz. A ordem é de quem usa: durante o movimento vale um rascunho; ao
+// soltar, a nova ordem vai para `onReorder` (só se mudou) e a lista volta a
+// mostrar `items` — que quem usa atualiza.
 
 export type ReorderOptions<I> = {
   items: I[];
@@ -17,7 +19,8 @@ export type ReorderOptions<I> = {
 /** Instruções da alça, ligadas a ela por `aria-describedby`. */
 export const reorderInstructions = 'Espaço para pegar e soltar, setas para mover, Escape para cancelar.';
 
-type Moving = { id: string; via: 'keyboard' | 'pointer'; from: number };
+/** Item em movimento, por onde foi pego e a ordem em rascunho (`basis` é a de `items` quando ele foi pego). */
+type Moving = { id: string; via: 'keyboard' | 'pointer'; order: string[]; basis: string };
 
 const move = (ids: string[], id: string, to: number) => {
   const rest = ids.filter((other) => other !== id);
@@ -26,76 +29,74 @@ const move = (ids: string[], id: string, to: number) => {
 
 const sameOrder = (a: string[], b: string[]) => a.length === b.length && a.every((id, index) => id === b[index]);
 
+const steps: Record<string, number> = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
+
 export function useReorder<I>({ items, getId, getLabel, onReorder, disabled = false }: ReorderOptions<I>) {
   const instructionsId = useId();
   const ids = items.map(getId);
   const idsKey = ids.join('\n');
-  // ordem em edição; depois de solta, vale até `items` chegar com a nova ordem
-  const [draft, setDraft] = useState<{ order: string[]; basis: string } | null>(null);
   const [moving, setMoving] = useState<Moving | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const handles = useRef(new Map<string, HTMLButtonElement>());
 
-  const order = draft?.basis === idsKey ? draft.order : ids;
+  // `items` mudou por fora no meio do movimento: o rascunho era de outra lista
+  if (moving && moving.basis !== idsKey) setMoving(null);
+
+  const order = moving?.basis === idsKey ? moving.order : ids;
   const byId = new Map(items.map((item) => [getId(item), item]));
   const ordered = order.map((id) => byId.get(id)!);
   const enabled = Boolean(onReorder) && !disabled;
 
-  // `items` mudou por fora (ou chegou na ordem solta): a ordem em edição era de outra lista
-  if (draft && draft.basis !== idsKey) setDraft(null);
-
   // mover o item no DOM tira o foco da alça; ele volta para ela
   useLayoutEffect(() => {
     if (moving?.via === 'keyboard') handles.current.get(moving.id)?.focus();
-  }, [moving, order]);
+  }, [moving]);
 
   const position = (list: string[], id: string) => `${list.indexOf(id) + 1} de ${list.length}`;
   const label = (id: string) => getLabel(byId.get(id)!);
 
-  const begin = (id: string, via: Moving['via']) => {
-    setDraft({ order, basis: idsKey });
-    setMoving({ id, via, from: order.indexOf(id) });
-  };
+  const grab = (id: string, via: Moving['via']) => setMoving({ id, via, order, basis: idsKey });
   const moveTo = (id: string, to: number) => {
-    const next = move(order, id, Math.max(0, Math.min(order.length - 1, to)));
-    setDraft({ order: next, basis: idsKey });
+    const next = move(order, id, to);
+    setMoving((current) => current && { ...current, order: next });
     return next;
   };
-  const drop = () => {
-    if (!moving) return;
+  /** Solta o item: entrega a ordem, se mudou, e a devolve para o anúncio. */
+  const drop = (): string[] => {
     setMoving(null);
-    if (sameOrder(order, ids)) setDraft(null);
-    else onReorder?.(order);
+    if (!sameOrder(order, ids)) onReorder?.(order);
     return order;
   };
-  const cancel = () => {
+  const cancel = (id: string) => {
     setMoving(null);
-    setDraft(null);
+    setAnnouncement(`Movimento cancelado; ${label(id)} voltou à posição ${position(ids, id)}.`);
   };
+  const grabbedByKeyboard = (id: string) => moving?.id === id && moving.via === 'keyboard';
 
   const onHandleKeyDown = (id: string) => (event: KeyboardEvent<HTMLButtonElement>) => {
-    const grabbed = moving?.id === id && moving.via === 'keyboard';
+    const grabbed = grabbedByKeyboard(id);
     if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
-      if (!grabbed) {
-        begin(id, 'keyboard');
-        setAnnouncement(`${label(id)} pego, na posição ${position(order, id)}. Use as setas para mover.`);
+      if (grabbed) {
+        setAnnouncement(`${label(id)} solto na posição ${position(drop(), id)}.`);
       } else {
-        const dropped = drop()!;
-        setAnnouncement(`${label(id)} solto na posição ${position(dropped, id)}.`);
+        grab(id, 'keyboard');
+        setAnnouncement(`${label(id)} pego, na posição ${position(order, id)}. Use as setas para mover.`);
       }
       return;
     }
     if (!grabbed) return;
-    const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key];
+    const step = steps[event.key];
     if (step) {
       event.preventDefault();
-      const next = moveTo(id, order.indexOf(id) + step);
-      setAnnouncement(`${label(id)} na posição ${position(next, id)}.`);
+      const to = order.indexOf(id) + step;
+      // na ponta, o anúncio muda: repetir a posição não seria lido de novo
+      if (to < 0) setAnnouncement(`${label(id)} já está na primeira posição.`);
+      else if (to >= order.length) setAnnouncement(`${label(id)} já está na última posição.`);
+      else setAnnouncement(`${label(id)} na posição ${position(moveTo(id, to), id)}.`);
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      cancel();
-      setAnnouncement(`Movimento cancelado; ${label(id)} voltou à posição ${position(ids, id)}.`);
+      cancel(id);
     }
   };
 
@@ -107,7 +108,6 @@ export function useReorder<I>({ items, getId, getLabel, onReorder, disabled = fa
     instructionsId,
     /** Id do item sendo movido. */
     movingId: moving?.id,
-    enabled,
     /** Atributos da alça de teclado (um botão). */
     handleProps: (item: I) => {
       const id = getId(item);
@@ -116,10 +116,15 @@ export function useReorder<I>({ items, getId, getLabel, onReorder, disabled = fa
           if (element) handles.current.set(id, element);
           else handles.current.delete(id);
         },
-        'aria-pressed': moving?.id === id && moving.via === 'keyboard',
+        'aria-pressed': grabbedByKeyboard(id),
         'aria-describedby': instructionsId,
         disabled: !enabled,
         onKeyDown: onHandleKeyDown(id),
+        onBlur(event: FocusEvent<HTMLButtonElement>) {
+          // o item mudar de lugar no DOM também tira o foco, mas sem destino: só o
+          // foco que vai para outro elemento (Tab, clique) desfaz o movimento
+          if (grabbedByKeyboard(id) && event.relatedTarget) cancel(id);
+        },
       };
     },
     /** Atributos do item: arrastar com o mouse. */
@@ -132,7 +137,7 @@ export function useReorder<I>({ items, getId, getLabel, onReorder, disabled = fa
           event.dataTransfer.effectAllowed = 'move';
           // o Firefox só começa a arrastar com algum dado
           event.dataTransfer.setData('text/plain', id);
-          begin(id, 'pointer');
+          grab(id, 'pointer');
         },
         onDragOver(event: DragEvent) {
           if (moving?.via !== 'pointer') return;
@@ -141,7 +146,7 @@ export function useReorder<I>({ items, getId, getLabel, onReorder, disabled = fa
         },
         onDragEnd() {
           // largado fora da lista: o `drop` não veio e o movimento desfaz
-          if (moving?.via === 'pointer') cancel();
+          if (moving?.via === 'pointer') setMoving(null);
         },
       };
     },

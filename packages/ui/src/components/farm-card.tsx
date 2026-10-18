@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 import { pressable } from '../lib/pressable.js';
-import { accentRing, focusRing, liftOnHover } from '../lib/styles.js';
+import { accentRing, focusRing, liftOnHover, mediaFill, mediaFrame } from '../lib/styles.js';
 import { Badge, type BadgeProps } from './badge.js';
 import { Icon, type IconName } from './icon.js';
 
@@ -63,9 +63,9 @@ export function FarmCard({
       {...props}
     >
       {/* 168px do export (--space-13 + --space-12) */}
-      <div className="relative grid h-[calc(var(--space-13)+var(--space-12))] place-items-center overflow-hidden rounded-media bg-surface-muted">
+      <div className={cn(mediaFrame, 'h-[calc(var(--space-13)+var(--space-12))]')}>
         {image ? (
-          <img src={image} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
+          <img src={image} alt="" loading="lazy" className={mediaFill} />
         ) : (
           <span className="gv-eyebrow">Foto da propriedade</span>
         )}

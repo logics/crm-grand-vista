@@ -10,10 +10,10 @@ export type FileRules = {
   accept: string;
   /** Tamanho máximo de cada arquivo, em bytes. */
   maxSize?: number;
-  /** Quantos arquivos ainda cabem. */
-  room?: number;
-  /** Limite total, para dizer no motivo da recusa. */
+  /** Quantos arquivos a lista comporta. */
   maxFiles?: number;
+  /** Quantos ela já tem (enviados e na fila). */
+  current?: number;
 };
 
 export function matchesAccept(file: File, accept: string): boolean {
@@ -45,7 +45,8 @@ export function formatBytes(bytes: number): string {
 }
 
 /** Separa o que pode subir do que é recusado, com o motivo em pt-BR. */
-export function screenFiles(files: File[], { accept, maxSize, room = Infinity, maxFiles }: FileRules) {
+export function screenFiles(files: File[], { accept, maxSize, maxFiles, current = 0 }: FileRules) {
+  const room = maxFiles === undefined ? Infinity : Math.max(0, maxFiles - current);
   const accepted: File[] = [];
   const rejected: RejectedFile[] = [];
   for (const file of files) {

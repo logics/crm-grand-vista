@@ -454,3 +454,97 @@ describe('MediaUploader — mídia enviada', () => {
     expect(screen.getByRole('button', { name: 'Mover sede.jpg' })).toBeDisabled();
   });
 });
+
+describe('MediaUploader — achados da revisão', () => {
+  it('desabilitado, a fila não cancela, não descarta nem tenta de novo', async () => {
+    const { upload, calls } = fakeUpload();
+    const { rerender } = render(<MediaUploader upload={upload} />);
+    await chooseFiles(photo('a.jpg'), photo('b.jpg'));
+    await act(async () => calls[1]!.reject(new Error('rede')));
+
+    rerender(<MediaUploader upload={upload} disabled />);
+    expect(screen.getByRole('button', { name: 'Cancelar envio de a.jpg' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Descartar b.jpg' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeDisabled();
+  });
+
+  it('a prévia que nunca responde não prende a vaga: o resultado sai sem dimensões', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { upload, calls } = fakeUpload();
+      const onUploaded = vi.fn();
+      render(<MediaUploader upload={upload} onUploaded={onUploaded} concurrency={1} />);
+      await chooseFiles(photo('a.jpg'), photo('b.jpg'));
+
+      await act(async () => calls[0]!.resolve('a'));
+      expect(onUploaded).not.toHaveBeenCalled();
+      await act(async () => vi.advanceTimersByTime(5000));
+      expect(onUploaded).toHaveBeenCalledWith('a', { file: calls[0]!.file, kind: 'photo' });
+      expect(calls).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a ordem é de quem usa: soltar sem `items` mudar volta à ordem da prop', async () => {
+    render(<MediaUploader upload={fakeUpload().upload} items={gallery} onReorder={vi.fn()} />);
+    screen.getByRole('button', { name: 'Mover sede.jpg' }).focus();
+    await userEvent.keyboard(' {ArrowRight} ');
+    expect(order()).toEqual(['sede.jpg', 'pivo.jpg', 'voo.mp4']);
+  });
+
+  it('sair da alça com Tab com o item pego desfaz o movimento', async () => {
+    const onReorder = vi.fn();
+    render(<MediaUploader upload={fakeUpload().upload} items={gallery} onReorder={onReorder} />);
+    const handle = screen.getByRole('button', { name: 'Mover sede.jpg' });
+    handle.focus();
+    await userEvent.keyboard(' {ArrowRight}');
+    await userEvent.tab();
+
+    expect(order()).toEqual(['sede.jpg', 'pivo.jpg', 'voo.mp4']);
+    expect(handle).toHaveAttribute('aria-pressed', 'false');
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Movimento cancelado; sede.jpg voltou à posição 1 de 3');
+  });
+
+  it('item pego que some de `items` encerra o movimento sem quebrar', async () => {
+    const { rerender } = render(<MediaUploader upload={fakeUpload().upload} items={gallery} onReorder={vi.fn()} />);
+    screen.getByRole('button', { name: 'Mover sede.jpg' }).focus();
+    await userEvent.keyboard(' ');
+    rerender(<MediaUploader upload={fakeUpload().upload} items={gallery.slice(1)} onReorder={vi.fn()} />);
+
+    expect(order()).toEqual(['pivo.jpg', 'voo.mp4']);
+    screen.getByRole('button', { name: 'Mover pivo.jpg' }).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(order()).toEqual(['pivo.jpg', 'voo.mp4']);
+  });
+
+  it('seta no limite diz que o item já está na ponta', async () => {
+    render(<MediaUploader upload={fakeUpload().upload} items={gallery} onReorder={vi.fn()} />);
+    screen.getByRole('button', { name: 'Mover sede.jpg' }).focus();
+    await userEvent.keyboard(' {ArrowLeft}');
+    expect(screen.getByRole('status')).toHaveTextContent('sede.jpg já está na primeira posição');
+
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+    expect(screen.getByRole('status')).toHaveTextContent('sede.jpg já está na última posição');
+  });
+
+  it('ao confirmar a remoção, o foco vai para o botão de envio', async () => {
+    render(<MediaUploader upload={fakeUpload().upload} items={gallery} onRemove={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Remover pivo.jpg' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remover' }));
+    expect(screen.getByRole('button', { name: 'Enviar fotos' })).toHaveFocus();
+  });
+
+  it('id e descrição de quem usa vão para o botão de envio', () => {
+    render(
+      <>
+        <span id="dica">Até dez fotos</span>
+        <MediaUploader upload={fakeUpload().upload} id="galeria" aria-describedby="dica" />
+      </>,
+    );
+    const button = screen.getByRole('button', { name: 'Enviar fotos' });
+    expect(button).toHaveAttribute('id', 'galeria');
+    expect(button).toHaveAccessibleDescription('Até dez fotos');
+  });
+});
