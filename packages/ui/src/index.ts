@@ -1,6 +1,7 @@
 // Design System do CRM: tokens, primitivos shadcn reestilizados e componentes
 // de domínio. Spec: `docs/specs/design-system.md`.
 export { cn } from './lib/cn.js';
+export { initials } from './lib/initials.js';
 export * from './primitives/calendar.js';
 export * from './primitives/checkbox.js';
 export * from './primitives/command.js';

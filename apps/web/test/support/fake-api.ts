@@ -1,7 +1,16 @@
 // API falsa na borda HTTP: o `fetch` global é trocado por estas respostas, e
 // todo o resto — cliente RPC, TanStack Query, roteador, formulário — é o código
-// de produção. Responde só as rotas de `/auth`, com os contratos de `@crm/shared`.
-import { INVALID_CREDENTIALS_MESSAGE, type LoginInput, type Session } from '@crm/shared';
+// de produção. Responde as rotas de `/auth`, a entrada na empresa
+// (`/e/:tenant/permissions/effective`) e registros avulsos de empresa, com os
+// contratos de `@crm/shared`.
+import {
+  INVALID_CREDENTIALS_MESSAGE,
+  TENANT_BLOCKED_MESSAGE,
+  TENANT_NOT_FOUND_MESSAGE,
+  type LoginInput,
+  type Session,
+  type SessionTenant,
+} from '@crm/shared';
 import { vi } from 'vitest';
 
 interface FakeApiOptions {
@@ -13,6 +22,13 @@ interface FakeApiOptions {
   loginFails?: boolean;
   /** Força uma falha do servidor em `/auth/logout`: a sessão continua aberta. */
   logoutFails?: boolean;
+  /**
+   * Empresas em que a sessão entra mesmo sem vínculo — o super admin. As
+   * vinculadas entram, salvo as bloqueadas (403); as demais, 404.
+   */
+  extraTenants?: string[];
+  /** Registros de empresa por caminho (`/e/norte/farms/1`): GET devolve o corpo, ou 404. */
+  records?: Record<string, unknown>;
 }
 
 export interface FakeApi {
@@ -28,6 +44,14 @@ export function session(overrides: Partial<Session> = {}): Session {
   };
 }
 
+/** Empresa da sessão; o nome, se omitido, é o slug. */
+export function sessionTenant(
+  slug: string,
+  { name = slug, isDefault = false, blocked = false }: Partial<Omit<SessionTenant, 'slug'>> = {},
+): SessionTenant {
+  return { slug, name, isDefault, blocked };
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -36,6 +60,8 @@ export function stubFakeApi({
   account,
   loginFails = false,
   logoutFails = false,
+  extraTenants = [],
+  records = {},
 }: FakeApiOptions = {}): FakeApi {
   let current = initial;
   const api: FakeApi = { requests: [] };
@@ -65,6 +91,19 @@ export function stubFakeApi({
         if (logoutFails) return json({ error: { code: 'internal', message: 'Erro interno.' } }, 500);
         current = null;
         return new Response(null, { status: 204 });
+      }
+      const tenantPath = /^\/e\/([^/]+)(\/.*)$/.exec(url.pathname);
+      if (method === 'GET' && tenantPath) {
+        const slug = decodeURIComponent(tenantPath[1] ?? '');
+        const linked = current?.tenants.find((item) => item.slug === slug);
+        if (!current) return json({ error: { code: 'unauthenticated', message: 'Sessão expirada.' } }, 401);
+        if (!linked && !extraTenants.includes(slug)) {
+          return json({ error: { code: 'tenant_not_found', message: TENANT_NOT_FOUND_MESSAGE } }, 404);
+        }
+        if (linked?.blocked) return json({ error: { code: 'tenant_blocked', message: TENANT_BLOCKED_MESSAGE } }, 403);
+        if (tenantPath[2] === '/permissions/effective') return json({ permissions: [], dataScopes: {} });
+        if (url.pathname in records) return json(records[url.pathname]);
+        return json({ error: { code: 'not_found', message: 'Registro não encontrado.' } }, 404);
       }
       return json({ error: { code: 'not_found', message: 'Rota inexistente na API falsa.' } }, 404);
     }),

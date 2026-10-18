@@ -30,10 +30,10 @@ interface CreatedUser {
 export async function createUserWithPassword(
   db: Database,
   name: string,
-  options: { isSuperAdmin?: boolean } = {},
+  options: { isSuperAdmin?: boolean; email?: string; password?: string } = {},
 ): Promise<CreatedUser> {
-  const email = `${uuidv7()}@teste.local`;
-  const password = `senha-${uuidv7()}`;
+  const email = options.email ?? `${uuidv7()}@teste.local`;
+  const password = options.password ?? `senha-${uuidv7()}`;
   const passwordHash = await hashPassword(password);
 
   const id = await db.semTenant({ reason: 'cli' }, async (tx) => {
@@ -52,9 +52,13 @@ export async function createUserWithPassword(
   return { id, name, email, password };
 }
 
-/** Cria uma empresa e devolve id e slug. */
-export async function createTenant(db: Database, name: string): Promise<{ id: string; slug: string; name: string }> {
-  const slug = `${name}-${uuidv7()}`;
+/** Cria uma empresa e devolve id e slug. Sem slug dado, um único derivado do nome. */
+export async function createTenant(
+  db: Database,
+  name: string,
+  options: { slug?: string } = {},
+): Promise<{ id: string; slug: string; name: string }> {
+  const slug = options.slug ?? `${name}-${uuidv7()}`;
   const [tenant] = await db.semTenant({ reason: 'cli' }, (tx) =>
     tx.insert(tenants).values({ slug, name }).returning({ id: tenants.id }),
   );
