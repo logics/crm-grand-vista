@@ -37,6 +37,11 @@ export type DecimalSpec = {
   fromDisplay?: (display: string) => string;
   /** Muda quando a unidade de exibição muda, para o texto ser refeito. */
   displayKey?: string;
+  /**
+   * Onde o ponto não pode ser milhar (o percentual, até 100), o ponto digitado
+   * ou colado vira a vírgula decimal, no lugar em que entrou.
+   */
+  dotAsDecimal?: boolean;
   /** Máscara de centavos: só os dígitos contam, os últimos `maxScale` são as casas (`parseShiftedDecimal`). */
   shifted?: boolean;
 };
@@ -52,7 +57,7 @@ const sameDecimal = (a: string | null, b: string | null) =>
 /** Liga as props de um campo decimal às do `Input`. */
 export function useDecimalInput(
   { value, defaultValue = null, onChange, min, max, onBlur, ...props }: DecimalInputProps,
-  { format, toDisplay, fromDisplay, displayKey, shifted = false }: DecimalSpec,
+  { format, toDisplay, fromDisplay, displayKey, dotAsDecimal = false, shifted = false }: DecimalSpec,
 ): InputProps {
   const show = (decimal: string | null) =>
     decimal === null ? '' : formatDecimal(toDisplay ? toDisplay(decimal) : decimal, format);
@@ -78,7 +83,15 @@ export function useDecimalInput(
       if (!sameDecimal(next, state.value)) onChange?.(next);
       return;
     }
-    const text = event.target.value;
+    const input = event.target;
+    if (dotAsDecimal && input.value.includes('.')) {
+      // mesmo comprimento: troca no próprio campo e devolve o cursor onde estava,
+      // para o React não ter o que reescrever (o que levaria o cursor ao fim)
+      const caret = input.selectionStart;
+      input.value = input.value.replaceAll('.', ',');
+      input.setSelectionRange(caret, caret);
+    }
+    const text = input.value;
     const parsed = parseDecimal(text, format.maxScale);
     if (!parsed.ok) {
       setState({ ...state, text, unreadable: true });

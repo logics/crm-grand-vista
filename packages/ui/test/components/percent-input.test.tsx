@@ -37,19 +37,34 @@ describe('PercentInput', () => {
     expect(screen.getByRole('status', { name: 'valor' })).toHaveTextContent('12.525');
   });
 
-  it('vírgula é o separador decimal: ponto como decimal é inválido e não muda o valor', async () => {
+  it('ponto digitado vira vírgula: no percentual ele só pode ser decimal', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<PercentInput aria-label="Comissão" defaultValue="6" onChange={onChange} />);
+    render(<PercentInput aria-label="Comissão" onChange={onChange} />);
     const input = screen.getByRole('textbox');
-    await user.clear(input);
-    onChange.mockClear();
     await user.type(input, '12.5');
-    expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(onChange).toHaveBeenLastCalledWith('12');
-    await user.tab();
-    expect(input).toHaveValue('12');
+    expect(input).toHaveValue('12,5');
     expect(input).not.toHaveAttribute('aria-invalid');
+    expect(onChange).toHaveBeenLastCalledWith('12.5');
+  });
+
+  it('o ponto vira vírgula no lugar em que entrou, sem o cursor pular', async () => {
+    const user = userEvent.setup();
+    render(<PercentInput aria-label="Comissão" defaultValue="125" />);
+    const input = screen.getByRole<HTMLInputElement>('textbox');
+    await user.type(input, '.', { initialSelectionStart: 2, initialSelectionEnd: 2 });
+    expect(input).toHaveValue('12,5');
+    expect(input.selectionStart).toBe(3);
+  });
+
+  it('colado com ponto também padroniza', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<PercentInput aria-label="Comissão" onChange={onChange} />);
+    await user.click(screen.getByRole('textbox'));
+    await user.paste('2.75');
+    expect(screen.getByRole('textbox')).toHaveValue('2,75');
+    expect(onChange).toHaveBeenLastCalledWith('2.75');
   });
 
   it('de 0 a 100 por padrão', async () => {
