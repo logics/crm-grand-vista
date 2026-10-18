@@ -24,6 +24,7 @@ export * from './components/icon.js';
 export * from './components/icon-button.js';
 export * from './components/kanban.js';
 export * from './components/opportunity-card.js';
+export * from './components/pagination.js';
 export * from './components/progress-bar.js';
 export * from './components/search-bar.js';
 export * from './components/sidebar-nav.js';
