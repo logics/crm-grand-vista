@@ -2,6 +2,7 @@
 import '../support/dom.js';
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Field, PercentInput } from '../../src/index.js';
 
@@ -16,6 +17,39 @@ describe('PercentInput', () => {
     expect(onChange).toHaveBeenLastCalledWith('2.1235');
     await user.tab();
     expect(input).toHaveValue('2,1235');
+  });
+
+  it('valor como vem do banco (`numeric(7,4)`) aparece em pt-BR; a edição volta canônica', async () => {
+    const user = userEvent.setup();
+    function Form() {
+      const [value, setValue] = useState<string | null>('12.5000');
+      return (
+        <>
+          <PercentInput aria-label="Comissão" value={value} onChange={setValue} />
+          <output aria-label="valor">{String(value)}</output>
+        </>
+      );
+    }
+    render(<Form />);
+    const input = screen.getByRole('textbox', { name: 'Comissão' });
+    expect(input).toHaveValue('12,5');
+    await user.type(input, '25');
+    expect(screen.getByRole('status', { name: 'valor' })).toHaveTextContent('12.525');
+  });
+
+  it('vírgula é o separador decimal: ponto como decimal é inválido e não muda o valor', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<PercentInput aria-label="Comissão" defaultValue="6" onChange={onChange} />);
+    const input = screen.getByRole('textbox');
+    await user.clear(input);
+    onChange.mockClear();
+    await user.type(input, '12.5');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(onChange).toHaveBeenLastCalledWith('12');
+    await user.tab();
+    expect(input).toHaveValue('12');
+    expect(input).not.toHaveAttribute('aria-invalid');
   });
 
   it('de 0 a 100 por padrão', async () => {

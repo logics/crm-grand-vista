@@ -4,8 +4,10 @@ import type { InputProps } from '../primitives/input.js';
 
 // Base comum de `MoneyInput`, `AreaInput` e `PercentInput`: um `Input` de
 // texto cujo valor é a string decimal canônica de `@crm/shared` (`"1480.5"`),
-// nunca `number`. A pessoa digita em pt-BR, com vírgula ou ponto decimal; o
-// texto só é reformatado ao sair do campo, para o cursor não pular. Texto que
+// nunca `number`. O valor entra como vem do banco (`"12.5000"`) e é exibido em
+// pt-BR (`"12,5"`); a pessoa digita no mesmo formato — vírgula decimal, ponto
+// só de milhar — e o texto só é reformatado ao sair do campo, para o cursor
+// não pular. Texto que
 // não é número marca o campo inválido e não muda o valor; ao sair, o campo
 // volta a mostrar o último valor. Valor fora de `min`/`max` é entregue, e o
 // campo fica inválido até ser corrigido. Com `shifted` (dinheiro), o campo é

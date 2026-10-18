@@ -18,15 +18,11 @@ describe('parseDecimal', () => {
   it.each([
     ['1.480,50', '1480.5'],
     ['1480,5', '1480.5'],
-    ['1480.5', '1480.5'],
     ['1.480', '1480'],
     ['1.234.567,8', '1234567.8'],
-    ['1,480.50', '1480.5'],
     ['0,5', '0.5'],
     [',5', '0.5'],
     ['12,', '12'],
-    ['0.500', '0.5'],
-    ['1.48', '1.48'],
     ['007', '7'],
     [' 1 480,5 ', '1480.5'],
   ])('lê %s como %s', (text, expected) => {
@@ -44,6 +40,11 @@ describe('parseDecimal', () => {
 
   it.each(['', '   '])('vazio (%j) é null', (text) => {
     expect(parseDecimal(text, 2)).toEqual({ ok: true, value: null });
+  });
+
+  // pt-BR, como o campo exibe: vírgula é o único decimal, ponto só agrupa milhar
+  it.each(['1480.5', '12.5', '0.500', '1.48', '1,480.50', '1.4801'])('ponto como decimal: recusa %j', (text) => {
+    expect(parseDecimal(text, 4)).toEqual({ ok: false });
   });
 
   it.each(['abc', '12a', '-', ',', '.', '1,2,3', '1.48,5', '1.2.3', '12.3456,7', '1,234,5.6', '--1', '1-', '1e3', 'R$ 10'])(

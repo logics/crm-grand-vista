@@ -82,39 +82,15 @@ export function compareDecimal(a: string, b: string): -1 | 0 | 1 {
   return diff === 0n ? 0 : diff < 0n ? -1 : 1;
 }
 
-/** Parte inteira com separador de milhar: grupos de três depois do primeiro. */
-const grouped = (separator: string) => new RegExp(`^\\d{1,3}(\\${separator}\\d{3})*$`);
-
-/** Separa parte inteira e fração conforme os separadores que o texto usa; `null` se não fecha. */
-function splitSeparators(body: string): [string, string] | null {
-  const lastComma = body.lastIndexOf(',');
-  const lastDot = body.lastIndexOf('.');
-  if (lastComma >= 0 && lastDot >= 0) {
-    // os dois: o último é o decimal e o outro, o milhar ("1.480,50" e "1,480.50")
-    const decimal = lastComma > lastDot ? ',' : '.';
-    const thousands = decimal === ',' ? '.' : ',';
-    const at = body.lastIndexOf(decimal);
-    const integer = body.slice(0, at);
-    const fraction = body.slice(at + 1);
-    if (fraction.includes(thousands) || !grouped(thousands).test(integer)) return null;
-    return [integer.replaceAll(thousands, ''), fraction];
-  }
-  if (lastComma >= 0) {
-    // só vírgula: é o decimal, como se escreve em pt-BR
-    const parts = body.split(',');
-    return parts.length === 2 ? [parts[0] ?? '', parts[1] ?? ''] : null;
-  }
-  // Só ponto: milhar quando agrupa como milhar ("1.480", que é como o campo
-  // exibe 1480), decimal quando aparece uma vez fora disso ("1480.5", "0.500").
-  if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(body)) return [body.replaceAll('.', ''), ''];
-  const parts = body.split('.');
-  return parts.length <= 2 ? [parts[0] ?? '', parts[1] ?? ''] : null;
-}
+/** Parte inteira com milhar: sem ponto, ou ponto a cada três dígitos (`"1.480"`, `"1.234.567"`). */
+const INTEGER_PT_BR = /^(\d*|[1-9]\d{0,2}(\.\d{3})+)$/;
 
 /**
- * Lê o que a pessoa digitou: milhar com ponto e decimal com vírgula
- * (`"1.480,50"`), ou decimal com ponto (`"1480.5"`), com sinal opcional.
- * Arredonda em `scale` casas e devolve o decimal canônico.
+ * Lê o que a pessoa digitou, em pt-BR — o mesmo formato que o campo exibe:
+ * vírgula é o único decimal e ponto só agrupa milhar (`"1.480,50"`, `"1480,5"`,
+ * `"1.480"`). Ponto como decimal (`"1480.5"`) é recusado, em vez de lido como
+ * outro número. Sinal opcional. Arredonda em `scale` casas e devolve o decimal
+ * canônico.
  */
 export function parseDecimal(text: string, scale: number): ParsedDecimal {
   const compact = text.replace(/\s/g, '');
@@ -122,10 +98,10 @@ export function parseDecimal(text: string, scale: number): ParsedDecimal {
   const match = /^([+-]?)([\d.,]+)$/.exec(compact);
   if (!match) return { ok: false };
   const [, sign = '', body = ''] = match;
-  const parts = splitSeparators(body);
-  if (!parts) return { ok: false };
-  const [integer, fraction] = parts;
-  if (!/^\d*$/.test(integer) || !/^\d*$/.test(fraction) || integer + fraction === '') return { ok: false };
+  const [grouped = '', fraction = '', ...rest] = body.split(',');
+  if (rest.length > 0 || !INTEGER_PT_BR.test(grouped) || !/^\d*$/.test(fraction)) return { ok: false };
+  const integer = grouped.replaceAll('.', '');
+  if (integer + fraction === '') return { ok: false };
   const canonical = `${sign === '-' ? '-' : ''}${integer || '0'}${fraction ? `.${fraction}` : ''}`;
   return { ok: true, value: roundDecimal(canonical, scale) };
 }

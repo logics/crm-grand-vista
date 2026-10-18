@@ -21,6 +21,11 @@ describe('AreaInput', () => {
     expect(onChange).toHaveBeenLastCalledWith('12.3457');
   });
 
+  it('valor como vem do banco (`numeric(12,4)`) aparece em pt-BR', () => {
+    render(<AreaInput aria-label="Área total" value="1480.2500" />);
+    expect(screen.getByRole('textbox')).toHaveValue('1.480,25');
+  });
+
   it('área negativa é inválida', async () => {
     const user = userEvent.setup();
     render(<AreaInput aria-label="Área total" />);

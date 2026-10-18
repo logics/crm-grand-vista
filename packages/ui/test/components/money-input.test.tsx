@@ -70,6 +70,11 @@ describe('MoneyInput', () => {
     expect(input).toHaveValue('200,00');
   });
 
+  it('valor como vem do banco (`numeric(16,2)`) aparece em pt-BR', () => {
+    render(<MoneyInput aria-label="Preço pedido" value="48200000.00" />);
+    expect(screen.getByRole('textbox')).toHaveValue('48.200.000,00');
+  });
+
   it('string vazia de fora vale vazio', () => {
     render(<MoneyInput aria-label="Preço pedido" value="" />);
     expect(screen.getByRole('textbox')).toHaveValue('');
