@@ -34,6 +34,15 @@ const violations: Record<string, { source: string; expected: RegExp }> = {
     source: `export const el = <AsyncCombobox size="xl" />;`,
     expected: /<AsyncCombobox> size/,
   },
+  'unidade inexistente de AreaInput': {
+    source: `export const el = <AreaInput unit="metro" />;`,
+    expected: /<AreaInput> unit/,
+  },
+  'tipo inexistente de alqueire no AreaInput': {
+    source: `export const el = <AreaInput unit="alqueire" alqueireType="mineiro" />;`,
+    expected: /<AreaInput> alqueireType/,
+  },
+  'tamanho inexistente de MoneyInput': { source: `export const el = <MoneyInput size="xl" />;`, expected: /<MoneyInput>/ },
   'tom inexistente de Wordmark': { source: `export const el = <Wordmark tone="gold" />;`, expected: /<Wordmark> tone/ },
   'glifo direto do lucide-react': {
     source: `import { Tractor } from 'lucide-react';\nexport const glyph = Tractor;`,
@@ -53,6 +62,9 @@ const conforming: Record<string, string> = {
     <CompatibilityGauge value={80} size="lg" />
     <AsyncCombobox size="sm" />
     <Wordmark tone="light" />
+    <AreaInput unit="alqueire" alqueireType="paulista" size="lg" min="0" />
+    <MoneyInput size="sm" max="1000" />
+    <PercentInput size="md" />
   </>
 );`,
   'Textarea e Toast com atributos nativos': `export const el = (
