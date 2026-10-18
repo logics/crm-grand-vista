@@ -30,6 +30,10 @@ const violations: Record<string, { source: string; expected: RegExp }> = {
     source: `export const el = <CompatibilityGauge value={80} size="xl" />;`,
     expected: /<CompatibilityGauge> size/,
   },
+  'tamanho inexistente de AsyncCombobox': {
+    source: `export const el = <AsyncCombobox size="xl" />;`,
+    expected: /<AsyncCombobox> size/,
+  },
   'unidade inexistente de AreaInput': {
     source: `export const el = <AreaInput unit="metro" />;`,
     expected: /<AreaInput> unit/,
@@ -56,6 +60,7 @@ const conforming: Record<string, string> = {
     <Button variant="accent" size="lg" type="submit" onClick={() => {}} aria-label="Salvar">Salvar</Button>
     <Badge tone="gold" size="sm">Destaque</Badge>
     <CompatibilityGauge value={80} size="lg" />
+    <AsyncCombobox size="sm" />
     <Wordmark tone="light" />
     <AreaInput unit="alqueire" alqueireType="paulista" size="lg" min="0" />
     <MoneyInput size="sm" max="1000" />
