@@ -34,31 +34,42 @@ function FarmPage() {
 
 const farmPages = [{ path: 'farms/:id', element: <FarmPage /> }];
 
+/** O menu de conta, pelo nome do usuário no gatilho. */
+const accountMenu = () => screen.findByRole('button', { name: /Ana Ribeiro/ });
+
+async function openAccountMenu() {
+  await userEvent.setup().click(await accountMenu());
+}
+
 async function chooseTenant(name: string) {
-  const user = userEvent.setup();
-  await user.click(await screen.findByRole('combobox', { name: 'Empresa' }));
-  await user.click(await screen.findByRole('option', { name: new RegExp(name) }));
+  await openAccountMenu();
+  await userEvent.setup().click(await screen.findByRole('option', { name: new RegExp(name) }));
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('seletor de empresa', () => {
+describe('seletor de empresa, no menu de conta', () => {
   it('não aparece para quem tem um vínculo só', async () => {
     stubFakeApi({ session: session({ tenants: [grandVista] }) });
     renderApp('/e/grand-vista');
 
-    await screen.findByRole('heading', { level: 1, name: 'Grand Vista' });
-    expect(screen.queryByRole('combobox', { name: 'Empresa' })).not.toBeInTheDocument();
+    await openAccountMenu();
+
+    expect(await screen.findByRole('option', { name: 'Sair' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Grand Vista/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Empresa' })).not.toBeInTheDocument();
   });
 
   it('mostra a empresa ativa e leva à raiz da outra', async () => {
     stubFakeApi({ session: twoTenants });
     const app = renderApp('/e/grand-vista');
 
-    expect(await screen.findByRole('combobox', { name: 'Empresa' })).toHaveTextContent('Grand Vista');
-    await chooseTenant('Fazendas Norte');
+    expect(await accountMenu()).toHaveAccessibleName('Ana Ribeiro, Grand Vista');
+    await openAccountMenu();
+    expect(await screen.findByRole('option', { name: /Grand Vista/ })).toHaveAttribute('aria-current', 'true');
+    await userEvent.setup().click(screen.getByRole('option', { name: /Fazendas Norte/ }));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Fazendas Norte' })).toBeInTheDocument();
     expect(app.pathname()).toBe('/e/fazendas-norte');
@@ -68,7 +79,7 @@ describe('seletor de empresa', () => {
     stubFakeApi({ session: session({ tenants: [grandVista, tenant('sul', 'Agro Sul', { blocked: true })] }) });
     renderApp('/e/grand-vista');
 
-    await userEvent.setup().click(await screen.findByRole('combobox', { name: 'Empresa' }));
+    await openAccountMenu();
 
     expect(await screen.findByRole('option', { name: /Agro Sul/ })).toHaveTextContent('Bloqueada');
     expect(screen.getByRole('option', { name: /Grand Vista/ })).not.toHaveTextContent('Bloqueada');
@@ -138,7 +149,7 @@ describe('empresa inacessível', () => {
     const list = screen.getByRole('navigation', { name: 'Suas empresas' });
     expect(within(list).getByRole('link', { name: 'Grand Vista' })).toHaveAttribute('href', '/e/grand-vista');
     expect(within(list).getByRole('link', { name: 'Fazendas Norte' })).toHaveAttribute('href', '/e/fazendas-norte');
-    expect(screen.queryByRole('combobox', { name: 'Empresa' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ana Ribeiro/ })).not.toBeInTheDocument();
   });
 
   it('o link leva à empresa escolhida', async () => {
@@ -151,16 +162,30 @@ describe('empresa inacessível', () => {
     expect(app.pathname()).toBe('/e/fazendas-norte');
   });
 
+  it('o teclado navega pelo menu: setas escolhem a empresa, Enter troca', async () => {
+    stubFakeApi({ session: twoTenants });
+    const app = renderApp('/e/grand-vista');
+    const user = userEvent.setup();
+
+    await user.click(await accountMenu());
+    await screen.findByRole('option', { name: /Fazendas Norte/ });
+    await user.keyboard('{ArrowDown}{Enter}');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Fazendas Norte' })).toBeInTheDocument();
+    expect(app.pathname()).toBe('/e/fazendas-norte');
+  });
+
   it('o super admin entra pela URL numa empresa sem vínculo, e o seletor continua só com as vinculadas', async () => {
     stubFakeApi({ session: twoTenants, extraTenants: ['agro-leste'] });
     renderApp('/e/agro-leste');
 
-    const switcher = await screen.findByRole('combobox', { name: 'Empresa' });
-    expect(switcher).toHaveTextContent('agro-leste');
+    expect(await accountMenu()).toHaveTextContent('agro-leste');
     expect(screen.queryByText(TENANT_NOT_FOUND_MESSAGE)).not.toBeInTheDocument();
-    await userEvent.setup().click(switcher);
+    await openAccountMenu();
 
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Grand Vista', 'Fazendas Norte']);
+    const tenants = within(await screen.findByRole('group', { name: 'Empresa' })).getAllByRole('option');
+    expect(tenants.map((option) => option.textContent)).toEqual(['Grand Vista', 'Fazendas Norte']);
+    for (const option of tenants) expect(option).not.toHaveAttribute('aria-current');
   });
 });
 

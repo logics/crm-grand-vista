@@ -12,6 +12,12 @@ async function login(page: Page) {
 
 const tenantHeading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
 
+/** Troca de empresa pelo menu de conta da topbar. */
+async function switchTenant(page: Page, name: string) {
+  await page.getByRole('button', { name: new RegExp(twoTenantUser.name) }).click();
+  await page.getByRole('option', { name }).click();
+}
+
 test('duas abas em duas empresas diferentes funcionam ao mesmo tempo, sem interferir uma na outra', async ({
   context,
 }) => {
@@ -30,11 +36,9 @@ test('duas abas em duas empresas diferentes funcionam ao mesmo tempo, sem interf
   await expect(tenantHeading(tabA, first.name)).toBeVisible();
 
   // Trocar de empresa numa aba não arrasta a outra.
-  await tabB.getByRole('combobox', { name: 'Empresa' }).click();
-  await tabB.getByRole('option', { name: first.name }).click();
+  await switchTenant(tabB, first.name);
   await expect(tenantHeading(tabB, first.name)).toBeVisible();
-  await tabA.getByRole('combobox', { name: 'Empresa' }).click();
-  await tabA.getByRole('option', { name: second.name }).click();
+  await switchTenant(tabA, second.name);
   await expect(tenantHeading(tabA, second.name)).toBeVisible();
 
   await tabB.reload();

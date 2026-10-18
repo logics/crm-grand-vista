@@ -10,4 +10,4 @@ Casca da aplicação: a empresa ativa, o seletor de empresa, as telas de empresa
 - Consulta de empresa usa `useTenantQuery` (`tenant-query.ts`), que põe o slug na chave do cache. Chave de empresa montada à mão é bug: trocar de empresa poderia mostrar o registro da anterior.
 - Registro que a API responde 404 lança `ResourceNotFoundError`. Vindo da troca de empresa, `TenantRouteError` leva à raiz da empresa; fora dela, diz que o registro não existe.
 - Caminhos de empresa saem de `tenant-path.ts` (`tenantRootPath`, `switchTenantPath`), nunca de concatenação à mão.
-- O seletor de empresa da topbar é o único (ADR 0002): filtro de módulo não tem seletor de empresa.
+- O seletor de empresa fica no menu de conta da topbar (`account-menu.tsx`), junto da saída, e é o único (ADR 0002): filtro de módulo não tem seletor de empresa.

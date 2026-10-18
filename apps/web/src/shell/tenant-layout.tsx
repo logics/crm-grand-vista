@@ -1,16 +1,15 @@
 import { TopBar } from '@crm/ui';
 import { Outlet } from 'react-router';
-import { LogoutButton } from '../modules/auth/logout-button.js';
 import { useAuthenticatedSession } from '../modules/auth/require-session.js';
+import { AccountMenu } from './account-menu.js';
 import { LoadFailedState } from './page-state.js';
 import { useTenantAccess } from './tenant-access.js';
 import { useTenantSlug } from './tenant-query.js';
-import { TenantSwitcher } from './tenant-switcher.js';
 import { TenantUnavailable } from './tenant-unavailable.js';
 
 // Casca da empresa, `/e/<tenant>/...`: entra só depois de a API aceitar a
-// empresa da URL. Por ora, o cabeçalho com a empresa, o seletor de empresa e a
-// saída; a navegação completa vem com a issue #20.
+// empresa da URL. Por ora, o cabeçalho com a empresa e o menu de conta (seletor
+// de empresa e saída); a navegação completa vem com a issue #20.
 export function TenantLayout() {
   const session = useAuthenticatedSession();
   const slug = useTenantSlug();
@@ -24,16 +23,7 @@ export function TenantLayout() {
 
   return (
     <div className="flex flex-col gap-gap-shell p-gap-shell max-mobile:p-gap-shell-mobile">
-      <TopBar
-        breadcrumb={session.user.name}
-        title={tenant?.name ?? slug}
-        actions={
-          <>
-            <TenantSwitcher session={session} slug={slug} />
-            <LogoutButton size="sm" />
-          </>
-        }
-      />
+      <TopBar title={tenant?.name ?? slug} actions={<AccountMenu session={session} slug={slug} />} />
       {/* Remonta a página a cada empresa: nenhum estado da anterior sobrevive à troca. */}
       <Outlet key={slug} context={session} />
     </div>
