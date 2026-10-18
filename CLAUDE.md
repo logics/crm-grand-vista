@@ -94,7 +94,7 @@ If Phase 1 slips, the agreed cut order is: matching config screen (keep default 
 ## Verification commands
 
 ```
-pnpm install            # Node 22 (.nvmrc), pnpm pelo packageManager
+pnpm install            # Node 24 (.nvmrc), pnpm pelo packageManager
 pnpm db:up              # Postgres 18 em container: bancos crm_dev e crm_test, papéis crm_owner e crm_app
 pnpm dev                # API (tsx watch) + web (Vite); a API lê o `.env` (copie de `.env.example`)
 pnpm storybook          # vitrine do Design System (packages/ui) em localhost:6006

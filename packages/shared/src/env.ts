@@ -3,13 +3,15 @@
 // `undefined` dentro de uma query em produção.
 import { z } from 'zod';
 
-const postgresUrl = z
+// `@__PURE__`: o front importa este módulo pelo `webEnvSchema`, e sem a marca
+// o bundler mantém os schemas da API no bundle do navegador, sem ninguém usá-los.
+const postgresUrl = /* @__PURE__ */ z
   .url({ protocol: /^postgres(ql)?$/, error: 'deve ser uma URL postgres://' });
 
 const httpUrl = z.url({ protocol: /^https?$/, error: 'deve ser uma URL http(s)://' });
 
 /** Processo da API. Não inclui a string de migration: a API nunca a lê. */
-export const apiEnvSchema = z.object({
+export const apiEnvSchema = /* @__PURE__ */ z.object({
   /** Conexão da aplicação, com o papel `crm_app` — sujeito ao RLS. */
   DATABASE_URL: postgresUrl,
   BETTER_AUTH_SECRET: z.string().min(32, 'deve ter ao menos 32 caracteres'),
@@ -19,7 +21,7 @@ export const apiEnvSchema = z.object({
 });
 
 /** Processo de migration. Conecta com o papel `crm_owner`, dono do schema. */
-export const migrationEnvSchema = z.object({
+export const migrationEnvSchema = /* @__PURE__ */ z.object({
   MIGRATION_DATABASE_URL: postgresUrl,
 });
 
@@ -27,11 +29,22 @@ export const migrationEnvSchema = z.object({
  * Scripts de CLI da API (provisionamento, super admin). Conectam como `crm_app`,
  * como a API: o RLS vale para eles também.
  */
-export const cliEnvSchema = apiEnvSchema.pick({ DATABASE_URL: true });
+export const cliEnvSchema = /* @__PURE__ */ apiEnvSchema.pick({ DATABASE_URL: true });
+
+/**
+ * Build do front. Tudo o que entra aqui vai parar no bundle, legível por
+ * qualquer visitante: só endereço público, nunca segredo. O Vite expõe só as
+ * variáveis com prefixo `VITE_`; o front as lê de `import.meta.env`, não do processo.
+ */
+export const webEnvSchema = z.object({
+  /** URL base pública da API, a mesma de `API_URL`. */
+  VITE_API_URL: httpUrl,
+});
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 export type CliEnv = z.infer<typeof cliEnvSchema>;
 export type MigrationEnv = z.infer<typeof migrationEnvSchema>;
+export type WebEnv = z.infer<typeof webEnvSchema>;
 
 type EnvSource = Readonly<Record<string, string | undefined>>;
 

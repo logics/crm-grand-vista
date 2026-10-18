@@ -7,5 +7,7 @@ export default defineConfig({
   // Em desenvolvimento, os pacotes do workspace são lidos do código-fonte
   // (condição `@crm/source`), sem precisar compilá-los antes.
   resolve: { conditions: ['@crm/source', ...defaultClientConditions] },
+  // O `.env` é o da raiz, o mesmo da API; do front, só sai o prefixo `VITE_`.
+  envDir: '../..',
   server: { port: 5173, strictPort: true },
 });

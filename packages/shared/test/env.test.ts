@@ -10,6 +10,7 @@ import {
   loadEnvFileIfPresent,
   migrationEnvSchema,
   parseEnv,
+  webEnvSchema,
 } from '../src/env.js';
 
 const validApiEnv = {
@@ -77,6 +78,16 @@ describe('parseEnv', () => {
 
   it('o CLI só exige a conexão da aplicação, nunca a de migration', () => {
     expect(Object.keys(cliEnvSchema.shape)).toEqual(['DATABASE_URL']);
+  });
+
+  it('o front só recebe a URL da API: nada de segredo vai para o bundle', () => {
+    expect(Object.keys(webEnvSchema.shape)).toEqual(['VITE_API_URL']);
+    expect(parseEnv(webEnvSchema, { VITE_API_URL: 'http://localhost:3000' })).toEqual({
+      VITE_API_URL: 'http://localhost:3000',
+    });
+    expect(catchEnvError(() => parseEnv(webEnvSchema, { VITE_API_URL: 'localhost' })).variables).toEqual([
+      'VITE_API_URL',
+    ]);
   });
 
   it('ignora variáveis que o schema não declara', () => {

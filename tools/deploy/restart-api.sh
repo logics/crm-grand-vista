@@ -15,7 +15,7 @@
 set -eu
 
 APP_DIR=/www/wwwroot/api.crmgv.logics.com.br
-NODE_BIN=/www/server/nodejs/v22.18.0/bin
+NODE_BIN=/www/server/nodejs/v24.22.0/bin
 NAME=CRMGrandVistaAPI
 
 pm2_as_app() {
