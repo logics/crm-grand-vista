@@ -3,6 +3,8 @@ import {
   alqueiresToHectares,
   compareDecimal,
   formatDecimal,
+  formatMoney,
+  formatPercent,
   hectaresToAlqueires,
   parseDecimal,
   parseShiftedDecimal,
@@ -157,5 +159,26 @@ describe('alqueire ↔ hectare', () => {
     expect(hectaresToAlqueires('1', 'paulista')).toBe('0.4132');
     expect(hectaresToAlqueires('1', 'norte')).toBe('0.3676');
     expect(hectaresToAlqueires('-1', 'norte')).toBe('-0.3676');
+  });
+});
+
+describe('formatMoney', () => {
+  it.each([
+    ['1480.5', 'R$ 1.480,50'],
+    ['1234567', 'R$ 1.234.567,00'],
+    ['0', 'R$ 0,00'],
+    ['0.005', 'R$ 0,01'],
+  ])('%s vira %s', (value, expected) => {
+    expect(formatMoney(value)).toBe(expected);
+  });
+});
+
+describe('formatPercent', () => {
+  it.each([
+    ['18', '18%'],
+    ['33.33333', '33,3333%'],
+    ['110.5000', '110,5%'],
+  ])('%s vira %s', (value, expected) => {
+    expect(formatPercent(value)).toBe(expected);
   });
 });

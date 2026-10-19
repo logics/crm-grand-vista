@@ -31,12 +31,15 @@ export const ALQUEIRE_LABELS: Record<AlqueireType, string> = {
 /** Leitura de um texto digitado: vazio é `null`; texto que não é número é `ok: false`. */
 export type ParsedDecimal = { ok: true; value: string | null } | { ok: false };
 
+// A base em `bigint` abaixo é exportada para as contas de outros módulos do
+// pacote (a divisão da comissão), mas fica fora do índice.
+
 /** Decimal como inteiro em `bigint` e casas: `"-14.805"` é `{ units: -14805n, scale: 3 }`. */
-type Scaled = { units: bigint; scale: number };
+export type Scaled = { units: bigint; scale: number };
 
 const CANONICAL = /^[+-]?\d+(\.\d+)?$/;
 
-function toScaled(value: string): Scaled {
+export function toScaled(value: string): Scaled {
   if (!CANONICAL.test(value)) throw new Error(`Não é um decimal canônico: ${JSON.stringify(value)}`);
   const [integer = '', fraction = ''] = value.split('.');
   return { units: BigInt(integer + fraction), scale: fraction.length };
@@ -45,7 +48,7 @@ function toScaled(value: string): Scaled {
 const pow10 = (exponent: number) => 10n ** BigInt(exponent);
 
 /** Divisão inteira arredondando o meio para longe do zero, como o `round` do Postgres. */
-function divRound(numerator: bigint, denominator: bigint): bigint {
+export function divRound(numerator: bigint, denominator: bigint): bigint {
   const quotient = numerator / denominator;
   const remainder = numerator % denominator;
   const abs = (n: bigint) => (n < 0n ? -n : n);
@@ -54,12 +57,12 @@ function divRound(numerator: bigint, denominator: bigint): bigint {
 }
 
 /** Leva o decimal a `scale` casas, arredondando. */
-function rescale({ units, scale }: Scaled, target: number): bigint {
+export function rescale({ units, scale }: Scaled, target: number): bigint {
   return target >= scale ? units * pow10(target - scale) : divRound(units, pow10(scale - target));
 }
 
 /** Volta ao texto canônico, sem zeros à direita e sem `-0`. */
-function toCanonical(units: bigint, scale: number): string {
+export function toCanonical(units: bigint, scale: number): string {
   const negative = units < 0n;
   const digits = (negative ? -units : units).toString().padStart(scale + 1, '0');
   const integer = digits.slice(0, digits.length - scale);
@@ -134,6 +137,18 @@ export function formatDecimal(value: string, { minScale, maxScale }: DecimalForm
   const decimals = fraction.padEnd(minScale, '0');
   return `${negative ? '-' : ''}${thousands}${decimals ? `,${decimals}` : ''}`;
 }
+
+/** Dinheiro: sempre as duas casas. */
+export const MONEY_FORMAT: DecimalFormat = { minScale: MONEY_SCALE, maxScale: MONEY_SCALE };
+
+/** Percentual: só as casas que tem, até quatro. Também a do `PercentInput`, que põe o "%" no sufixo. */
+export const PERCENT_FORMAT: DecimalFormat = { minScale: 0, maxScale: PERCENT_SCALE };
+
+/** Dinheiro por extenso, como nas fichas: `"1480.5"` vira `"R$ 1.480,50"`. */
+export const formatMoney = (value: string) => `R$ ${formatDecimal(value, MONEY_FORMAT)}`;
+
+/** Percentual com só as casas que tem: `"18"` vira `"18%"`, `"12.5"` vira `"12,5%"`. */
+export const formatPercent = (value: string) => `${formatDecimal(value, PERCENT_FORMAT)}%`;
 
 /** Multiplica dois decimais canônicos, arredondando o produto em `scale` casas. */
 function multiply(a: string, b: string, scale: number): string {

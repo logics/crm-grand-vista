@@ -19,6 +19,7 @@ export * from './components/badge.js';
 export * from './components/button.js';
 export * from './components/card.js';
 export * from './components/checklist.js';
+export * from './components/commission-editor.js';
 export * from './components/compatibility-gauge.js';
 export * from './components/confirm-dialog.js';
 export * from './components/contact-picker.js';
