@@ -37,6 +37,12 @@ export type Session = z.infer<typeof sessionSchema>;
 export const INVALID_CREDENTIALS_MESSAGE = 'E-mail ou senha inválidos.';
 
 /**
+ * Bloqueio por excesso de tentativas. Igual para e-mail com ou sem conta, e
+ * vale também para a senha correta enquanto durar o bloqueio.
+ */
+export const TOO_MANY_LOGIN_ATTEMPTS_MESSAGE = 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.';
+
+/**
  * Uma mensagem só para "a empresa não existe" e "você não tem vínculo com ela":
  * distinguir os dois diria a quem varre slugs quais empresas usam a plataforma.
  */

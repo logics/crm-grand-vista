@@ -1,12 +1,13 @@
 // Login, sessão corrente e logout contra o Postgres real, pelo mesmo `createApp`
 // que produção sobe. Nada aqui é mockado: a sessão é a linha em `sessions`.
 import { createDatabase, createPool, sessions, users, type Database } from '@crm/db';
-import { INVALID_CREDENTIALS_MESSAGE } from '@crm/shared';
+import { INVALID_CREDENTIALS_MESSAGE, TOO_MANY_LOGIN_ATTEMPTS_MESSAGE } from '@crm/shared';
 import { loadApiEnv } from '@crm/shared/env';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../../src/app.js';
 import { createAuth } from '../../../src/modules/auth/auth.js';
+import { createLoginRateLimit } from '../../../src/modules/auth/login-rate-limit.js';
 import { createMembership, createTenant, createUserWithPassword } from '../../support/fixtures.js';
 import { cookiesOf } from '../../support/http.js';
 
@@ -245,6 +246,64 @@ describe('rotas de autenticação', () => {
       });
 
       expect(response.status).toBe(404);
+    });
+  });
+
+  describe('limite de tentativas de login', () => {
+    const limitedApp = () => {
+      const auth = createAuth({ db, env });
+      const loginRateLimit = createLoginRateLimit({ maxFailures: 3, windowMs: 60_000 });
+      const limited = createApp({ auth, db, env, loginRateLimit });
+      return (email: string, password: string) =>
+        limited.request('/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+    };
+
+    it('responde 429 depois de N falhas, igual para e-mail existente e inexistente', async () => {
+      const attempt = limitedApp();
+      const unknown = 'ninguem@exemplo.com';
+      for (let i = 0; i < 3; i++) {
+        expect((await attempt(user.email, 'errada')).status).toBe(401);
+        expect((await attempt(unknown, 'errada')).status).toBe(401);
+      }
+
+      const known = await attempt(user.email, 'errada');
+      const missing = await attempt(unknown, 'errada');
+
+      expect(known.status).toBe(429);
+      expect(missing.status).toBe(429);
+      const body = { error: { code: 'too_many_attempts', message: TOO_MANY_LOGIN_ATTEMPTS_MESSAGE } };
+      expect(await known.json()).toEqual(body);
+      expect(await missing.json()).toEqual(body);
+      expect(known.headers.get('retry-after')).toBe(missing.headers.get('retry-after'));
+    });
+
+    it('bloqueia até a senha correta enquanto durar o bloqueio', async () => {
+      const attempt = limitedApp();
+      for (let i = 0; i < 3; i++) await attempt(user.email, 'errada');
+
+      expect((await attempt(user.email, user.password)).status).toBe(429);
+    });
+
+    it('login válido dentro do limite continua funcionando e zera o contador', async () => {
+      const attempt = limitedApp();
+      await attempt(user.email, 'errada');
+      await attempt(user.email, 'errada');
+
+      expect((await attempt(user.email, user.password)).status).toBe(200);
+      await attempt(user.email, 'errada');
+      await attempt(user.email, 'errada');
+      expect((await attempt(user.email, user.password)).status).toBe(200);
+    });
+
+    it('não afeta outro e-mail', async () => {
+      const attempt = limitedApp();
+      for (let i = 0; i < 3; i++) await attempt('alvo@exemplo.com', 'errada');
+
+      expect((await attempt(user.email, user.password)).status).toBe(200);
     });
   });
 });

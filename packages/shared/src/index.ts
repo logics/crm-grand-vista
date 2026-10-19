@@ -17,6 +17,7 @@ export {
   INVALID_CREDENTIALS_MESSAGE,
   TENANT_BLOCKED_MESSAGE,
   TENANT_NOT_FOUND_MESSAGE,
+  TOO_MANY_LOGIN_ATTEMPTS_MESSAGE,
   loginSchema,
   sessionSchema,
   sessionTenantSchema,

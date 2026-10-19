@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { assertRouteAccess } from './authorization/route-access.js';
 import { createHealthRoutes } from './health.js';
+import type { LoginRateLimit } from './modules/auth/login-rate-limit.js';
 import type { Auth } from './modules/auth/auth.js';
 import { createAuthRoutes } from './modules/auth/routes.js';
 import { createPermissionsRoutes } from './modules/permissions/routes.js';
@@ -14,13 +15,14 @@ interface AppDependencies {
   auth: Auth;
   db: Database;
   env: Pick<ApiEnv, 'WEB_URL'>;
+  loginRateLimit?: LoginRateLimit;
 }
 
 // Router raiz. Fora de `/e/:tenant/` ficam só a saúde e a autenticação; cada
 // módulo de negócio (`src/modules/<nome>`) se registra em `tenantRoutes`. Toda
 // rota declara `requirePermission` ou `noPermissionRequired` (`src/authorization/`): o
 // app não é criado com uma rota que não declare.
-export function createApp({ auth, db, env }: AppDependencies) {
+export function createApp({ auth, db, env, loginRateLimit }: AppDependencies) {
   // A resolução da empresa vem antes de qualquer rota e vale para todas: não
   // há como registrar um módulo aqui sem passar por ela.
   const tenantRoutes = new Hono<TenantEnv>()
@@ -32,7 +34,7 @@ export function createApp({ auth, db, env }: AppDependencies) {
     // O front roda em outra origem e manda o cookie de sessão: só ela é aceita.
     .use(cors({ origin: env.WEB_URL, credentials: true }))
     .route('/health', createHealthRoutes({ db }))
-    .route('/auth', createAuthRoutes({ auth, db }))
+    .route('/auth', createAuthRoutes({ auth, db, loginRateLimit }))
     .route(`/e/:${TENANT_PARAM}`, tenantRoutes);
 
   assertRouteAccess(app);
