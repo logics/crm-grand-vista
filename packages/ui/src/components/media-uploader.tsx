@@ -3,7 +3,8 @@ import { cn } from '../lib/cn.js';
 import { mediaFill, mediaFrame } from '../lib/styles.js';
 import { type FieldControlProps, useFieldControl } from '../lib/field-control.js';
 import { formatBytes, type RejectedFile, screenFiles } from '../lib/media-files.js';
-import { reorderInstructions, useReorder } from '../lib/reorder.js';
+import { useReorder } from '../lib/reorder.js';
+import { ReorderStatus } from '../lib/reorder-status.js';
 import { type UploadEntry, type UploadOptions, useUploadQueue } from '../lib/upload-queue.js';
 import { Button } from './button.js';
 import { ConfirmDialog } from './confirm-dialog.js';
@@ -296,12 +297,7 @@ export function MediaUploader<T>({
         </ul>
       )}
 
-      <span id={reorder.instructionsId} hidden>
-        {reorderInstructions}
-      </span>
-      <div role="status" className="sr-only">
-        {reorder.announcement}
-      </div>
+      <ReorderStatus reorder={reorder} />
 
       <ConfirmDialog
         open={removal?.open ?? false}

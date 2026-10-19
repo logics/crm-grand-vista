@@ -12,6 +12,9 @@ export const userSchema = z.object({
 
 export type User = z.infer<typeof userSchema>;
 
+/** Usuário como opção de um seletor: só o que o identifica na lista. */
+export type UserOption = Pick<User, 'id' | 'name' | 'email'>;
+
 /** Entrada mínima do serializador: a entidade do banco ou a do Better Auth. */
 type UserRecord = { id: string; name: string; email: string; image?: string | null | undefined };
 
