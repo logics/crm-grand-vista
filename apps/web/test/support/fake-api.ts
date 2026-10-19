@@ -5,6 +5,7 @@
 // contratos de `@crm/shared`.
 import {
   INVALID_CREDENTIALS_MESSAGE,
+  type PermissionCode,
   TENANT_BLOCKED_MESSAGE,
   TENANT_NOT_FOUND_MESSAGE,
   type LoginInput,
@@ -27,6 +28,8 @@ interface FakeApiOptions {
    * vinculadas entram, salvo as bloqueadas (403); as demais, 404.
    */
   extraTenants?: string[];
+  /** Permissões efetivas do usuário em toda empresa em que entra. */
+  permissions?: PermissionCode[];
   /** Registros de empresa por caminho (`/e/norte/farms/1`): GET devolve o corpo, ou 404. */
   records?: Record<string, unknown>;
 }
@@ -61,6 +64,7 @@ export function stubFakeApi({
   loginFails = false,
   logoutFails = false,
   extraTenants = [],
+  permissions = [],
   records = {},
 }: FakeApiOptions = {}): FakeApi {
   let current = initial;
@@ -101,7 +105,7 @@ export function stubFakeApi({
           return json({ error: { code: 'tenant_not_found', message: TENANT_NOT_FOUND_MESSAGE } }, 404);
         }
         if (linked?.blocked) return json({ error: { code: 'tenant_blocked', message: TENANT_BLOCKED_MESSAGE } }, 403);
-        if (tenantPath[2] === '/permissions/effective') return json({ permissions: [], dataScopes: {} });
+        if (tenantPath[2] === '/permissions/effective') return json({ permissions, dataScopes: {} });
         if (url.pathname in records) return json(records[url.pathname]);
         return json({ error: { code: 'not_found', message: 'Registro não encontrado.' } }, 404);
       }

@@ -2,6 +2,7 @@ import { Navigate, type RouteObject } from 'react-router';
 import { LandingRedirect } from './modules/auth/landing-redirect.js';
 import { LoginPage } from './modules/auth/login-page.js';
 import { RequireSession, useAuthenticatedSession } from './modules/auth/require-session.js';
+import { TenantHome } from './shell/tenant-home.js';
 import { TenantLayout } from './shell/tenant-layout.js';
 import { TENANT_PARAM } from './shell/tenant-path.js';
 import { TenantRouteError } from './shell/tenant-route-error.js';
@@ -30,8 +31,7 @@ export const routes: RouteObject[] = [
             id: TENANT_PAGES_ROUTE_ID,
             errorElement: <TenantRouteError />,
             children: [
-              // A página inicial da empresa vem com a navegação (issue #20).
-              { index: true, element: null },
+              { index: true, element: <TenantHome /> },
               // Página que o front não tem leva à raiz da empresa.
               { path: '*', element: <Navigate to="." replace /> },
             ],

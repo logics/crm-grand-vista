@@ -25,7 +25,7 @@ export type SidebarNavSection = { section: string };
 
 export type SidebarNavItem = SidebarNavLink | SidebarNavSection;
 
-export type SidebarNavProps = ComponentProps<'nav'> & {
+export type SidebarNavProps = Omit<ComponentProps<'nav'>, 'onSelect'> & {
   items: SidebarNavItem[];
   /** Id do item ativo. */
   active?: string;

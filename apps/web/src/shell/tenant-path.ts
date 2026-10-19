@@ -8,6 +8,11 @@ export function tenantRootPath(slug: string): string {
   return `/e/${encodeURIComponent(slug)}`;
 }
 
+/** Uma página da empresa, pelo caminho sob a raiz (`'farms'`); `''` é a raiz. */
+export function tenantPath(slug: string, path: string): string {
+  return path ? `${tenantRootPath(slug)}/${path}` : tenantRootPath(slug);
+}
+
 const TENANT_SEGMENT = /^\/e\/[^/]+/;
 
 /**

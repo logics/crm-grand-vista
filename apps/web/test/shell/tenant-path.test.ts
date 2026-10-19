@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { switchTenantPath, tenantRootPath } from '../../src/shell/tenant-path.js';
+import { switchTenantPath, tenantPath, tenantRootPath } from '../../src/shell/tenant-path.js';
 
 describe('tenantRootPath', () => {
   it('é a raiz da empresa, com o slug codificado', () => {
     expect(tenantRootPath('grand-vista')).toBe('/e/grand-vista');
     expect(tenantRootPath('a b')).toBe('/e/a%20b');
+  });
+});
+
+describe('tenantPath', () => {
+  it('é a página sob a raiz da empresa', () => {
+    expect(tenantPath('grand-vista', 'farms')).toBe('/e/grand-vista/farms');
+  });
+
+  it('sem página, é a raiz', () => {
+    expect(tenantPath('grand-vista', '')).toBe('/e/grand-vista');
   });
 });
 

@@ -1,5 +1,6 @@
 // Design System do CRM: tokens, primitivos shadcn reestilizados e componentes
 // de domínio. Spec: `docs/specs/design-system.md`.
+export { BREAKPOINTS, belowQuery, useBelowBreakpoint, type Breakpoint } from './lib/breakpoints.js';
 export { cn } from './lib/cn.js';
 export { initials } from './lib/initials.js';
 export * from './primitives/calendar.js';

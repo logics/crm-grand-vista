@@ -6,7 +6,8 @@
 #
 # Deploy (só em push para `main`, depois da verificação verde): API primeiro —
 # migration, artefato, reinício (`tools/deploy/deploy-api.sh`) —, front depois,
-# para que ele nunca chame rota que a API no ar ainda não tem. Segredos e
+# para que ele nunca chame rota que a API no ar ainda não tem —, e por fim o
+# E2E contra o ambiente publicado. Segredos e
 # variáveis ficam no environment `production` do GitHub; o inventário e a
 # rotação estão em `docs/deploy.md`.
 name: CI
@@ -197,3 +198,47 @@ jobs:
           npx --yes netlify-cli@27.10.2 deploy
           --prod --context production --filter @crm/web --site "$NETLIFY_SITE_ID"
           --dir "$GITHUB_WORKSPACE/apps/web/dist"
+
+  # O "hello world" autenticado contra o ambiente publicado, não contra o local:
+  # login, empresa resolvida pelo slug, usuário e empresa na tela, logout. Roda
+  # com a conta de verificação, numa empresa própria (`docs/deploy.md`). Falhar
+  # aqui não desfaz o deploy — avisa que produção, já no ar, não está de pé.
+  e2e-production:
+    name: E2E em produção
+    needs: deploy-web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalação (lockfile congelado)
+        run: pnpm install --frozen-lockfile
+
+      - name: Navegador do Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright contra produção
+        env:
+          E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+          E2E_USER_NAME: ${{ vars.E2E_USER_NAME }}
+          E2E_USER_EMAIL: ${{ vars.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          E2E_TENANT_SLUG: ${{ vars.E2E_TENANT_SLUG }}
+          E2E_TENANT_NAME: ${{ vars.E2E_TENANT_NAME }}
+        run: pnpm test:e2e:production
+
+      # O trace mostra a tela em cada passo; só sai quando algo falhou.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-production
+          path: test-results/
+          retention-days: 14

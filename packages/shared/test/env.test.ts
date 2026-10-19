@@ -6,6 +6,7 @@ import { z } from 'zod';
 import {
   apiEnvSchema,
   cliEnvSchema,
+  e2eProductionEnvSchema,
   InvalidEnvError,
   loadEnvFileIfPresent,
   migrationEnvSchema,
@@ -88,6 +89,22 @@ describe('parseEnv', () => {
     expect(catchEnvError(() => parseEnv(webEnvSchema, { VITE_API_URL: 'localhost' })).variables).toEqual([
       'VITE_API_URL',
     ]);
+  });
+
+  it('o E2E de produção exige a URL publicada e a conta de verificação inteira', () => {
+    const env = {
+      E2E_BASE_URL: 'https://crmgv.exemplo.com.br',
+      E2E_USER_NAME: 'Verificação E2E',
+      E2E_USER_EMAIL: 'verificacao@exemplo.com.br',
+      E2E_USER_PASSWORD: 'senha',
+      E2E_TENANT_SLUG: 'verificacao',
+      E2E_TENANT_NAME: 'Verificação',
+    };
+    expect(parseEnv(e2eProductionEnvSchema, env)).toEqual(env);
+    expect(
+      catchEnvError(() => parseEnv(e2eProductionEnvSchema, { ...env, E2E_BASE_URL: 'crmgv', E2E_USER_PASSWORD: '' }))
+        .variables,
+    ).toEqual(['E2E_BASE_URL', 'E2E_USER_PASSWORD']);
   });
 
   it('ignora variáveis que o schema não declara', () => {

@@ -41,10 +41,25 @@ export const webEnvSchema = z.object({
   VITE_API_URL: httpUrl,
 });
 
+/**
+ * E2E contra produção (`playwright.production.config.ts`): a URL publicada do
+ * front e a conta de verificação, numa empresa própria. Vêm do environment
+ * `production` do GitHub; a senha é segredo.
+ */
+export const e2eProductionEnvSchema = /* @__PURE__ */ z.object({
+  E2E_BASE_URL: httpUrl,
+  E2E_USER_NAME: z.string(),
+  E2E_USER_EMAIL: z.email({ error: 'deve ser um e-mail' }),
+  E2E_USER_PASSWORD: z.string(),
+  E2E_TENANT_SLUG: z.string(),
+  E2E_TENANT_NAME: z.string(),
+});
+
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 export type CliEnv = z.infer<typeof cliEnvSchema>;
 export type MigrationEnv = z.infer<typeof migrationEnvSchema>;
 export type WebEnv = z.infer<typeof webEnvSchema>;
+export type E2EProductionEnv = z.infer<typeof e2eProductionEnvSchema>;
 
 type EnvSource = Readonly<Record<string, string | undefined>>;
 
@@ -95,3 +110,4 @@ export function loadEnvFileIfPresent(path: string): void {
 export const loadApiEnv = (): ApiEnv => parseEnv(apiEnvSchema);
 export const loadMigrationEnv = (): MigrationEnv => parseEnv(migrationEnvSchema);
 export const loadCliEnv = (): CliEnv => parseEnv(cliEnvSchema);
+export const loadE2EProductionEnv = (): E2EProductionEnv => parseEnv(e2eProductionEnvSchema);

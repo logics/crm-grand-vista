@@ -1,20 +1,14 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { twoTenantUser } from './support/accounts.js';
+import { accountMenu, expect, login, test } from './support/fixtures.js';
 
 const [first, second] = twoTenantUser.tenants;
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.getByRole('textbox', { name: 'E-mail' }).fill(twoTenantUser.email);
-  await page.getByLabel('Senha').fill(twoTenantUser.password);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-}
 
 const tenantHeading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
 
 /** Troca de empresa pelo menu de conta da topbar. */
 async function switchTenant(page: Page, name: string) {
-  await page.getByRole('button', { name: new RegExp(twoTenantUser.name) }).click();
+  await accountMenu(page, twoTenantUser.name).click();
   await page.getByRole('option', { name }).click();
 }
 
@@ -22,7 +16,7 @@ test('duas abas em duas empresas diferentes funcionam ao mesmo tempo, sem interf
   context,
 }) => {
   const tabA = await context.newPage();
-  await login(tabA);
+  await login(tabA, twoTenantUser);
   await expect(tenantHeading(tabA, first.name)).toBeVisible();
   await expect(tabA).toHaveURL(`/e/${first.slug}`);
 
