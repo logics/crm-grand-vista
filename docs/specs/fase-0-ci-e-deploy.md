@@ -37,12 +37,19 @@ Em pull request e no merge para `main`, nesta ordem, parando no primeiro erro:
 4. testes **unitários**, sem banco
 5. testes de **integração**, contra Postgres **18** subido pelo mesmo `docker-compose.yml` do desenvolvimento, com as migrations aplicadas **de banco zerado**
 6. `build` de todos os pacotes
+7. testes **E2E** (Playwright), com API e front subidos no runner contra o banco de teste do mesmo container, zerado e semeado — o fluxo autenticado inteiro barra o merge como qualquer outro teste
 
 Os quatro testes de guarda da spec de banco e a varredura de rotas da spec de permissões rodam no passo 5. **Eles são o principal motivo de o CI existir**: provam o isolamento entre empresas e falham quando alguém cria tabela sem policy ou rota sem permissão. CI que roda feature e não roda guarda é CI decorativo.
 
 A major version do Postgres do CI é fixada pela mesma tag do Compose local — nunca `latest`, nunca uma major diferente da de produção. Por isso o CI sobe o próprio Compose em vez de um service container do GitHub Actions: um service container repetiria a tag no workflow (duas cópias que podem divergir) e não consegue montar o `init.sh` que cria `crm_owner` e `crm_app`, porque o container sobe antes do checkout.
 
 Status de verificação obrigatório para merge. Branch `main` protegida.
+
+### Teste contra produção
+
+Teste nunca depende de dado de produção. O fluxo autenticado — login, empresa, logout — roda no passo 7, contra o banco semeado; produção não guarda conta de teste, empresa fictícia nem credencial em variável de CI, que mudariam sem aviso (senha trocada, conta desativada) e poluiriam os dados do cliente.
+
+Depois de cada deploy, contra o ambiente publicado, roda só uma **fumaça sem credencial**: a tela de login abre, um deep link de empresa entrega a aplicação (redirecionamento de SPA) e uma credencial inexistente é recusada pela API, não por erro de rede — o que prova que o front alcança a API, com CORS. Ela não grava nada no banco. O que a fumaça não prova é a sessão se manter depois de um login real (o risco do cookie entre domínios); isso é garantido pela decisão de domínio acima e conferido à mão no primeiro deploy.
 
 ### Deploy da API
 
@@ -109,7 +116,7 @@ A marca aparece pelo `Wordmark`, **somente tipográfico**: o logotipo vetorial d
 7. Migration que falha **interrompe** o deploy e deixa o processo anterior rodando.
 8. A API **recusa subir** com string de conexão apontando para papel superusuário, com `BYPASSRLS` ou dono de tabela — testado forçando a configuração.
 9. O endpoint de saúde responde em produção e **não** revela nome de banco, papel ou host.
-10. Em produção: login → empresa resolvida pelo slug → nome do usuário e da empresa na tela → logout. Teste **Playwright** rodando contra o ambiente publicado.
+10. Login → empresa resolvida pelo slug → nome do usuário e da empresa na tela → logout, em teste **Playwright** rodando no CI e barrando o merge. Contra o ambiente publicado, depois de cada deploy, a fumaça sem credencial de "Teste contra produção".
 11. Abrir `/e/<tenant>/` direto na URL, sem navegar, funciona (redirecionamento de SPA configurado).
 12. Nenhum segredo no repositório — verificado por varredura, não por inspeção visual.
 13. `pnpm build` gera os artefatos de produção sem erro, e `pnpm dev` sobe o ambiente local completo.

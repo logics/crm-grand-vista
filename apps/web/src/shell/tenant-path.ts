@@ -8,7 +8,17 @@ export function tenantRootPath(slug: string): string {
   return `/e/${encodeURIComponent(slug)}`;
 }
 
+/** Uma página da empresa, pelo caminho sob a raiz (`'farms'`); `''` é a raiz. */
+export function tenantPath(slug: string, path: string): string {
+  return path ? `${tenantRootPath(slug)}/${path}` : tenantRootPath(slug);
+}
+
 const TENANT_SEGMENT = /^\/e\/[^/]+/;
+
+/** O caminho sob a raiz da empresa, sem barras nas pontas: `'farms/123'`; `''` na raiz. */
+export function relativeTenantPath(pathname: string): string {
+  return pathname.replace(TENANT_SEGMENT, '').replace(/^\/+|\/+$/g, '');
+}
 
 /**
  * O mesmo recurso sob a outra empresa: troca só o segmento do slug. Se o

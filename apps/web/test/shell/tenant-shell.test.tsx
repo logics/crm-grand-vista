@@ -6,6 +6,7 @@ import { userEvent } from '@testing-library/user-event';
 import { useParams } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../../src/env.js';
+import { useCan } from '../../src/shell/tenant-access.js';
 import { ResourceNotFoundError, useTenantQuery } from '../../src/shell/tenant-query.js';
 import { session, sessionTenant, stubFakeApi } from '../support/fake-api.js';
 import { renderApp } from '../support/render-app.js';
@@ -207,5 +208,59 @@ describe('empresa bloqueada', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Fazendas Norte' })).toBeInTheDocument();
     expect(app.pathname()).toBe('/e/fazendas-norte');
+  });
+});
+
+describe('início da empresa', () => {
+  it('mostra o nome do usuário e o da empresa', async () => {
+    stubFakeApi({ session: twoTenants });
+    renderApp('/e/fazendas-norte');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Fazendas Norte' })).toBeInTheDocument();
+    const main = screen.getByRole('main');
+    expect(main).toHaveTextContent('Ana Ribeiro');
+    expect(main).toHaveTextContent('Fazendas Norte');
+  });
+
+  it('traz a navegação lateral com a assinatura e o início como página atual', async () => {
+    stubFakeApi({ session: twoTenants });
+    renderApp('/e/grand-vista');
+
+    const nav = await screen.findByRole('navigation', { name: 'Navegação principal' });
+    expect(within(nav).getByText('Grand Vista')).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: 'Início' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('o item da navegação leva à página dele', async () => {
+    stubFakeApi({ session: twoTenants, records: { '/e/grand-vista/farms/7': { name: 'Santa Fé' } } });
+    const app = renderApp('/e/grand-vista/farms/7', { tenantPages: farmPages });
+
+    await screen.findByText('Fazenda: Santa Fé');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Início' }));
+
+    await waitFor(() => expect(app.pathname()).toBe('/e/grand-vista'));
+  });
+});
+
+describe('permissões efetivas na casca', () => {
+  /** Página só do teste: o botão aparece só para quem pode cadastrar fazenda. */
+  function FarmsPage() {
+    return useCan('fazendas.criar') ? <button type="button">Cadastrar fazenda</button> : <p>Lista de fazendas</p>;
+  }
+  const farmsPages = [{ path: 'farms', element: <FarmsPage /> }];
+
+  it('mostra o botão a quem tem a permissão', async () => {
+    stubFakeApi({ session: twoTenants, permissions: ['fazendas.ver', 'fazendas.criar'] });
+    renderApp('/e/grand-vista/farms', { tenantPages: farmsPages });
+
+    expect(await screen.findByRole('button', { name: 'Cadastrar fazenda' })).toBeInTheDocument();
+  });
+
+  it('esconde o botão de quem não tem', async () => {
+    stubFakeApi({ session: twoTenants, permissions: ['fazendas.ver'] });
+    renderApp('/e/grand-vista/farms', { tenantPages: farmsPages });
+
+    expect(await screen.findByText('Lista de fazendas')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cadastrar fazenda' })).not.toBeInTheDocument();
   });
 });

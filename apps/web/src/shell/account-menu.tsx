@@ -15,6 +15,7 @@ import {
 import { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { LOGOUT_FAILED_MESSAGE, useLogout } from '../modules/auth/session.js';
+import { activeTenantName } from './active-tenant.js';
 import { BlockedBadge } from './blocked-badge.js';
 import { ErrorMessage } from './error-message.js';
 import { switchTenantPath, tenantSwitchState } from './tenant-path.js';
@@ -51,7 +52,7 @@ export function AccountMenu({ session, slug }: { session: Session; slug: string 
   const logout = useLogout();
 
   const { user, tenants } = session;
-  const activeName = tenants.find((tenant) => tenant.slug === slug)?.name ?? slug;
+  const activeName = activeTenantName(session, slug);
 
   const switchTo = (target: string) => {
     setOpen(false);

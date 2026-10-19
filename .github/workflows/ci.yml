@@ -6,7 +6,8 @@
 #
 # Deploy (só em push para `main`, depois da verificação verde): API primeiro —
 # migration, artefato, reinício (`tools/deploy/deploy-api.sh`) —, front depois,
-# para que ele nunca chame rota que a API no ar ainda não tem. Segredos e
+# para que ele nunca chame rota que a API no ar ainda não tem —, e por fim a
+# fumaça contra o ambiente publicado. Segredos e
 # variáveis ficam no environment `production` do GitHub; o inventário e a
 # rotação estão em `docs/deploy.md`.
 name: CI
@@ -30,7 +31,7 @@ jobs:
   verify:
     name: Verificação
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       # Histórico inteiro: a varredura de segredos lê todos os commits, não só o último.
       - uses: actions/checkout@v7
@@ -89,6 +90,23 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # E2E com o Playwright: API e front sobem no runner, contra o crm_test do
+      # mesmo container, zerado e semeado pelo setup global. O fluxo inteiro —
+      # login, empresa, troca de empresa, logout — barra o merge como qualquer
+      # outro teste, sem depender de dado de produção.
+      - name: Navegador do Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Testes E2E
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e
+          path: test-results/
+          retention-days: 14
 
       # Montado e verificado em todo pull request (sem teste, sem código-fonte,
       # sem dependência de desenvolvimento, sem `design-system/`), para que um
@@ -197,3 +215,40 @@ jobs:
           npx --yes netlify-cli@27.10.2 deploy
           --prod --context production --filter @crm/web --site "$NETLIFY_SITE_ID"
           --dir "$GITHUB_WORKSPACE/apps/web/dist"
+
+  # Fumaça contra o ambiente publicado: a aplicação abre, o deep link de
+  # empresa entrega a aplicação (redirecionamento de SPA) e o front alcança a
+  # API. Sem conta e sem gravar no banco — o fluxo completo já rodou na
+  # verificação, contra o banco semeado. Falhar aqui não desfaz o deploy, que já
+  # está no ar: avisa que produção não está de pé.
+  smoke-production:
+    name: Fumaça em produção
+    needs: deploy-web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalação (lockfile congelado)
+        run: pnpm install --frozen-lockfile
+
+      - name: Navegador do Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright contra produção
+        run: pnpm test:e2e:production
+
+      # O trace mostra a tela em cada passo; só sai quando algo falhou.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: smoke-production
+          path: test-results/
+          retention-days: 14
