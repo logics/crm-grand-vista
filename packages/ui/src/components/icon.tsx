@@ -1,6 +1,7 @@
 import {
   ArrowDown,
   ArrowDownRight,
+  ArrowLeft,
   ArrowRight,
   ArrowUp,
   ArrowUpRight,
@@ -74,6 +75,7 @@ const glyphs = {
   'alert-triangle': TriangleAlert,
   'arrow-down': ArrowDown,
   'arrow-down-right': ArrowDownRight,
+  'arrow-left': ArrowLeft,
   'arrow-right': ArrowRight,
   'arrow-up': ArrowUp,
   'arrow-up-right': ArrowUpRight,

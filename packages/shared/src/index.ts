@@ -12,7 +12,7 @@ export {
   updateUserSchema,
   userSchema,
 } from './user.js';
-export type { AccessProfileRef, TeamMember, UpdateUserInput, User } from './user.js';
+export type { AccessProfileRef, TeamMember, UpdateUserInput, User, UserOption } from './user.js';
 export {
   INVALID_CREDENTIALS_MESSAGE,
   TENANT_BLOCKED_MESSAGE,
@@ -47,3 +47,40 @@ export {
   roundDecimal,
 } from './decimal.js';
 export type { AlqueireType, DecimalFormat, ParsedDecimal } from './decimal.js';
+export {
+  REFERRER_KINDS,
+  REFERRER_KIND_LABELS,
+  appendReferralLink,
+  assembleReferralChain,
+  describeReferralChainIssue,
+  isEligibleReferrer,
+  referrerKey,
+  removeReferralLink,
+  reorderReferralChain,
+  validateReferralChain,
+} from './referral-chain.js';
+export type { ReferralChainIssue, ReferralLink, ReferralSubject, Referrer, ReferrerKind } from './referral-chain.js';
+export {
+  UFS,
+  UF_NAMES,
+  isMunicipality,
+  municipalityLabel,
+  municipalityOptionSchema,
+  regionKey,
+  regionLabel,
+  regionOptionSchema,
+  ufOptionSchema,
+  ufSchema,
+} from './region.js';
+export type { MunicipalityOption, RegionOption, Uf, UfOption } from './region.js';
+export {
+  CONTACT_ROLES,
+  CONTACT_ROLE_LABELS,
+  PERSON_TYPES,
+  PERSON_TYPE_LABELS,
+  abbreviateTaxId,
+  contactOptionSchema,
+} from './contact.js';
+export type { ContactOption, ContactRole, PersonType } from './contact.js';
+export { farmOptionSchema, formatHectares } from './farm.js';
+export type { FarmOption } from './farm.js';
