@@ -36,11 +36,15 @@ export {
   ALQUEIRE_LABELS,
   ALQUEIRE_TYPES,
   AREA_SCALE,
+  MONEY_FORMAT,
   MONEY_SCALE,
+  PERCENT_FORMAT,
   PERCENT_SCALE,
   alqueiresToHectares,
   compareDecimal,
   formatDecimal,
+  formatMoney,
+  formatPercent,
   hectaresToAlqueires,
   parseDecimal,
   parseShiftedDecimal,
@@ -84,3 +88,13 @@ export {
 export type { ContactOption, ContactRole, PersonType } from './contact.js';
 export { farmOptionSchema, formatHectares } from './farm.js';
 export type { FarmOption } from './farm.js';
+export { describeCommissionIssue, splitCommission, validateCommission } from './commission.js';
+export type {
+  CommissionGroup,
+  CommissionGroupSplit,
+  CommissionIssue,
+  CommissionMember,
+  CommissionMemberSplit,
+  CommissionParty,
+  CommissionSplit,
+} from './commission.js';

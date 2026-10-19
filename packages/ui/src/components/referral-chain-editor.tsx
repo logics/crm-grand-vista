@@ -4,8 +4,6 @@ import {
   type ReferralLink,
   type ReferralSubject,
   type Referrer,
-  type ReferrerKind,
-  type UserOption,
   appendReferralLink,
   assembleReferralChain,
   describeReferralChainIssue,
@@ -18,16 +16,13 @@ import {
 import { type ComponentProps, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
 import { FieldControlContext, type FieldControlProps, useFieldControl } from '../lib/field-control.js';
+import { PartyPicker, type PartySearches } from '../lib/party-picker.js';
 import { useReorder } from '../lib/reorder.js';
 import { ReorderStatus } from '../lib/reorder-status.js';
 import { Input } from '../primitives/input.js';
-import type { AsyncComboboxPage, AsyncComboboxSearch } from './async-combobox.js';
 import { Badge } from './badge.js';
-import { Button } from './button.js';
-import { ContactPicker, type ContactPickerSearch } from './contact-picker.js';
 import { Icon } from './icon.js';
 import { IconButton } from './icon-button.js';
-import { UserPicker } from './user-picker.js';
 
 // Cadeia de indicação de um contato ou de uma fazenda ("Pedro ← João ←
 // Sebastião"), lida e editada. Controlado: `value` é a lista de elos e
@@ -36,20 +31,14 @@ import { UserPicker } from './user-picker.js';
 // API. Não fala com a API: as buscas de usuário e de contato chegam por prop, e
 // o seletor só oferece quem pode entrar (não o sujeito, não quem já está).
 
-/** O que o seletor de usuário e o de contato devolvem em comum. */
-type ReferrerOption = { id: string; name: string };
-
-export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'children' | 'defaultValue'> & {
+export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'children' | 'defaultValue'> &
+  PartySearches & {
   /** Quem foi indicado: encabeça a cadeia e nunca entra nela. */
   subject: ReferralSubject;
   /** Os elos; a ordem vem de `position`. */
   value: ReferralLink[];
   /** Nova lista de elos, já renumerada. Sem ela, a cadeia é só leitura. */
   onChange?: (links: ReferralLink[]) => void;
-  /** Busca de corretor interno. Sem ela, só entra contato. */
-  searchUsers?: AsyncComboboxSearch<UserOption>;
-  /** Busca de contato (corretor externo), a do `ContactPicker`. Sem ela, só entra usuário. */
-  searchContacts?: ContactPickerSearch;
   readOnly?: boolean;
   disabled?: boolean;
 };
@@ -94,9 +83,6 @@ export function ReferralChainEditor({
     'aria-invalid': ariaInvalid,
     'aria-required': ariaRequired,
   });
-  const kinds = (['contact', 'user'] as const).filter((kind) => (kind === 'user' ? searchUsers : searchContacts));
-  const [chosenKind, setChosenKind] = useState<ReferrerKind>(kinds[0] ?? 'contact');
-  const kind = kinds.includes(chosenKind) ? chosenKind : (kinds[0] ?? 'contact');
   const [announcement, setAnnouncement] = useState('');
   const root = useRef<HTMLDivElement>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -123,9 +109,8 @@ export function ReferralChainEditor({
     else removeButtons.current.get(target.row)?.focus();
   });
 
-  const add = (option: ReferrerOption | null) => {
-    if (!option || !onChange) return;
-    const referrer: Referrer = { kind, id: option.id, name: option.name };
+  const add = (referrer: Referrer) => {
+    if (!onChange) return;
     onChange(appendReferralLink(chain, referrer));
     setAnnouncement(`${referrer.name} entrou na cadeia, na posição ${chain.length + 1}.`);
   };
@@ -141,24 +126,7 @@ export function ReferralChainEditor({
   const setNotes = (position: number, notes: string) =>
     onChange?.(chain.map((link) => (link.position === position ? { ...link, notes: notes === '' ? null : notes } : link)));
 
-  /** Só oferece quem pode entrar ao fim da cadeia. */
-  const eligible =
-    <T extends ReferrerOption, O>(search: (term: string, options: O) => Promise<AsyncComboboxPage<T>>, referrerKind: ReferrerKind) =>
-    async (term: string, options: O): Promise<AsyncComboboxPage<T>> => {
-      const page = await search(term, options);
-      const items = page.items.filter(({ id, name }) => isEligibleReferrer(subject, chain, { kind: referrerKind, id, name }));
-      return { ...page, items };
-    };
-
   const next = `Quem indicou ${chain.at(-1)?.referrer.name ?? subject.name}?`;
-  const picker = {
-    value: null,
-    onChange: add,
-    disabled,
-    placeholder: next,
-    'aria-label': control.id ? undefined : next,
-    ...control,
-  };
 
   return (
     <div
@@ -257,33 +225,17 @@ export function ReferralChainEditor({
           </>
         )}
 
-        {/* não é o `Tabs` segmentado: não há painel, só a escolha da busca do seletor */}
-        {editable && kinds.length > 0 && (
-          <div className="flex flex-wrap items-center gap-4">
-            {kinds.length > 1 && (
-              <div role="group" aria-label="Tipo do indicador" className="inline-flex gap-2">
-                {kinds.map((option) => (
-                  <Button
-                    key={option}
-                    size="sm"
-                    variant={option === kind ? 'soft' : 'ghost'}
-                    aria-pressed={option === kind}
-                    disabled={disabled}
-                    onClick={() => setChosenKind(option)}
-                  >
-                    {REFERRER_KIND_LABELS[option]}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              {kind === 'user' && searchUsers ? (
-                <UserPicker {...picker} search={eligible(searchUsers, 'user')} />
-              ) : (
-                searchContacts && <ContactPicker {...picker} search={eligible(searchContacts, 'contact')} />
-              )}
-            </div>
-          </div>
+        {editable && (
+          <PartyPicker
+            searchUsers={searchUsers}
+            searchContacts={searchContacts}
+            isEligible={(referrer) => isEligibleReferrer(subject, chain, referrer)}
+            onPick={add}
+            placeholder={next}
+            kindLabel="Tipo do indicador"
+            disabled={disabled}
+            {...control}
+          />
         )}
       </FieldControlContext>
 

@@ -1,4 +1,4 @@
-import { PERCENT_SCALE } from '@crm/shared';
+import { PERCENT_FORMAT } from '@crm/shared';
 import { type DecimalInputProps, useDecimalInput } from '../lib/decimal-input.js';
 import { Input } from '../primitives/input.js';
 
@@ -9,8 +9,6 @@ import { Input } from '../primitives/input.js';
 
 export type PercentInputProps = DecimalInputProps;
 
-const format = { minScale: 0, maxScale: PERCENT_SCALE };
-
 export function PercentInput({ min = '0', max = '100', ...props }: PercentInputProps) {
-  return <Input suffix="%" {...useDecimalInput({ min, max, ...props }, { format, dotAsDecimal: true })} />;
+  return <Input suffix="%" {...useDecimalInput({ min, max, ...props }, { format: PERCENT_FORMAT, dotAsDecimal: true })} />;
 }

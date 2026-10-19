@@ -1,4 +1,4 @@
-import { MONEY_SCALE } from '@crm/shared';
+import { MONEY_FORMAT } from '@crm/shared';
 import { type DecimalInputProps, useDecimalInput } from '../lib/decimal-input.js';
 import { Input } from '../primitives/input.js';
 
@@ -9,8 +9,6 @@ import { Input } from '../primitives/input.js';
 
 export type MoneyInputProps = DecimalInputProps;
 
-const format = { minScale: MONEY_SCALE, maxScale: MONEY_SCALE };
-
 export function MoneyInput(props: MoneyInputProps) {
-  return <Input prefix="R$" {...useDecimalInput(props, { format, shifted: true })} />;
+  return <Input prefix="R$" {...useDecimalInput(props, { format: MONEY_FORMAT, shifted: true })} />;
 }
