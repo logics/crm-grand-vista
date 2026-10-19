@@ -1,6 +1,6 @@
-import type { Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { twoTenantUser } from './support/accounts.js';
-import { accountMenu, expect, login, tenantHeading, test } from './support/fixtures.js';
+import { accountMenu, login, tenantHeading } from './support/fixtures.js';
 
 const [first, second] = twoTenantUser.tenants;
 

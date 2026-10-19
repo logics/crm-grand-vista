@@ -6,14 +6,14 @@ Operação de produção da Fase 0. A decisão de arquitetura está em `docs/spe
 
 Tudo em `.github/workflows/ci.yml`. No push para `main`:
 
-1. **Verificação** — o mesmo job dos pull requests (varredura de segredos, instalação congelada, typecheck, lint, testes unitários, Postgres 18, testes de integração, build). Ao fim, monta o artefato da API (`tools/deploy/build-api-artifact.sh`) e o verifica (`tools/deploy/check-api-artifact.ts`): só `dist/`, dependências de produção e as migrations — nada de teste, código-fonte, dependência de desenvolvimento ou `design-system/`. Em pull request o artefato também é montado e verificado, só não é publicado.
+1. **Verificação** — o mesmo job dos pull requests (varredura de segredos, instalação congelada, typecheck, lint, testes unitários, Postgres 18, testes de integração, build, testes E2E com o Playwright contra API e front subidos no runner e o banco de teste semeado). Ao fim, monta o artefato da API (`tools/deploy/build-api-artifact.sh`) e o verifica (`tools/deploy/check-api-artifact.ts`): só `dist/`, dependências de produção e as migrations — nada de teste, código-fonte, dependência de desenvolvimento ou `design-system/`. Em pull request o artefato também é montado e verificado, só não é publicado.
 2. **Deploy da API** (`tools/deploy/deploy-api.sh`), parando no primeiro erro:
    1. **migrations**, como `crm_owner`, por túnel SSH até o Postgres do servidor (que só escuta em `localhost`), executadas a partir do próprio artefato;
    2. **envio** do artefato para `releases/<commit>` e troca atômica do link `current`;
    3. **webhook** do painel, que reinicia o processo;
    4. **confirmação**: o endpoint de saúde precisa responder `status: ok` com a versão do commit em até 2 minutos.
 3. **Deploy do front** — `netlify deploy --prod` no runner: build do `netlify.toml` com as variáveis lidas do painel do Netlify, publicado em produção. Vem depois da API para o front nunca chamar rota que a API no ar ainda não tem.
-4. **E2E em produção** — `pnpm test:e2e:production` (`playwright.production.config.ts`): o "hello world" autenticado contra o front publicado — raiz sem sessão leva ao login, login leva à empresa padrão, nome do usuário e da empresa na tela, a empresa abre direto pela URL, logout volta ao login. Falhar aqui não desfaz o deploy, que já está no ar: avisa que produção não está de pé.
+4. **Fumaça em produção** — `pnpm test:e2e:production` (`playwright.production.config.ts`): só `e2e/smoke.spec.ts`, contra o front publicado — a tela de login abre, um deep link de empresa entrega a aplicação (redirecionamento de SPA) e uma credencial inexistente é recusada pela API, não por erro de rede (o front alcança a API, CORS incluído). Sem conta, sem segredo e sem gravar no banco: o fluxo autenticado completo já rodou na verificação. Falhar aqui não desfaz o deploy, que já está no ar: avisa que produção não está de pé.
 
 Execuções em `main` não se cancelam: um deploy em andamento sempre termina. Merges que chegam durante ele esperam, e o GitHub guarda só o mais recente — os intermediários não são publicados um a um, o que é inofensivo, porque o mais recente os contém.
 
@@ -100,7 +100,6 @@ Nenhum segredo vive no repositório nem em arquivo de exemplo. O CI faz a varred
 | Chave SSH de deploy | GitHub, `DEPLOY_SSH_KEY` (chave privada); a pública no `authorized_keys` do usuário de deploy | O deploy da API |
 | URL do webhook do painel | GitHub, `DEPLOY_WEBHOOK_URL` | O deploy da API |
 | Token do Netlify | GitHub, `NETLIFY_AUTH_TOKEN` | O deploy do front |
-| Senha da conta de verificação | GitHub, `E2E_USER_PASSWORD` | O E2E em produção |
 
 ### Variáveis (não secretas), no mesmo environment
 
@@ -112,23 +111,7 @@ Nenhum segredo vive no repositório nem em arquivo de exemplo. O CI faz a varred
 | `DEPLOY_PATH` | `/www/wwwroot/api.crmgv.logics.com.br` |
 | `API_HEALTH_URL` | `https://api.exemplo.com.br/health` |
 | `NETLIFY_SITE_ID` | id do site, em *Site configuration → General* |
-| `E2E_BASE_URL` | `https://crmgv.logics.com.br` |
-| `E2E_USER_NAME`, `E2E_USER_EMAIL` | nome e e-mail da conta de verificação |
-| `E2E_TENANT_SLUG`, `E2E_TENANT_NAME` | slug e nome da empresa de verificação |
 
-### Conta de verificação
-
-O E2E em produção entra com uma conta própria, numa **empresa própria**, nunca numa empresa de cliente: o teste faz login e logout a cada deploy, e um usuário de teste dentro da Grand Vista apareceria na lista de usuários dela. O CLI de provisionamento vai compilado no release; no servidor, como `crmgv` (o único que lê o `.env`):
-
-```sh
-cd <DEPLOY_PATH>/current
-node --env-file=.env dist/cli/provision-tenant.js --slug verificacao --name "Verificação" \
-  --admin-name "Verificação E2E" --admin-email <e-mail da conta>
-```
-
-A senha inicial que o comando mostra vai direto para o segredo `E2E_USER_PASSWORD`; o slug, o nome da empresa, o nome e o e-mail, para as variáveis acima. Trocar a senha é trocar o segredo junto.
-
-O site do Netlify é criado **sem build automático pelo Git**: quem publica é o CI, depois da API e só com a verificação verde. As variáveis de build do front ficam no painel do Netlify: só `VITE_API_URL=https://api.crmgv.logics.com.br`, igual ao `API_URL` do servidor. O front fica em `crmgv.logics.com.br`, subdomínio do mesmo domínio da API — é o que mantém o cookie de sessão (`SameSite=Lax`) nas chamadas do front —, e o `WEB_URL` do servidor é essa origem.
 
 ## Rotação
 
