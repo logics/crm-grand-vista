@@ -60,3 +60,27 @@ export {
   validateReferralChain,
 } from './referral-chain.js';
 export type { ReferralChainIssue, ReferralLink, ReferralSubject, Referrer, ReferrerKind } from './referral-chain.js';
+export {
+  UFS,
+  UF_NAMES,
+  isMunicipality,
+  municipalityLabel,
+  municipalityOptionSchema,
+  regionKey,
+  regionLabel,
+  regionOptionSchema,
+  ufOptionSchema,
+  ufSchema,
+} from './region.js';
+export type { MunicipalityOption, RegionOption, Uf, UfOption } from './region.js';
+export {
+  CONTACT_ROLES,
+  CONTACT_ROLE_LABELS,
+  PERSON_TYPES,
+  PERSON_TYPE_LABELS,
+  abbreviateTaxId,
+  contactOptionSchema,
+} from './contact.js';
+export type { ContactOption, ContactRole, PersonType } from './contact.js';
+export { farmOptionSchema, formatHectares } from './farm.js';
+export type { FarmOption } from './farm.js';

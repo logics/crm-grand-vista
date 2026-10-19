@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import '../support/dom.js';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AsyncCombobox, type AsyncComboboxPage, Field } from '../../src/index.js';
+import { AsyncCombobox, Field } from '../../src/index.js';
+import { advance, answer, fakeSearch as fakeSearchOf, open as openList, optionNames, setup } from '../support/async-search.js';
 
 type Farm = { id: string; name: string };
 
@@ -14,25 +14,7 @@ const farms: Farm[] = [
   { id: 'f3', name: 'Fazenda Santa Helena' },
 ];
 
-type Call = {
-  term: string;
-  cursor: string | undefined;
-  signal: AbortSignal;
-  resolve: (page: AsyncComboboxPage<Farm>) => void;
-  reject: (error: Error) => void;
-};
-
-/** `search` falso: cada chamada fica pendente até o teste resolvê-la ou rejeitá-la. */
-function fakeSearch() {
-  const calls: Call[] = [];
-  const search = vi.fn(
-    (term: string, { signal, cursor }: { signal: AbortSignal; cursor?: string }) =>
-      new Promise<AsyncComboboxPage<Farm>>((resolve, reject) => {
-        calls.push({ term, cursor, signal, resolve, reject });
-      }),
-  );
-  return { search, calls };
-}
+const fakeSearch = () => fakeSearchOf<Farm>();
 
 const getKey = (farm: Farm) => farm.id;
 const getLabel = (farm: Farm) => farm.name;
@@ -48,6 +30,8 @@ type HarnessProps = {
   debounceMs?: number;
   disabled?: boolean;
   error?: string;
+  onCreate?: (term: string) => void;
+  createLabel?: string;
 };
 
 function Single({ search, initial = null, onChange, error, ...props }: HarnessProps) {
@@ -96,27 +80,10 @@ function Multiple({ search, initial = [], onChange, ...props }: MultipleProps) {
   );
 }
 
-const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
-
-async function answer(call: Call | undefined, page: AsyncComboboxPage<Farm>) {
-  await act(async () => call!.resolve(page));
-}
-
-function setup() {
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-}
-
-/** Chega ao gatilho pelo Tab (depois dos chips, que vêm antes) e abre a lista com a seta para baixo. */
-async function open(user: ReturnType<typeof setup>, name = 'Fazenda') {
-  const trigger = screen.getByRole('combobox', { name });
-  for (let i = 0; i < 5 && document.activeElement !== trigger; i++) await user.tab();
-  expect(trigger).toHaveFocus();
-  await user.keyboard('{ArrowDown}');
-  return trigger;
-}
+/** Chega ao gatilho e abre a lista; o nome padrão é o da seleção única. */
+const open = (user: ReturnType<typeof setup>, name = 'Fazenda') => openList(user, name);
 
 const searchInput = () => screen.getByPlaceholderText('Buscar');
-const optionNames = () => screen.queryAllByRole('option').map((option) => option.textContent);
 
 beforeEach(() => {
   // o Radix e o cmdk precisam do relógio andando; o teste avança o debounce à mão
@@ -228,6 +195,45 @@ describe('AsyncCombobox', () => {
 
       expect(screen.getByRole('status')).toHaveTextContent('Nenhum resultado para “xyz”');
       expect(optionNames()).toEqual([]);
+    });
+
+    it('sem resultado, a ação de cadastrar fecha a lista e recebe o termo', async () => {
+      const user = setup();
+      const { search, calls } = fakeSearch();
+      const onCreate = vi.fn();
+      render(<Single search={search} onCreate={onCreate} createLabel="Cadastrar fazenda" />);
+      const trigger = await open(user);
+      await user.type(searchInput(), 'Recanto');
+      await advance(250);
+      await answer(calls[1], { items: [] });
+
+      await user.click(screen.getByRole('button', { name: 'Cadastrar fazenda' }));
+      expect(onCreate).toHaveBeenCalledWith('Recanto');
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('"Tentar de novo" também aciona pelo teclado', async () => {
+      const user = setup();
+      const { search, calls } = fakeSearch();
+      render(<Single search={search} />);
+      await open(user);
+      await act(async () => calls[0]!.reject(new Error('rede')));
+
+      await user.tab();
+      expect(screen.getByRole('button', { name: 'Tentar de novo' })).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(search).toHaveBeenCalledTimes(2);
+    });
+
+    it('a ação de cadastrar só aparece no vazio', async () => {
+      const user = setup();
+      const { search, calls } = fakeSearch();
+      render(<Single search={search} onCreate={() => {}} createLabel="Cadastrar fazenda" />);
+      await open(user);
+
+      expect(screen.queryByRole('button', { name: 'Cadastrar fazenda' })).toBeNull();
+      await answer(calls[0], { items: farms });
+      expect(screen.queryByRole('button', { name: 'Cadastrar fazenda' })).toBeNull();
     });
 
     it('no erro, "Tentar de novo" repete a mesma busca', async () => {
