@@ -8,7 +8,7 @@
 export const REFERRER_KINDS = ['user', 'contact'] as const;
 export type ReferrerKind = (typeof REFERRER_KINDS)[number];
 
-/** Rótulo do tipo de indicador na tela, pelos termos do glossário. */
+/** Rótulo curto do tipo de indicador na tela: corretor interno ou externo, no glossário. */
 export const REFERRER_KIND_LABELS = { user: 'Interno', contact: 'Externo' } as const satisfies Record<ReferrerKind, string>;
 
 export type Referrer = { kind: ReferrerKind; id: string; name: string };
@@ -22,7 +22,9 @@ export type ReferralLink = { referrer: Referrer; position: number; notes: string
 /**
  * Problema de uma cadeia. `duplicate`: o indicador já apareceu antes, em
  * `firstPosition`. `cycle`: o próprio sujeito aparece como indicador e a cadeia
- * volta a ele.
+ * volta a ele. Ciclo entre cadeias diferentes (o João indicou o Pedro e, na
+ * cadeia do João, o Pedro indicou o João) não é verificado: cada cadeia é
+ * validada sozinha.
  */
 export type ReferralChainIssue =
   | { code: 'duplicate'; position: number; firstPosition: number; referrer: Referrer }

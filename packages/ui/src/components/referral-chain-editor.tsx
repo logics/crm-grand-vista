@@ -18,7 +18,8 @@ import {
 import { type ComponentProps, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
 import { FieldControlContext, type FieldControlProps, useFieldControl } from '../lib/field-control.js';
-import { reorderInstructions, useReorder } from '../lib/reorder.js';
+import { useReorder } from '../lib/reorder.js';
+import { ReorderStatus } from '../lib/reorder-status.js';
 import { Input } from '../primitives/input.js';
 import { AsyncCombobox, type AsyncComboboxSearch } from './async-combobox.js';
 import { Badge } from './badge.js';
@@ -54,6 +55,9 @@ export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 
   readOnly?: boolean;
   disabled?: boolean;
 };
+
+/** Para onde vai o foco depois de uma remoção: o remover de outro elo ou o seletor do próximo indicador. */
+type FocusTarget = { row: string } | 'picker';
 
 /** Elo em exibição, com uma identidade que resiste à reordenação e ao indicador repetido. */
 type Row = { id: string; link: ReferralLink; issue?: ReferralChainIssue };
@@ -93,13 +97,12 @@ export function ReferralChainEditor({
     'aria-required': ariaRequired,
   });
   const kinds = (['contact', 'user'] as const).filter((kind) => (kind === 'user' ? searchUsers : searchContacts));
-  const [chosenKind, setKind] = useState<ReferrerKind>(kinds[0] ?? 'contact');
+  const [chosenKind, setChosenKind] = useState<ReferrerKind>(kinds[0] ?? 'contact');
   const kind = kinds.includes(chosenKind) ? chosenKind : (kinds[0] ?? 'contact');
   const [announcement, setAnnouncement] = useState('');
   const root = useRef<HTMLDivElement>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
-  /** Para onde vai o foco depois de uma remoção: o remover de outro elo ou o seletor. */
-  const pendingFocus = useRef<string | 'picker' | null>(null);
+  const pendingFocus = useRef<FocusTarget | null>(null);
 
   const rows = toRows(subject, value);
   const chain = rows.map((row) => row.link);
@@ -119,7 +122,7 @@ export function ReferralChainEditor({
     if (target === null) return;
     pendingFocus.current = null;
     if (target === 'picker') root.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
-    else removeButtons.current.get(target)?.focus();
+    else removeButtons.current.get(target.row)?.focus();
   });
 
   const add = (option: ReferrerOption | null) => {
@@ -131,7 +134,8 @@ export function ReferralChainEditor({
 
   const remove = (row: Row, index: number) => {
     if (!onChange) return;
-    pendingFocus.current = rows[index + 1]?.id ?? rows[index - 1]?.id ?? 'picker';
+    const neighbor = rows[index + 1] ?? rows[index - 1];
+    pendingFocus.current = neighbor ? { row: neighbor.id } : 'picker';
     onChange(removeReferralLink(chain, row.link.position));
     setAnnouncement(`${row.link.referrer.name} saiu da cadeia.`);
   };
@@ -141,10 +145,11 @@ export function ReferralChainEditor({
 
   /** Só oferece quem pode entrar ao fim da cadeia. */
   const eligible =
-    <T extends ReferrerOption>(search: AsyncComboboxSearch<T>, kind: ReferrerKind): AsyncComboboxSearch<T> =>
+    <T extends ReferrerOption>(search: AsyncComboboxSearch<T>, referrerKind: ReferrerKind): AsyncComboboxSearch<T> =>
     async (term, options) => {
       const page = await search(term, options);
-      return { ...page, items: page.items.filter((item) => isEligibleReferrer(subject, chain, { kind, ...item })) };
+      const items = page.items.filter((item) => isEligibleReferrer(subject, chain, { kind: referrerKind, ...item }));
+      return { ...page, items };
     };
 
   const next = `Quem indicou ${chain.at(-1)?.referrer.name ?? subject.name}?`;
@@ -183,7 +188,7 @@ export function ReferralChainEditor({
             </p>
             <ol
               aria-label={`Cadeia de indicação de ${subject.name}`}
-              className="m-0 flex list-none flex-col gap-4 p-0"
+              className="m-0 flex list-none flex-col p-0"
               {...reorder.listProps}
             >
               {reorder.ordered.map((row) => {
@@ -194,11 +199,8 @@ export function ReferralChainEditor({
                     key={row.id}
                     aria-label={`${position}. ${referrer.name}`}
                     data-moving={reorder.movingId === row.id || undefined}
-                    data-invalid={row.issue ? true : undefined}
-                    className={cn(
-                      'flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-card p-4 transition-control',
-                      'data-moving:border-brand-accent data-moving:shadow-ring-focus data-invalid:border-status-danger-fg',
-                    )}
+                    // linha com filete, como as do `DocumentManager`; a que se move ganha o fundo de pedra
+                    className="flex flex-col gap-3 border-b border-border-subtle py-4 transition-control last:border-b-0 data-moving:bg-surface-sunken"
                     {...(editable ? reorder.itemProps(row) : {})}
                   >
                     <div className="flex items-center gap-4">
@@ -257,6 +259,7 @@ export function ReferralChainEditor({
           </>
         )}
 
+        {/* não é o `Tabs` segmentado: não há painel, só a escolha da busca do seletor */}
         {editable && kinds.length > 0 && (
           <div className="flex flex-wrap items-center gap-4">
             {kinds.length > 1 && (
@@ -268,7 +271,7 @@ export function ReferralChainEditor({
                     variant={option === kind ? 'soft' : 'ghost'}
                     aria-pressed={option === kind}
                     disabled={disabled}
-                    onClick={() => setKind(option)}
+                    onClick={() => setChosenKind(option)}
                   >
                     {REFERRER_KIND_LABELS[option]}
                   </Button>
@@ -294,12 +297,7 @@ export function ReferralChainEditor({
         )}
       </FieldControlContext>
 
-      <span id={reorder.instructionsId} hidden>
-        {reorderInstructions}
-      </span>
-      <div role="status" className="sr-only">
-        {reorder.announcement}
-      </div>
+      <ReorderStatus reorder={reorder} />
       <div role="status" className="sr-only">
         {announcement}
       </div>
