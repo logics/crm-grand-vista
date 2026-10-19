@@ -40,6 +40,9 @@ export async function login(page: Page, { email, password }: Pick<E2EAccount, 'e
   await page.getByRole('button', { name: 'Entrar' }).click();
 }
 
+/** O título da topbar: o nome da empresa ativa. */
+export const tenantHeading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
+
 /** O menu de conta da topbar, pelo nome do usuário no gatilho. */
 export const accountMenu = (page: Page, userName: string) =>
   page.getByRole('button', { name: new RegExp(userName) });

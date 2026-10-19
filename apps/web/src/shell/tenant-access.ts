@@ -36,12 +36,17 @@ export function useTenantAccess(slug: string) {
   });
 }
 
+/** Se o acesso aberto concede a permissão; recusa não concede nada. */
+export const canIn =
+  (access: TenantAccess | undefined) =>
+  (permission: PermissionCode): boolean =>
+    access?.status === 'open' && access.permissions.has(permission);
+
 /**
  * Se o usuário tem a permissão na empresa ativa, para esconder o botão ou o
  * item de menu que levaria a 403. Cortesia, não controle: a rota da API recusa
  * de qualquer jeito. Só vale sob `TenantLayout`, que já carregou o acesso.
  */
 export function useCan(permission: PermissionCode): boolean {
-  const { data } = useTenantAccess(useTenantSlug());
-  return data?.status === 'open' && data.permissions.has(permission);
+  return canIn(useTenantAccess(useTenantSlug()).data)(permission);
 }

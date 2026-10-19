@@ -3,6 +3,7 @@
 // não controle: a rota da API recusa de qualquer jeito.
 import type { PermissionCode } from '@crm/shared';
 import type { IconName, SidebarNavItem } from '@crm/ui';
+import { relativeTenantPath, tenantPath } from './tenant-path.js';
 
 export type NavigationEntry = {
   id: string;
@@ -34,9 +35,14 @@ export function visibleNavigation(
   return items;
 }
 
+/** Aonde o item leva, na empresa dada; item fora do registro, a lugar nenhum. */
+export function navigationPath(entries: readonly NavigationEntry[], id: string, slug: string): string | undefined {
+  const entry = entries.find((item) => item.id === id);
+  return entry && tenantPath(slug, entry.path);
+}
+
 /** O item da página aberta: o de caminho igual, ou o do módulo que a contém. */
 export function activeNavigationId(entries: readonly NavigationEntry[], pathname: string): string | undefined {
-  const [, , , ...rest] = pathname.split('/');
-  const relative = rest.filter(Boolean).join('/');
+  const relative = relativeTenantPath(pathname);
   return entries.find(({ path }) => (path === '' ? relative === '' : relative === path || relative.startsWith(`${path}/`)))?.id;
 }

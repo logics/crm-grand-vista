@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { switchTenantPath, tenantPath, tenantRootPath } from '../../src/shell/tenant-path.js';
+import { relativeTenantPath, switchTenantPath, tenantPath, tenantRootPath } from '../../src/shell/tenant-path.js';
 
 describe('tenantRootPath', () => {
   it('é a raiz da empresa, com o slug codificado', () => {
@@ -15,6 +15,17 @@ describe('tenantPath', () => {
 
   it('sem página, é a raiz', () => {
     expect(tenantPath('grand-vista', '')).toBe('/e/grand-vista');
+  });
+});
+
+describe('relativeTenantPath', () => {
+  it('é o caminho sob a raiz da empresa, sem barras nas pontas', () => {
+    expect(relativeTenantPath('/e/grand-vista/farms/123/')).toBe('farms/123');
+  });
+
+  it('na raiz da empresa, é vazio', () => {
+    expect(relativeTenantPath('/e/grand-vista')).toBe('');
+    expect(relativeTenantPath('/e/grand-vista/')).toBe('');
   });
 });
 

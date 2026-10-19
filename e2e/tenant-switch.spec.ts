@@ -1,10 +1,8 @@
 import type { Page } from '@playwright/test';
 import { twoTenantUser } from './support/accounts.js';
-import { accountMenu, expect, login, test } from './support/fixtures.js';
+import { accountMenu, expect, login, tenantHeading, test } from './support/fixtures.js';
 
 const [first, second] = twoTenantUser.tenants;
-
-const tenantHeading = (page: Page, name: string) => page.getByRole('heading', { level: 1, name });
 
 /** Troca de empresa pelo menu de conta da topbar. */
 async function switchTenant(page: Page, name: string) {

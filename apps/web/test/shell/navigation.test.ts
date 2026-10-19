@@ -1,6 +1,6 @@
 import type { PermissionCode } from '@crm/shared';
 import { describe, expect, it } from 'vitest';
-import { activeNavigationId, type NavigationEntry, visibleNavigation } from '../../src/shell/navigation.js';
+import { activeNavigationId, navigationPath, type NavigationEntry, visibleNavigation } from '../../src/shell/navigation.js';
 
 const entries: NavigationEntry[] = [
   { id: 'home', label: 'Início', icon: 'house', path: '' },
@@ -35,6 +35,17 @@ describe('visibleNavigation', () => {
     const items = visibleNavigation(entries, can('fazendas.ver', 'contatos.ver', 'perfis_de_acesso.gerenciar'));
     expect(items.filter((item) => 'section' in item)).toEqual([{ section: 'Comercial' }, { section: 'Administração' }]);
     expect(items).toHaveLength(6);
+  });
+});
+
+describe('navigationPath', () => {
+  it('é a página do item sob a empresa ativa', () => {
+    expect(navigationPath(entries, 'fazendas', 'grand-vista')).toBe('/e/grand-vista/farms');
+    expect(navigationPath(entries, 'home', 'grand-vista')).toBe('/e/grand-vista');
+  });
+
+  it('item fora do registro não leva a lugar nenhum', () => {
+    expect(navigationPath(entries, 'outro', 'grand-vista')).toBeUndefined();
   });
 });
 
