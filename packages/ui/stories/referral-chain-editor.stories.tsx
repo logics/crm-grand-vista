@@ -1,7 +1,7 @@
-import type { ReferralLink, ReferralSubject, Referrer, UserOption } from '@crm/shared';
+import type { ContactOption, ReferralLink, ReferralSubject, Referrer, UserOption } from '@crm/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { type AsyncComboboxSearch, Field, ReferralChainEditor, type ReferrerOption } from '../src/index.js';
+import { type AsyncComboboxPage, Field, ReferralChainEditor } from '../src/index.js';
 import { constrained } from './support/layout.js';
 
 const pedro: ReferralSubject = { kind: 'contact', id: 'c-pedro', name: 'Pedro Almeida' };
@@ -10,12 +10,12 @@ const joao: Referrer = { kind: 'contact', id: 'c-joao', name: 'João Batista' };
 const sebastiao: Referrer = { kind: 'contact', id: 'c-sebastiao', name: 'Sebastião Ferreira' };
 const carlos: Referrer = { kind: 'user', id: 'u-carlos', name: 'Carlos Menezes' };
 
-const contacts: ReferrerOption[] = [
-  { id: 'c-pedro', name: 'Pedro Almeida' },
-  { id: 'c-joao', name: 'João Batista' },
-  { id: 'c-sebastiao', name: 'Sebastião Ferreira' },
-  { id: 'c-antonio', name: 'Antônio Ribeiro' },
-  { id: 'c-luzia', name: 'Luzia Campos' },
+const contacts: ContactOption[] = [
+  { id: 'c-pedro', name: 'Pedro Almeida', personType: 'pf', taxId: '12345678901', roles: ['buyer'] },
+  { id: 'c-joao', name: 'João Batista', personType: 'pf', taxId: '98765432100', roles: ['external_broker'] },
+  { id: 'c-sebastiao', name: 'Sebastião Ferreira', personType: 'pf', taxId: null, roles: ['external_broker', 'owner'] },
+  { id: 'c-antonio', name: 'Antônio Ribeiro', personType: 'pf', taxId: null, roles: ['owner'] },
+  { id: 'c-agro', name: 'Agropecuária Vale Verde', personType: 'pj', taxId: '12345678000190', roles: ['external_broker'] },
 ];
 
 const users: UserOption[] = [
@@ -24,9 +24,9 @@ const users: UserOption[] = [
 ];
 
 /** Busca simulada: filtra pelo nome com um atraso de rede. */
-function simulated<T extends ReferrerOption>(items: T[]): AsyncComboboxSearch<T> {
-  return (term, { signal }) =>
-    new Promise((resolve, reject) => {
+function simulated<T extends { name: string }>(items: T[]) {
+  return (term: string, { signal }: { signal: AbortSignal }) =>
+    new Promise<AsyncComboboxPage<T>>((resolve, reject) => {
       const timer = setTimeout(
         () => resolve({ items: items.filter((item) => item.name.toLowerCase().includes(term.toLowerCase())) }),
         300,

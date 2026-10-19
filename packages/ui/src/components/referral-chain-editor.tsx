@@ -21,9 +21,10 @@ import { FieldControlContext, type FieldControlProps, useFieldControl } from '..
 import { useReorder } from '../lib/reorder.js';
 import { ReorderStatus } from '../lib/reorder-status.js';
 import { Input } from '../primitives/input.js';
-import { AsyncCombobox, type AsyncComboboxSearch } from './async-combobox.js';
+import type { AsyncComboboxPage, AsyncComboboxSearch } from './async-combobox.js';
 import { Badge } from './badge.js';
 import { Button } from './button.js';
+import { ContactPicker, type ContactPickerSearch } from './contact-picker.js';
 import { Icon } from './icon.js';
 import { IconButton } from './icon-button.js';
 import { UserPicker } from './user-picker.js';
@@ -34,12 +35,9 @@ import { UserPicker } from './user-picker.js';
 // trouxe direto). Montagem e validação são as de `@crm/shared`, as mesmas da
 // API. Não fala com a API: as buscas de usuário e de contato chegam por prop, e
 // o seletor só oferece quem pode entrar (não o sujeito, não quem já está).
-//
-// TODO(#53): a escolha de contato passa ao `ContactPicker` quando ele existir;
-// até lá é um `AsyncCombobox` só com o nome.
 
-/** O mínimo que a busca de contato devolve: o `ContactPicker` traz mais. */
-export type ReferrerOption = { id: string; name: string };
+/** O que o seletor de usuário e o de contato devolvem em comum. */
+type ReferrerOption = { id: string; name: string };
 
 export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'children' | 'defaultValue'> & {
   /** Quem foi indicado: encabeça a cadeia e nunca entra nela. */
@@ -50,8 +48,8 @@ export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 
   onChange?: (links: ReferralLink[]) => void;
   /** Busca de corretor interno. Sem ela, só entra contato. */
   searchUsers?: AsyncComboboxSearch<UserOption>;
-  /** Busca de contato (corretor externo). Sem ela, só entra usuário. */
-  searchContacts?: AsyncComboboxSearch<ReferrerOption>;
+  /** Busca de contato (corretor externo), a do `ContactPicker`. Sem ela, só entra usuário. */
+  searchContacts?: ContactPickerSearch;
   readOnly?: boolean;
   disabled?: boolean;
 };
@@ -145,10 +143,10 @@ export function ReferralChainEditor({
 
   /** Só oferece quem pode entrar ao fim da cadeia. */
   const eligible =
-    <T extends ReferrerOption>(search: AsyncComboboxSearch<T>, referrerKind: ReferrerKind): AsyncComboboxSearch<T> =>
-    async (term, options) => {
+    <T extends ReferrerOption, O>(search: (term: string, options: O) => Promise<AsyncComboboxPage<T>>, referrerKind: ReferrerKind) =>
+    async (term: string, options: O): Promise<AsyncComboboxPage<T>> => {
       const page = await search(term, options);
-      const items = page.items.filter((item) => isEligibleReferrer(subject, chain, { kind: referrerKind, ...item }));
+      const items = page.items.filter(({ id, name }) => isEligibleReferrer(subject, chain, { kind: referrerKind, id, name }));
       return { ...page, items };
     };
 
@@ -282,15 +280,7 @@ export function ReferralChainEditor({
               {kind === 'user' && searchUsers ? (
                 <UserPicker {...picker} search={eligible(searchUsers, 'user')} />
               ) : (
-                searchContacts && (
-                  <AsyncCombobox<ReferrerOption>
-                    {...picker}
-                    search={eligible(searchContacts, 'contact')}
-                    getKey={(option) => option.id}
-                    getLabel={(option) => option.name}
-                    searchPlaceholder="Buscar contato"
-                  />
-                )
+                searchContacts && <ContactPicker {...picker} search={eligible(searchContacts, 'contact')} />
               )}
             </div>
           </div>

@@ -1,31 +1,22 @@
 import type { UserOption } from '@crm/shared';
-import { AsyncCombobox, type AsyncComboboxProps } from './async-combobox.js';
+import { AsyncCombobox, type AsyncComboboxPickerProps, AsyncComboboxOption } from './async-combobox.js';
 
 // Seletor de usuário da empresa (corretor interno, responsável) sobre o
-// `AsyncCombobox`: só define rótulo, linha da lista e textos. A busca chega por
-// `search`, como no combobox.
+// `AsyncCombobox`: nome e e-mail.
 
-/** `Omit` que preserva a união de seleção única e múltipla. */
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+export type UserPickerProps = AsyncComboboxPickerProps<UserOption>;
 
-export type UserPickerProps = DistributiveOmit<AsyncComboboxProps<UserOption>, 'getKey' | 'getLabel' | 'renderItem'>;
+const userKey = (user: UserOption) => user.id;
+const userName = (user: UserOption) => user.name;
 
-const getKey = (user: UserOption) => user.id;
-const getLabel = (user: UserOption) => user.name;
-
-const renderItem = (user: UserOption) => (
-  <span className="flex flex-col gap-1">
-    <span className="truncate">{user.name}</span>
-    <span className="truncate text-xs text-text-faint">{user.email}</span>
-  </span>
-);
+const renderUser = (user: UserOption) => <AsyncComboboxOption title={user.name} detail={user.email} />;
 
 export function UserPicker(props: UserPickerProps) {
   return (
-    <AsyncCombobox<UserOption>
-      getKey={getKey}
-      getLabel={getLabel}
-      renderItem={renderItem}
+    <AsyncCombobox
+      getKey={userKey}
+      getLabel={userName}
+      renderItem={renderUser}
       placeholder="Escolha o usuário"
       searchPlaceholder="Buscar usuário"
       {...props}

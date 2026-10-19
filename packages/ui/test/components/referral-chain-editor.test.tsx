@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '../support/dom.js';
-import type { ReferralLink, ReferralSubject, Referrer, UserOption } from '@crm/shared';
+import type { ContactOption, ReferralLink, ReferralSubject, Referrer, UserOption } from '@crm/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
@@ -13,11 +13,19 @@ const joao: Referrer = { kind: 'contact', id: 'c-joao', name: 'João Batista' };
 const sebastiao: Referrer = { kind: 'contact', id: 'c-sebastiao', name: 'Sebastião Ferreira' };
 const carlos: Referrer = { kind: 'user', id: 'u-carlos', name: 'Carlos Menezes' };
 
+const contact = (id: string, name: string): ContactOption => ({
+  id,
+  name,
+  personType: 'pf',
+  taxId: null,
+  roles: ['external_broker'],
+});
+
 const contacts = [
-  { id: 'c-pedro', name: 'Pedro Almeida' },
-  { id: 'c-joao', name: 'João Batista' },
-  { id: 'c-sebastiao', name: 'Sebastião Ferreira' },
-  { id: 'c-antonio', name: 'Antônio Ribeiro' },
+  contact('c-pedro', 'Pedro Almeida'),
+  contact('c-joao', 'João Batista'),
+  contact('c-sebastiao', 'Sebastião Ferreira'),
+  contact('c-antonio', 'Antônio Ribeiro'),
 ];
 
 const users: UserOption[] = [
@@ -124,7 +132,8 @@ describe('ReferralChainEditor — edição', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'Cadeia de indicação' }));
     const options = await screen.findAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual(['Antônio Ribeiro']);
+    expect(options.map((option) => option.textContent)).toEqual([expect.stringContaining('Antônio Ribeiro')]);
+    expect(options[0]).toHaveTextContent('Corretor externo');
     await user.click(options[0]!);
 
     expect(onLinks).toHaveBeenLastCalledWith([
