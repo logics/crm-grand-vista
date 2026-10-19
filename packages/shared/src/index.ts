@@ -12,7 +12,7 @@ export {
   updateUserSchema,
   userSchema,
 } from './user.js';
-export type { AccessProfileRef, TeamMember, UpdateUserInput, User } from './user.js';
+export type { AccessProfileRef, TeamMember, UpdateUserInput, User, UserOption } from './user.js';
 export {
   INVALID_CREDENTIALS_MESSAGE,
   TENANT_BLOCKED_MESSAGE,
@@ -47,3 +47,16 @@ export {
   roundDecimal,
 } from './decimal.js';
 export type { AlqueireType, DecimalFormat, ParsedDecimal } from './decimal.js';
+export {
+  REFERRER_KINDS,
+  REFERRER_KIND_LABELS,
+  appendReferralLink,
+  assembleReferralChain,
+  describeReferralChainIssue,
+  isEligibleReferrer,
+  referrerKey,
+  removeReferralLink,
+  reorderReferralChain,
+  validateReferralChain,
+} from './referral-chain.js';
+export type { ReferralChainIssue, ReferralLink, ReferralSubject, Referrer, ReferrerKind } from './referral-chain.js';
