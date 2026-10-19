@@ -34,21 +34,20 @@ describe('papéis', () => {
 
 describe('abbreviateTaxId', () => {
   it('mascara o CPF, mostrando só os dígitos do meio', () => {
-    expect(abbreviateTaxId('12345678909', 'pf')).toBe('***.456.789-**');
-    expect(abbreviateTaxId('123.456.789-09', 'pf')).toBe('***.456.789-**');
+    expect(abbreviateTaxId('12345678909')).toBe('***.456.789-**');
+    expect(abbreviateTaxId('123.456.789-09')).toBe('***.456.789-**');
   });
 
   it('formata o CNPJ por inteiro, que é dado público', () => {
-    expect(abbreviateTaxId('12345678000190', 'pj')).toBe('12.345.678/0001-90');
+    expect(abbreviateTaxId('12345678000190')).toBe('12.345.678/0001-90');
   });
 
-  it('devolve como veio o que não tem os dígitos do tipo', () => {
-    expect(abbreviateTaxId('1234', 'pf')).toBe('1234');
-    expect(abbreviateTaxId('12345678909', 'pj')).toBe('12345678909');
+  it('devolve como veio o que não é CPF nem CNPJ', () => {
+    expect(abbreviateTaxId('1234')).toBe('1234');
   });
 
   it('documento ausente vira null', () => {
-    expect(abbreviateTaxId(null, 'pf')).toBeNull();
-    expect(abbreviateTaxId('', 'pj')).toBeNull();
+    expect(abbreviateTaxId(null)).toBeNull();
+    expect(abbreviateTaxId('')).toBeNull();
   });
 });

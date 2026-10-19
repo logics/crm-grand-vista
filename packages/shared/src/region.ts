@@ -53,10 +53,13 @@ export const ufOptionSchema = z.object({ uf: ufSchema });
 
 export type UfOption = z.infer<typeof ufOptionSchema>;
 
-/** Município ou UF: `{ ibgeCode }` ou `{ uf }`, distinguidos por `isMunicipality`. */
+/**
+ * Município ou UF: `{ ibgeCode }` ou `{ uf }`. O município também tem `uf`, então
+ * a distinção é pela presença de `ibgeCode` (`isMunicipality`), nunca por `'uf' in`.
+ */
 export const regionOptionSchema = z.union([municipalityOptionSchema, ufOptionSchema]);
 
-export type RegionOption = MunicipalityOption | UfOption;
+export type RegionOption = z.infer<typeof regionOptionSchema>;
 
 export const isMunicipality = (region: RegionOption): region is MunicipalityOption => 'ibgeCode' in region;
 

@@ -547,15 +547,22 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   );
 }
 
-/** Linha de estado sob a lista (carregando, vazio, erro), na altura do vazio do `Command`. */
+/**
+ * Linha de estado sob a lista (carregando, vazio, erro), na altura do vazio do `Command`.
+ * O `Command` toma o Enter de todo descendente para escolher o item realçado;
+ * o Enter na ação não sobe até ele, senão o botão não aciona pelo teclado.
+ */
 function StatusRow({ loading = false, action, children }: { loading?: boolean; action?: ReactNode; children: ReactNode }) {
+  const keepEnter = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter') event.stopPropagation();
+  };
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-8 text-center text-sm text-text-muted">
       <span className="inline-flex items-center gap-3">
         {loading && <Icon name="loader" size="md" className="motion-safe:animate-spin" />}
         {children}
       </span>
-      {action}
+      {action && <div onKeyDown={keepEnter}>{action}</div>}
     </div>
   );
 }

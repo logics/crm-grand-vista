@@ -32,16 +32,16 @@ const contactName = (contact: ContactOption) => contact.name;
 
 function ContactItem({ contact }: { contact: ContactOption }) {
   const roles = contact.roles.map((role) => CONTACT_ROLE_LABELS[role]).join(', ');
-  const taxId = orEmDash(abbreviateTaxId(contact.taxId, contact.personType));
+  const taxId = orEmDash(abbreviateTaxId(contact.taxId));
   return (
     <AsyncComboboxOption
       title={contact.name}
       badge={<Badge size="sm">{PERSON_TYPE_LABELS[contact.personType]}</Badge>}
       detail={
-        <span className="gv-num">
-          {taxId}
+        <>
+          <span className="gv-num">{taxId}</span>
           {roles && ` · ${roles}`}
-        </span>
+        </>
       }
     />
   );

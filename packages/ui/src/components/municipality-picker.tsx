@@ -4,15 +4,18 @@ import { AsyncCombobox, type AsyncComboboxPickerProps } from './async-combobox.j
 // Seletor de município sobre o `AsyncCombobox`: a opção é "Rio Verde — GO".
 // Com `allowUf`, aceita também a UF inteira ("Goiás (UF)") e devolve
 // `{ ibgeCode } | { uf }` — a região de interesse de `buyer_regions`. O valor
-// por chave é o código IBGE ou a sigla, que `resolve` hidrata.
+// por chave é o código IBGE ou a sigla, que `resolve` hidrata. Sem ação de
+// cadastrar: município vem da carga do IBGE.
+
+type NotCreatable = 'onCreate' | 'createLabel';
 
 export type MunicipalityPickerProps =
-  | ({ allowUf?: false } & AsyncComboboxPickerProps<MunicipalityOption>)
-  | ({ allowUf: true } & AsyncComboboxPickerProps<RegionOption>);
+  | ({ allowUf?: false } & AsyncComboboxPickerProps<MunicipalityOption, NotCreatable>)
+  | ({ allowUf: true } & AsyncComboboxPickerProps<RegionOption, NotCreatable>);
 
 export function MunicipalityPicker({ allowUf = false, ...props }: MunicipalityPickerProps) {
   // sem `allowUf`, a busca só devolve municípios, e `onChange` só os recebe
-  const combobox = props as AsyncComboboxPickerProps<RegionOption>;
+  const combobox = props as AsyncComboboxPickerProps<RegionOption, NotCreatable>;
   return (
     <AsyncCombobox
       getKey={regionKey}

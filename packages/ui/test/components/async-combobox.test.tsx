@@ -212,6 +212,19 @@ describe('AsyncCombobox', () => {
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
     });
 
+    it('"Tentar de novo" também aciona pelo teclado', async () => {
+      const user = setup();
+      const { search, calls } = fakeSearch();
+      render(<Single search={search} />);
+      await open(user);
+      await act(async () => calls[0]!.reject(new Error('rede')));
+
+      await user.tab();
+      expect(screen.getByRole('button', { name: 'Tentar de novo' })).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(search).toHaveBeenCalledTimes(2);
+    });
+
     it('a ação de cadastrar só aparece no vazio', async () => {
       const user = setup();
       const { search, calls } = fakeSearch();

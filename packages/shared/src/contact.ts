@@ -30,14 +30,15 @@ export type ContactOption = z.infer<typeof contactOptionSchema>;
 
 /**
  * Documento para listagem: o CPF mascarado como no Portal da Transparência
- * (`***.456.789-**`), o CNPJ por inteiro, que é dado público. Sem os dígitos do
- * tipo, volta como veio; ausente, `null`.
+ * (`***.456.789-**`), o CNPJ por inteiro, que é dado público. Decide pelos
+ * dígitos, não pelo tipo de pessoa, para que um CPF num cadastro PJ não saia
+ * inteiro. O que não é CPF nem CNPJ volta como veio; ausente, `null`.
  */
-export function abbreviateTaxId(taxId: string | null, personType: PersonType): string | null {
+export function abbreviateTaxId(taxId: string | null): string | null {
   if (!taxId) return null;
   const digits = taxId.replace(/\D/g, '');
-  if (personType === 'pf' && digits.length === 11) return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
-  if (personType === 'pj' && digits.length === 14)
+  if (digits.length === 11) return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
+  if (digits.length === 14)
     return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
   return taxId;
 }

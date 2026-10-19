@@ -133,4 +133,19 @@ describe('ContactPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Cadastrar contato' }));
     expect(onCreate).toHaveBeenCalledWith('Sebastião');
   });
+
+  it('a ação de cadastrar é alcançada pelo Tab e acionada pelo Enter', async () => {
+    const user = setup();
+    const onCreate = vi.fn();
+    const { search, calls } = contactSearch();
+    render(<Contact search={search} onCreate={onCreate} />);
+    const trigger = await open(user, 'Contato');
+    await answer(calls[0], { items: [] });
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Cadastrar contato' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(onCreate).toHaveBeenCalledWith('');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
 });

@@ -44,6 +44,21 @@ function MunicipalityField({ search = searchMunicipalities, initial = null, erro
   );
 }
 
+function MunicipalitiesField({ initial = [] }: { initial?: Array<MunicipalityOption | string> }) {
+  const [value, setValue] = useState<Array<MunicipalityOption | string>>(initial);
+  return (
+    <Field label="Municípios atendidos">
+      <MunicipalityPicker
+        multiple
+        search={searchMunicipalities}
+        resolve={resolveMunicipalities}
+        value={value}
+        onChange={setValue}
+      />
+    </Field>
+  );
+}
+
 function RegionsField({ initial = [], defaultOpen }: { initial?: Array<RegionOption | string>; defaultOpen?: boolean }) {
   const [value, setValue] = useState<Array<RegionOption | string>>(initial);
   return (
@@ -77,6 +92,11 @@ export const Unico: Story = { name: 'Único', args: { initial: municipalities[0]
 export const Aberto: Story = { args: { defaultOpen: true } };
 
 export const ValorPorCodigo: Story = { name: 'Valor por código IBGE', args: { initial: '5107925' } };
+
+export const Multiplos: Story = {
+  name: 'Múltiplos municípios',
+  render: () => <MunicipalitiesField initial={[municipalities[0]!, '5211909']} />,
+};
 
 export const UfEMunicipios: Story = {
   name: 'UF e municípios',
