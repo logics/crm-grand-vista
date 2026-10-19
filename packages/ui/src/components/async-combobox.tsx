@@ -67,6 +67,13 @@ type AsyncComboboxBaseProps<T> = Pick<
   debounceMs?: number;
   /** Caracteres antes de buscar; até lá, a lista pede que se digite mais. */
   minChars?: number;
+  /**
+   * Ação de cadastrar no vazio ("Cadastrar contato"): fecha a lista e recebe o
+   * termo buscado, para pré-preencher o cadastro.
+   */
+  onCreate?: (term: string) => void;
+  /** Rótulo da ação de cadastrar, verbo primeiro. */
+  createLabel?: string;
   /** Abre já na montagem (vitrine do Storybook). */
   defaultOpen?: boolean;
   /** Vai para a moldura, que é quem ocupa o layout. */
@@ -89,6 +96,19 @@ type MultipleProps<T> = {
 
 /** Itens são objetos: uma entrada `string` no valor é sempre um ID a hidratar. */
 export type AsyncComboboxProps<T> = AsyncComboboxBaseProps<T> & (SingleProps<T> | MultipleProps<T>);
+
+/** `Omit` que preserva a união entre seleção única e múltipla. */
+type DistributiveOmit<P, K extends PropertyKey> = P extends unknown ? Omit<P, K> : never;
+
+/**
+ * Props de um seletor de domínio sobre o `AsyncCombobox` (`ContactPicker`,
+ * `FarmPicker`…): ele fixa identidade, rótulo e renderização; `K` tira mais
+ * props que ele redefine.
+ */
+export type AsyncComboboxPickerProps<T, K extends PropertyKey = never> = DistributiveOmit<
+  AsyncComboboxProps<T>,
+  'getKey' | 'getLabel' | 'renderItem' | K
+>;
 
 type SearchState<T> = {
   status: 'idle' | 'loading' | 'ready' | 'error';
@@ -245,6 +265,8 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     disabled = false,
     debounceMs = 250,
     minChars = 0,
+    onCreate,
+    createLabel = 'Cadastrar',
     defaultOpen = false,
     className,
     multiple: _multiple,
@@ -332,6 +354,12 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     if (event.key === 'Backspace' && term === '') removeLast();
   };
 
+  const create = () => {
+    const searched = state.term;
+    changeOpen(false);
+    onCreate?.(searched);
+  };
+
   const { items } = state;
   const lastKey = items.length > 0 ? getKey(items[items.length - 1]!) : undefined;
 
@@ -372,7 +400,19 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
         </StatusRow>
       );
     if (state.status === 'ready' && items.length === 0)
-      return <StatusRow>{state.term ? `Nenhum resultado para “${state.term}”` : 'Nenhum resultado'}</StatusRow>;
+      return (
+        <StatusRow
+          action={
+            onCreate && (
+              <Button variant="soft" size="sm" icon="plus" onClick={create}>
+                {createLabel}
+              </Button>
+            )
+          }
+        >
+          {state.term ? `Nenhum resultado para “${state.term}”` : 'Nenhum resultado'}
+        </StatusRow>
+      );
     return null;
   })();
 
@@ -507,15 +547,44 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   );
 }
 
-/** Linha de estado sob a lista (carregando, vazio, erro), na altura do vazio do `Command`. */
+/**
+ * Linha de estado sob a lista (carregando, vazio, erro), na altura do vazio do `Command`.
+ * O `Command` toma o Enter de todo descendente para escolher o item realçado;
+ * o Enter na ação não sobe até ele, senão o botão não aciona pelo teclado.
+ */
 function StatusRow({ loading = false, action, children }: { loading?: boolean; action?: ReactNode; children: ReactNode }) {
+  const keepEnter = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter') event.stopPropagation();
+  };
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-8 text-center text-sm text-text-muted">
       <span className="inline-flex items-center gap-3">
         {loading && <Icon name="loader" size="md" className="motion-safe:animate-spin" />}
         {children}
       </span>
-      {action}
+      {action && <div onKeyDown={keepEnter}>{action}</div>}
     </div>
+  );
+}
+
+type AsyncComboboxOptionProps = {
+  /** Nome do registro, na primeira linha. */
+  title: ReactNode;
+  /** Ao lado do nome: o `Badge` PF/PJ do contato. */
+  badge?: ReactNode;
+  /** Segunda linha, em texto fraco: município, documento, área. */
+  detail?: ReactNode;
+};
+
+/** Conteúdo de duas linhas de um item da lista, para o `renderItem` dos seletores de domínio. */
+export function AsyncComboboxOption({ title, badge, detail }: AsyncComboboxOptionProps) {
+  return (
+    <span className="flex min-w-0 flex-col gap-1">
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="truncate">{title}</span>
+        {badge}
+      </span>
+      {detail && <span className="truncate text-xs text-text-faint">{detail}</span>}
+    </span>
   );
 }

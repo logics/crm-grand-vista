@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { AsyncCombobox, type AsyncComboboxPage, type AsyncComboboxSearch, Field } from '../src/index.js';
+import { AsyncCombobox, AsyncComboboxOption, type AsyncComboboxSearch, Field } from '../src/index.js';
 import { constrained, Stack } from './support/layout.js';
+import { answersEmpty, fails, neverAnswers, simulatedResolve, simulatedSearch } from './support/search.js';
 
 type Farm = { id: string; name: string; city: string };
 
@@ -18,39 +19,13 @@ const farms: Farm[] = [
   { id: 'f10', name: 'Fazenda Primavera', city: 'Primavera do Leste, MT' },
 ];
 
-const pageSize = 6;
-
-/** Busca simulada: filtra pelo nome com um atraso de rede e pagina de seis em seis. */
-const searchFarms: AsyncComboboxSearch<Farm> = (term, { signal, cursor }) =>
-  new Promise<AsyncComboboxPage<Farm>>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      const found = farms.filter((farm) => farm.name.toLowerCase().includes(term.toLowerCase()));
-      const start = Number(cursor ?? 0);
-      const end = start + pageSize;
-      resolve({ items: found.slice(start, end), nextCursor: end < found.length ? String(end) : undefined });
-    }, 400);
-    signal.addEventListener('abort', () => {
-      clearTimeout(timer);
-      reject(signal.reason);
-    });
-  });
-
-const resolveFarms = async (ids: string[]) => farms.filter((farm) => ids.includes(farm.id));
-
-const neverAnswers: AsyncComboboxSearch<Farm> = () => new Promise(() => {});
-const answersEmpty: AsyncComboboxSearch<Farm> = async () => ({ items: [] });
-const fails: AsyncComboboxSearch<Farm> = async () => {
-  throw new Error('Falha de rede');
-};
+/** Busca simulada pelo nome, paginando de seis em seis. */
+const searchFarms = simulatedSearch(farms, (farm) => farm.name);
+const resolveFarms = simulatedResolve(farms, (farm) => farm.id);
 
 const getKey = (farm: Farm) => farm.id;
 const getLabel = (farm: Farm) => farm.name;
-const renderItem = (farm: Farm) => (
-  <span className="flex flex-col gap-1">
-    <span>{farm.name}</span>
-    <span className="text-xs text-text-faint">{farm.city}</span>
-  </span>
-);
+const renderItem = (farm: Farm) => <AsyncComboboxOption title={farm.name} detail={farm.city} />;
 
 type SingleArgs = {
   search?: AsyncComboboxSearch<Farm>;
@@ -61,6 +36,8 @@ type SingleArgs = {
   disabled?: boolean;
   defaultOpen?: boolean;
   minChars?: number;
+  onCreate?: (term: string) => void;
+  createLabel?: string;
 };
 
 function FarmField({ search = searchFarms, initial = null, label = 'Fazenda', hint, error, ...props }: SingleArgs) {
@@ -130,11 +107,16 @@ export const MultiplaAberta: Story = {
   render: () => <FarmsField initial={[farms[0]!]} defaultOpen />,
 };
 
-export const Carregando: Story = { args: { search: neverAnswers, defaultOpen: true } };
+export const Carregando: Story = { args: { search: neverAnswers(), defaultOpen: true } };
 
-export const Vazio: Story = { args: { search: answersEmpty, defaultOpen: true } };
+export const Vazio: Story = { args: { search: answersEmpty(), defaultOpen: true } };
 
-export const Erro: Story = { args: { search: fails, defaultOpen: true } };
+export const VazioComCadastrar: Story = {
+  name: 'Vazio com cadastrar',
+  args: { search: answersEmpty(), defaultOpen: true, onCreate: () => {}, createLabel: 'Cadastrar fazenda' },
+};
+
+export const Erro: Story = { args: { search: fails(), defaultOpen: true } };
 
 export const MinimoDeCaracteres: Story = {
   name: 'Mínimo de caracteres',
