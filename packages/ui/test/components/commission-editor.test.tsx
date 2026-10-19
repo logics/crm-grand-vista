@@ -56,6 +56,12 @@ function Harness({ initial = sale, onGroups, ...props }: HarnessProps) {
 }
 
 const groupRegion = (name: string) => screen.getByRole('region', { name });
+const summary = () => screen.getByRole('group', { name: 'Resumo da comissão' });
+/** Abre o seletor de membro do grupo e devolve o combobox. */
+async function openPicker(user: ReturnType<typeof userEvent.setup>, group: string) {
+  await user.click(within(groupRegion(group)).getByRole('button', { name: `Adicionar membro a ${group}` }));
+  return within(groupRegion(group)).getByRole('combobox', { name: `Quem entra em ${group}?` });
+}
 const memberRow = (group: string, name: string) =>
   within(within(groupRegion(group)).getByRole('list', { name: `Membros de ${group}` })).getByRole('listitem', {
     name,
@@ -72,7 +78,15 @@ describe('CommissionEditor — leitura', () => {
     expect(memberRow('Venda', 'Carlos Menezes')).toHaveTextContent('R$ 20.000,00');
     expect(memberRow('Indicação', 'João Batista')).toHaveTextContent('Externo');
     expect(memberRow('Indicação', 'João Batista')).toHaveTextContent('R$ 10.000,00');
-    expect(screen.getByText('Comissão total').closest('p')).toHaveTextContent('Comissão total · 5% · R$ 50.000,00');
+    expect(summary()).toHaveTextContent('Valor líquidoR$ 1.000.000,00');
+    expect(summary()).toHaveTextContent('Comissão total5% · R$ 50.000,00');
+  });
+
+  it('mostra quanto cada membro leva da venda: o percentual do grupo vezes o dele', () => {
+    render(<CommissionEditor value={sale} netValue="1000000" />);
+
+    expect(memberRow('Venda', 'Carlos Menezes')).toHaveTextContent('2% da venda');
+    expect(memberRow('Indicação', 'João Batista')).toHaveTextContent('1% da venda');
   });
 
   it('sem valor líquido, mostra os percentuais e travessão no lugar dos valores', () => {
@@ -80,7 +94,8 @@ describe('CommissionEditor — leitura', () => {
 
     expect(memberRow('Venda', 'Marina Duarte')).toHaveTextContent('50%');
     expect(memberRow('Venda', 'Marina Duarte')).toHaveTextContent('—');
-    expect(screen.getByText('Comissão total').closest('p')).toHaveTextContent('Comissão total · 5% · —');
+    expect(summary()).toHaveTextContent('Valor líquido—');
+    expect(summary()).toHaveTextContent('Comissão total5% · —');
   });
 
   it('sem onChange, ou com readOnly, não oferece controle de edição', () => {
@@ -97,29 +112,54 @@ describe('CommissionEditor — leitura', () => {
     render(<CommissionEditor value={[]} netValue="1000" />);
 
     expect(screen.getByText('Nenhum grupo de comissão.')).toBeInTheDocument();
-    expect(screen.queryByText('Comissão total')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Resumo da comissão' })).not.toBeInTheDocument();
   });
 });
 
 describe('CommissionEditor — avisos', () => {
-  it('aponta no grupo a soma de sobrescritas acima de 100%', () => {
-    render(<CommissionEditor value={[{ name: 'Venda', percent: '4', members: [member(carlos, '70'), member(marina, '40')] }]} />);
+  const exceeding: CommissionGroup[] = [{ name: 'Venda', percent: '4', members: [member(carlos, '70'), member(marina, '40'), member(joao)] }];
 
-    expect(groupRegion('Venda')).toHaveTextContent('Os percentuais próprios somam 110%, acima de 100% do grupo.');
+  it('aponta no grupo a soma de sobrescritas acima de 100%, e liga o aviso aos percentuais que a causam', () => {
+    render(<CommissionEditor value={exceeding} netValue="1000000" onChange={vi.fn()} />);
+
+    const message = 'Os percentuais próprios somam 110%, acima de 100% do grupo. Reduza-os até fechar 100%.';
+    expect(groupRegion('Venda')).toHaveTextContent(message);
+    for (const name of ['Carlos Menezes', 'Marina Duarte']) {
+      const percent = screen.getByRole('textbox', { name: `Percentual de ${name} em Venda` });
+      expect(percent).toHaveAttribute('aria-invalid', 'true');
+      expect(percent).toHaveAccessibleDescription(message);
+    }
+    const equal = screen.getByRole('textbox', { name: 'Percentual de João Batista em Venda' });
+    expect(equal).not.toHaveAttribute('aria-invalid');
   });
 
-  it('aponta no membro a repetição', () => {
-    render(<CommissionEditor value={[{ name: 'Venda', percent: '4', members: [member(carlos), member(carlos)] }]} />);
+  it('com sobrescritas acima de 100%, o resumo mostra o que os membros recebem de fato', () => {
+    render(<CommissionEditor value={exceeding} netValue="1000000" />);
+
+    // 4% de 1.000.000 = 40.000; 70% + 40% = 44.000
+    expect(summary()).toHaveTextContent('Comissão total4% · R$ 40.000,00');
+    expect(summary()).toHaveTextContent('Os membros recebem R$ 44.000,00, acima do total.');
+  });
+
+  it('aponta no membro a repetição, ligada ao percentual dele', () => {
+    render(<CommissionEditor value={[{ name: 'Venda', percent: '4', members: [member(carlos), member(carlos)] }]} onChange={vi.fn()} />);
 
     const rows = within(groupRegion('Venda')).getAllByRole('listitem');
     expect(rows[0]).not.toHaveTextContent('já está neste grupo');
-    expect(rows[1]).toHaveTextContent('Carlos Menezes já está neste grupo.');
+    expect(rows[1]).toHaveTextContent('Carlos Menezes já está neste grupo. Remova a linha repetida.');
+    const [, repeated] = screen.getAllByRole('textbox', { name: 'Percentual de Carlos Menezes em Venda' });
+    expect(repeated).toHaveAttribute('aria-invalid', 'true');
+    expect(repeated).toHaveAccessibleDescription('Carlos Menezes já está neste grupo. Remova a linha repetida.');
   });
 
-  it('aponta o grupo sem membros', () => {
-    render(<CommissionEditor value={[{ name: 'Captação', percent: '1', members: [] }]} />);
+  it('aponta o grupo sem membros, ligado ao seletor que resolve', () => {
+    render(<CommissionEditor value={[{ name: 'Captação', percent: '1', members: [] }]} onChange={vi.fn()} searchUsers={searchUsers} />);
 
-    expect(groupRegion('Captação')).toHaveTextContent('Grupo sem membros: ninguém recebe esta parte.');
+    const message = 'Grupo sem membros: ninguém recebe esta parte. Adicione um membro ou remova o grupo.';
+    expect(groupRegion('Captação')).toHaveTextContent(message);
+    expect(within(groupRegion('Captação')).getByRole('combobox', { name: 'Quem entra em Captação?' })).toHaveAccessibleDescription(
+      message,
+    );
   });
 });
 
@@ -131,7 +171,7 @@ describe('CommissionEditor — modo restrito', () => {
     expect(screen.queryByText('Marina Duarte')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Indicação' })).not.toBeInTheDocument();
     expect(screen.queryByText('R$ 40.000,00')).not.toBeInTheDocument();
-    expect(screen.queryByText('Comissão total')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Resumo da comissão' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
@@ -144,10 +184,11 @@ describe('CommissionEditor — modo restrito', () => {
 });
 
 describe('CommissionEditor — edição', () => {
-  it('o Field nomeia o botão de adicionar grupo', () => {
+  it('o Field nomeia o editor como grupo; o botão de adicionar grupo guarda o próprio nome', () => {
     render(<Harness />);
 
-    expect(screen.getByRole('button', { name: 'Comissão' })).toHaveTextContent('Adicionar grupo');
+    expect(screen.getByRole('group', { name: 'Comissão' })).toHaveAttribute('data-slot', 'commission-editor');
+    expect(screen.getByRole('button', { name: 'Adicionar grupo' })).toBeInTheDocument();
   });
 
   it('adiciona um grupo vazio ao fim e leva o foco ao nome dele', async () => {
@@ -155,7 +196,7 @@ describe('CommissionEditor — edição', () => {
     const user = userEvent.setup();
     render(<Harness onGroups={onGroups} />);
 
-    await user.click(screen.getByRole('button', { name: 'Comissão' }));
+    await user.click(screen.getByRole('button', { name: 'Adicionar grupo' }));
 
     expect(onGroups).toHaveBeenLastCalledWith([...sale, { name: '', percent: null, members: [] }]);
     const name = screen.getByRole('textbox', { name: 'Nome do grupo 3' });
@@ -180,7 +221,7 @@ describe('CommissionEditor — edição', () => {
     expect(groupRegion('Venda')).toHaveTextContent('R$ 50.000,00');
   });
 
-  it('remove o grupo, anuncia e leva o foco ao botão de adicionar grupo', async () => {
+  it('remove o grupo, anuncia e oferece desfazer, com o foco nele', async () => {
     const onGroups = vi.fn();
     const user = userEvent.setup();
     render(<Harness onGroups={onGroups} />);
@@ -189,16 +230,37 @@ describe('CommissionEditor — edição', () => {
 
     expect(onGroups).toHaveBeenLastCalledWith([sale[1]]);
     expect(screen.queryByRole('region', { name: 'Venda' })).not.toBeInTheDocument();
-    expect(screen.getByText('Grupo Venda removido.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Comissão' })).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('Grupo Venda removido.');
+    const undo = screen.getByRole('button', { name: 'Desfazer a remoção de Venda' });
+    expect(undo).toHaveFocus();
+
+    await user.click(undo);
+
+    expect(onGroups).toHaveBeenLastCalledWith(sale);
+    expect(groupRegion('Venda')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Desfazer a remoção de Venda' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Nome do grupo 1' })).toHaveFocus();
   });
 
-  it('adiciona o contato escolhido ao grupo, sem oferecer quem já está nele', async () => {
+  it('o seletor de membro abre sob demanda, já no corretor interno, com o foco nele', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    expect(within(groupRegion('Venda')).queryByRole('combobox')).not.toBeInTheDocument();
+    const picker = await openPicker(user, 'Venda');
+
+    expect(picker).toHaveFocus();
+    expect(within(groupRegion('Venda')).getByRole('button', { name: 'Interno' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('adiciona o contato escolhido ao grupo, sem oferecer quem já está nele, e fecha o seletor', async () => {
     const onGroups = vi.fn();
     const user = userEvent.setup();
     render(<Harness onGroups={onGroups} />);
 
-    await user.click(within(groupRegion('Indicação')).getByRole('combobox', { name: 'Adicionar membro a Indicação' }));
+    await openPicker(user, 'Indicação');
+    await user.click(within(groupRegion('Indicação')).getByRole('button', { name: 'Externo' }));
+    await user.click(within(groupRegion('Indicação')).getByRole('combobox', { name: 'Quem entra em Indicação?' }));
     const options = await screen.findAllByRole('option');
     expect(options.map((option) => option.textContent)).toEqual([expect.stringContaining('Antônio Ribeiro')]);
     await user.click(options[0]!);
@@ -207,16 +269,16 @@ describe('CommissionEditor — edição', () => {
     expect(onGroups).toHaveBeenLastCalledWith([sale[0], { ...sale[1], members: [member(joao), member(antonio)] }]);
     expect(memberRow('Indicação', 'Antônio Ribeiro')).toHaveTextContent('R$ 5.000,00');
     expect(screen.getByText('Antônio Ribeiro entrou em Indicação.')).toBeInTheDocument();
+    expect(within(groupRegion('Indicação')).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(groupRegion('Indicação')).getByRole('button', { name: 'Adicionar membro a Indicação' })).toHaveFocus();
   });
 
-  it('troca para o corretor interno e adiciona o usuário escolhido', async () => {
+  it('adiciona o usuário escolhido', async () => {
     const onGroups = vi.fn();
     const user = userEvent.setup();
     render(<Harness onGroups={onGroups} />);
 
-    const indicacao = groupRegion('Indicação');
-    await user.click(within(indicacao).getByRole('button', { name: 'Interno' }));
-    await user.click(within(indicacao).getByRole('combobox', { name: 'Adicionar membro a Indicação' }));
+    await user.click(await openPicker(user, 'Indicação'));
     const options = await screen.findAllByRole('option');
     await user.click(options.find((option) => option.textContent?.includes('Marina Duarte'))!);
 
@@ -261,14 +323,15 @@ describe('CommissionEditor — edição', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remover João Batista de Indicação' }));
 
-    expect(within(groupRegion('Indicação')).getByRole('combobox', { name: 'Adicionar membro a Indicação' })).toHaveFocus();
+    expect(within(groupRegion('Indicação')).getByRole('combobox', { name: 'Quem entra em Indicação?' })).toHaveFocus();
   });
 
   it('os campos internos não herdam o id nem a descrição do Field', () => {
     render(<Harness />);
 
-    const addGroup = screen.getByRole('button', { name: 'Comissão' });
-    for (const field of screen.getAllByRole('textbox')) expect(field.id).not.toBe(addGroup.id);
+    const editor = screen.getByRole('group', { name: 'Comissão' });
+    for (const field of screen.getAllByRole('textbox')) expect(field.id).not.toBe(editor.id);
+    expect(screen.getByRole('button', { name: 'Adicionar grupo' }).id).not.toBe(editor.id);
   });
 
   it('desabilitado, trava todos os controles', () => {
@@ -276,6 +339,6 @@ describe('CommissionEditor — edição', () => {
 
     for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
     for (const field of screen.getAllByRole('textbox')) expect(field).toBeDisabled();
-    for (const picker of screen.getAllByRole('combobox')) expect(picker).toBeDisabled();
+    for (const picker of screen.queryAllByRole('combobox')) expect(picker).toBeDisabled();
   });
 });

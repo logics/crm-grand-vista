@@ -5,8 +5,10 @@ import {
   type CommissionMember,
   type CommissionMemberSplit,
   type CommissionParty,
+  type CommissionSplit,
   PERCENT_FORMAT,
   REFERRER_KIND_LABELS,
+  compareDecimal,
   describeCommissionIssue,
   formatDecimal,
   formatMoney,
@@ -15,11 +17,12 @@ import {
   splitCommission,
   validateCommission,
 } from '@crm/shared';
-import { type ComponentProps, useLayoutEffect, useRef, useState } from 'react';
+import { type ComponentProps, useId, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
 import { orEmDash } from '../lib/em-dash.js';
-import { FieldControlContext, type FieldControlProps, useFieldControl } from '../lib/field-control.js';
+import { FieldControlContext, type FieldControlProps, useFieldControl, useFieldLabelId } from '../lib/field-control.js';
 import { PartyPicker, type PartySearches } from '../lib/party-picker.js';
+import { mobileTouchTarget } from '../lib/styles.js';
 import { Input } from '../primitives/input.js';
 import { Badge } from './badge.js';
 import { Button } from './button.js';
@@ -35,8 +38,12 @@ import { PercentInput } from './percent-input.js';
 // `@crm/shared`, os mesmos da API. Não fala com a API: as buscas de usuário e
 // de contato chegam por prop.
 //
+// O resumo abre o editor: a base (valor líquido) e a comissão total, e, quando
+// as sobrescritas não fecham, o que os membros recebem de fato. Cada aviso fica
+// junto do grupo ou do membro e descreve os campos que o causam.
+//
 // No modo restrito (`visibility="own"`), mostra só a linha do usuário atual,
-// sem colegas, sem valor do grupo e sem total. Quem filtra de verdade é o
+// sem colegas, sem resumo e sem valor do grupo. Quem filtra de verdade é o
 // serviço, que nem envia o que o usuário não pode ver; o componente só não
 // exibe o que recebe a mais. A conta corre sobre o que chega: sem os colegas,
 // a linha do usuário vem com o percentual efetivo preenchido, senão a divisão
@@ -61,9 +68,9 @@ export type CommissionEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'ch
 
 /** Para onde vai o foco depois de uma mudança na lista. */
 type FocusTarget =
-  | { group: number; to: 'name' | 'picker' }
+  | { group: number; to: 'name' | 'add-member' }
   | { group: number; to: 'remove-member'; member: number }
-  | 'add-group';
+  | 'undo';
 
 // Colunas alinhadas entre a linha do grupo e as dos membros. No mobile, o nome
 // ocupa a linha toda e os números descem para a seguinte.
@@ -76,6 +83,9 @@ const columns = {
   amount: 'gv-num w-[calc(var(--space-13)+var(--space-8))] text-right text-sm',
 };
 
+/** Lixeira e fechar: compactos, crescem para o dedo no mobile. */
+const rowAction = { size: 'sm', className: mobileTouchTarget.square } as const;
+
 const groupLabel = (group: CommissionGroup, index: number) => group.name.trim() || `Grupo ${index + 1}`;
 
 const money = (amount: string | null) => orEmDash(amount === null ? null : formatMoney(amount));
@@ -83,10 +93,25 @@ const money = (amount: string | null) => orEmDash(amount === null ? null : forma
 /** Parte igual sem o "%", como o campo a exibe: o sufixo já está nele. */
 const share = (percent: string) => formatDecimal(percent, PERCENT_FORMAT);
 
-function IssueMessage({ issue }: { issue: CommissionIssue }) {
+/** Id do aviso, para os campos que o causam o apontarem em `aria-describedby`. */
+const issueId = (prefix: string, issue: CommissionIssue) =>
+  issue.code === 'duplicate_member' ? `${prefix}g${issue.group}m${issue.member}` : `${prefix}g${issue.group}${issue.code}`;
+
+/** `aria-describedby` e `aria-invalid` de um campo, pelos avisos que ele causa. */
+const describedBy = (prefix: string, issues: readonly CommissionIssue[]) =>
+  issues.length === 0
+    ? {}
+    : { 'aria-describedby': issues.map((issue) => issueId(prefix, issue)).join(' '), 'aria-invalid': true as const };
+
+/** Erro é vermelho; o grupo ainda sem membros é só o próximo passo, em cinza. */
+function IssueMessage({ prefix, issue }: { prefix: string; issue: CommissionIssue }) {
+  const pending = issue.code === 'empty_group';
   return (
-    <p className="m-0 flex items-center gap-2 text-xs text-status-danger-fg">
-      <Icon name="alert-circle" size="xs" />
+    <p
+      id={issueId(prefix, issue)}
+      className={cn('m-0 flex items-start gap-2 text-xs', pending ? 'text-text-muted' : 'text-status-danger-fg')}
+    >
+      <Icon name="alert-circle" size="xs" className="mt-px shrink-0" />
       {describeCommissionIssue(issue)}
     </p>
   );
@@ -109,16 +134,20 @@ export function CommissionEditor({
   'aria-required': ariaRequired,
   ...props
 }: CommissionEditorProps) {
-  // o botão de adicionar grupo é o controle que o `Field` nomeia e descreve
+  // o editor todo é o controle do `Field`: um grupo, nomeado pelo rótulo e
+  // descrito pela dica, sem roubar o nome dos campos e botões de dentro
   const control = useFieldControl<FieldControlProps>({
     id,
     'aria-describedby': ariaDescribedBy,
     'aria-invalid': ariaInvalid,
     'aria-required': ariaRequired,
   });
+  const labelId = useFieldLabelId();
+  const prefix = useId();
   const [announcement, setAnnouncement] = useState('');
+  const [removed, setRemoved] = useState<{ group: CommissionGroup; index: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
-  const addGroupButton = useRef<HTMLButtonElement>(null);
+  const undoButton = useRef<HTMLButtonElement>(null);
   const pendingFocus = useRef<FocusTarget | null>(null);
 
   const own = visibility === 'own';
@@ -130,14 +159,16 @@ export function CommissionEditor({
     const target = pendingFocus.current;
     if (target === null) return;
     pendingFocus.current = null;
-    if (target === 'add-group') return addGroupButton.current?.focus();
+    if (target === 'undo') return undoButton.current?.focus();
     const section = root.current?.querySelector<HTMLElement>(`[data-group="${target.group}"]`);
-    const selector = {
-      name: '[data-group-name]',
-      picker: '[role="combobox"]',
-      'remove-member': `[data-member="${'member' in target ? target.member : ''}"] [data-remove-member]`,
+    const selectors = {
+      name: ['[data-group-name]'],
+      // com membros, o botão de adicionar; o grupo que ficou vazio já mostra o seletor
+      'add-member': ['[data-add-member]', '[role="combobox"]'],
+      'remove-member': [`[data-member="${'member' in target ? target.member : ''}"] [data-remove-member]`],
     }[target.to];
-    section?.querySelector<HTMLElement>(selector)?.focus();
+    const element = selectors.map((selector) => section?.querySelector<HTMLElement>(selector)).find(Boolean);
+    element?.focus();
   });
 
   const updateGroup = (index: number, change: (group: CommissionGroup) => CommissionGroup) =>
@@ -149,12 +180,25 @@ export function CommissionEditor({
   };
 
   const removeGroup = (index: number) => {
-    pendingFocus.current = 'add-group';
+    const group = value[index]!;
+    pendingFocus.current = 'undo';
+    setRemoved({ group, index });
     onChange?.(value.filter((_, position) => position !== index));
-    setAnnouncement(`Grupo ${groupLabel(value[index]!, index)} removido.`);
+    setAnnouncement(`Grupo ${groupLabel(group, index)} removido.`);
+  };
+
+  const undoRemoval = () => {
+    if (!removed) return;
+    const index = Math.min(removed.index, value.length);
+    pendingFocus.current = { group: index, to: 'name' };
+    onChange?.([...value.slice(0, index), removed.group, ...value.slice(index)]);
+    setAnnouncement(`Grupo ${groupLabel(removed.group, index)} restaurado.`);
+    setRemoved(null);
   };
 
   const addMember = (index: number, party: CommissionParty) => {
+    // o seletor fecha: o foco volta ao botão de adicionar membro
+    pendingFocus.current = { group: index, to: 'add-member' };
     updateGroup(index, (group) => ({ ...group, members: [...group.members, { party, percent: null }] }));
     setAnnouncement(`${party.name} entrou em ${groupLabel(value[index]!, index)}.`);
   };
@@ -165,7 +209,7 @@ export function CommissionEditor({
     // o seguinte assume a posição do removido; sem seguinte, o anterior; sem ninguém, o seletor
     pendingFocus.current =
       remaining === 0
-        ? { group: index, to: 'picker' }
+        ? { group: index, to: 'add-member' }
         : { group: index, to: 'remove-member', member: Math.min(memberIndex, remaining - 1) };
     updateGroup(index, (current) => ({
       ...current,
@@ -183,11 +227,18 @@ export function CommissionEditor({
   return (
     <div
       ref={root}
+      role="group"
+      id={control.id}
+      aria-labelledby={labelId}
+      aria-describedby={control['aria-describedby']}
+      aria-invalid={control['aria-invalid']}
       data-slot="commission-editor"
       data-disabled={disabled || undefined}
       className={cn('flex flex-col gap-6', className)}
       {...props}
     >
+      {!own && value.length > 0 && <CommissionSummary netValue={netValue} split={split} editable={editable} />}
+
       {/* os controles internos não herdam o rótulo do `Field` */}
       <FieldControlContext value={{}}>
         {groups.length === 0 && (
@@ -198,6 +249,7 @@ export function CommissionEditor({
         {groups.map(({ group, index, split: groupSplit }) => (
           <CommissionGroupSection
             key={index}
+            prefix={prefix}
             group={group}
             index={index}
             split={groupSplit}
@@ -216,21 +268,34 @@ export function CommissionEditor({
         ))}
       </FieldControlContext>
 
-      {!own && value.length > 0 && (
-        <p className="m-0 text-sm text-text-body">
-          <span className="font-medium text-text-heading">Comissão total</span>
-          {' · '}
-          <span className="gv-num">{formatPercent(split.percent)}</span>
-          {' · '}
-          <span className="gv-num font-medium text-text-heading">{money(split.total)}</span>
-        </p>
-      )}
-
       {editable && (
-        <div>
-          <Button ref={addGroupButton} variant="secondary" size="sm" icon="plus" disabled={disabled} onClick={addGroup} {...control}>
+        <div className="flex flex-wrap items-center gap-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            icon="plus"
+            className={mobileTouchTarget.bar}
+            disabled={disabled}
+            onClick={addGroup}
+          >
             Adicionar grupo
           </Button>
+          {removed && (
+            <p className="m-0 flex items-center gap-3 text-sm text-text-muted">
+              Grupo {groupLabel(removed.group, removed.index)} removido.
+              <Button
+                ref={undoButton}
+                variant="ghost"
+                size="sm"
+                className={mobileTouchTarget.bar}
+                aria-label={`Desfazer a remoção de ${groupLabel(removed.group, removed.index)}`}
+                disabled={disabled}
+                onClick={undoRemoval}
+              >
+                Desfazer
+              </Button>
+            </p>
+          )}
         </div>
       )}
 
@@ -241,7 +306,55 @@ export function CommissionEditor({
   );
 }
 
+/**
+ * A base e o resultado, antes dos grupos: o valor líquido e a comissão total,
+ * em destaque. Se os membros recebem mais ou menos que o total (sobrescritas
+ * que não fecham, grupo sem membros), diz quanto recebem de fato.
+ */
+function CommissionSummary({
+  netValue,
+  split,
+  editable,
+}: {
+  netValue: string | null;
+  split: CommissionSplit;
+  editable: boolean;
+}) {
+  const { total, paid } = split;
+  const gap = total !== null && paid !== null ? compareDecimal(paid, total) : 0;
+  return (
+    <div
+      role="group"
+      aria-label="Resumo da comissão"
+      className="flex flex-wrap items-end gap-x-10 gap-y-4 rounded-card bg-surface-muted px-6 py-5"
+    >
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-text-muted">Valor líquido</span>
+        <span className="gv-num text-sm font-medium text-text-body">{money(netValue)}</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-text-muted">Comissão total</span>
+        <span className="gv-num text-h3 font-semibold tracking-heading text-text-heading">
+          {formatPercent(split.percent)} · {money(total)}
+        </span>
+      </div>
+      {gap !== 0 && (
+        <p className="m-0 flex basis-full items-start gap-2 text-xs text-status-danger-fg">
+          <Icon name="alert-circle" size="xs" className="mt-px shrink-0" />
+          Os membros recebem {money(paid)}, {gap > 0 ? 'acima' : 'abaixo'} do total.
+        </p>
+      )}
+      {editable && (
+        <p className="m-0 basis-full text-xs text-text-muted">
+          Percentual do membro em branco divide o grupo em partes iguais.
+        </p>
+      )}
+    </div>
+  );
+}
+
 type CommissionGroupSectionProps = PartySearches & {
+  prefix: string;
   group: CommissionGroup;
   index: number;
   split: CommissionGroupSplit;
@@ -257,6 +370,7 @@ type CommissionGroupSectionProps = PartySearches & {
 };
 
 function CommissionGroupSection({
+  prefix,
   group,
   index,
   split,
@@ -272,14 +386,44 @@ function CommissionGroupSection({
   onAddMember,
   onRemoveMember,
 }: CommissionGroupSectionProps) {
+  const [adding, setAdding] = useState(false);
+  const pickerBox = useRef<HTMLDivElement>(null);
+  const addMemberButton = useRef<HTMLButtonElement>(null);
+  const focusAfterToggle = useRef<'picker' | 'button' | null>(null);
+
+  useLayoutEffect(() => {
+    const target = focusAfterToggle.current;
+    focusAfterToggle.current = null;
+    if (target === 'picker') pickerBox.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+    else if (target === 'button') addMemberButton.current?.focus();
+  });
+
   const label = groupLabel(group, index);
   const duplicates = new Map(
     issues.flatMap((issue) => (issue.code === 'duplicate_member' ? [[issue.member, issue] as const] : [])),
   );
   const groupIssues = issues.filter((issue) => issue.code !== 'duplicate_member');
+  // a soma que não fecha é causada pelos percentuais próprios; o grupo vazio, pelo seletor
+  const overrideIssues = groupIssues.filter((issue) => issue.code !== 'empty_group');
+  const emptyIssues = groupIssues.filter((issue) => issue.code === 'empty_group');
   const members = group.members
     .map((member, position) => ({ member, position, split: split.members[position]! }))
     .filter(({ member }) => !own || isMine(member));
+  // sem membros, escolher o primeiro é o único passo: o seletor já fica aberto
+  const pickerOpen = adding || group.members.length === 0;
+
+  const openPicker = () => {
+    focusAfterToggle.current = 'picker';
+    setAdding(true);
+  };
+  const closePicker = () => {
+    focusAfterToggle.current = 'button';
+    setAdding(false);
+  };
+  const pick = (party: CommissionParty) => {
+    setAdding(false);
+    onAddMember(party);
+  };
 
   return (
     <section
@@ -309,7 +453,7 @@ function CommissionGroupSection({
             onChange={(percent) => onChange((current) => ({ ...current, percent }))}
           />
           <span className={cn(columns.amount, 'font-medium text-text-heading')}>{money(split.amount)}</span>
-          <IconButton icon="trash-2" label={`Remover grupo ${label}`} size="sm" disabled={disabled} onClick={onRemove} />
+          <IconButton icon="trash-2" label={`Remover grupo ${label}`} {...rowAction} disabled={disabled} onClick={onRemove} />
         </div>
       ) : (
         <div className="flex flex-wrap items-baseline gap-4">
@@ -327,51 +471,97 @@ function CommissionGroupSection({
 
       {members.length > 0 && (
         <ul aria-label={`Membros de ${label}`} className="m-0 flex list-none flex-col p-0">
-          {members.map(({ member, position, split: memberSplit }) => (
-            <CommissionMemberRow
-              key={`${referrerKey(member.party)}#${position}`}
-              member={member}
-              position={position}
-              split={memberSplit}
-              groupLabel={label}
-              duplicate={duplicates.get(position)}
-              editable={editable}
-              disabled={disabled}
-              onPercent={(percent) =>
-                onChange((current) => ({
-                  ...current,
-                  members: current.members.map((entry, at) => (at === position ? { ...entry, percent } : entry)),
-                }))
-              }
-              onRemove={() => onRemoveMember(position)}
-            />
-          ))}
+          {members.map(({ member, position, split: memberSplit }) => {
+            const duplicate = duplicates.get(position);
+            const causes = [...(member.percent === null ? [] : overrideIssues), ...(duplicate ? [duplicate] : [])];
+            return (
+              <CommissionMemberRow
+                key={`${referrerKey(member.party)}#${position}`}
+                prefix={prefix}
+                member={member}
+                position={position}
+                split={memberSplit}
+                groupLabel={label}
+                duplicate={duplicate}
+                percentProps={describedBy(prefix, causes)}
+                editable={editable}
+                disabled={disabled}
+                onPercent={(percent) =>
+                  onChange((current) => ({
+                    ...current,
+                    members: current.members.map((entry, at) => (at === position ? { ...entry, percent } : entry)),
+                  }))
+                }
+                onRemove={() => onRemoveMember(position)}
+              />
+            );
+          })}
         </ul>
       )}
 
-      {!own && groupIssues.map((issue) => <IssueMessage key={issue.code} issue={issue} />)}
+      {!own && groupIssues.map((issue) => <IssueMessage key={issue.code} prefix={prefix} issue={issue} />)}
 
+      {/* o seletor fica montado e só se mostra: recém-montado, o gatilho do Radix
+          é reembrulhado num efeito e perderia o foco que recebesse ao abrir */}
       {editable && (
-        <PartyPicker
-          searchUsers={searchUsers}
-          searchContacts={searchContacts}
-          isEligible={(party) => group.members.every((member) => referrerKey(member.party) !== referrerKey(party))}
-          onPick={onAddMember}
-          placeholder={`Adicionar membro a ${label}`}
-          kindLabel="Tipo do participante"
-          disabled={disabled}
-        />
+        <>
+          <div ref={pickerBox} hidden={!pickerOpen} className="flex items-center gap-4">
+            <div className="min-w-0 flex-1">
+              <PartyPicker
+                searchUsers={searchUsers}
+                searchContacts={searchContacts}
+                defaultKind="user"
+                isEligible={(party) => group.members.every((entry) => referrerKey(entry.party) !== referrerKey(party))}
+                onPick={pick}
+                placeholder={`Quem entra em ${label}?`}
+                kindLabel="Tipo do participante"
+                disabled={disabled}
+                // o grupo vazio é o próximo passo, não erro de quem escolhe: só descreve
+                aria-describedby={describedBy(prefix, emptyIssues)['aria-describedby']}
+              />
+            </div>
+            {group.members.length > 0 && (
+              <IconButton
+                icon="x"
+                label={`Fechar a busca de membro de ${label}`}
+                {...rowAction}
+                disabled={disabled}
+                onClick={closePicker}
+              />
+            )}
+          </div>
+          {!pickerOpen && (
+            <div>
+              <Button
+                ref={addMemberButton}
+              data-add-member
+              variant="ghost"
+              size="sm"
+              icon="plus"
+              className={mobileTouchTarget.bar}
+              aria-label={`Adicionar membro a ${label}`}
+              disabled={disabled}
+              onClick={openPicker}
+            >
+                Adicionar membro
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
 }
 
 type CommissionMemberRowProps = {
+  prefix: string;
   member: CommissionMember;
   position: number;
   split: CommissionMemberSplit;
   groupLabel: string;
   duplicate?: CommissionIssue;
+  /** `aria-describedby` e `aria-invalid` do percentual, pelos avisos que ele causa. */
+  percentProps: ReturnType<typeof describedBy>;
   editable: boolean;
   disabled: boolean;
   onPercent: (percent: string | null) => void;
@@ -379,11 +569,13 @@ type CommissionMemberRowProps = {
 };
 
 function CommissionMemberRow({
+  prefix,
   member,
   position,
   split,
   groupLabel: group,
   duplicate,
+  percentProps,
   editable,
   disabled,
   onPercent,
@@ -413,23 +605,30 @@ function CommissionMemberRow({
             value={member.percent}
             disabled={disabled}
             onChange={onPercent}
+            {...percentProps}
           />
         ) : (
-          <span className={cn(columns.percent, 'gv-num text-right text-sm text-text-muted')}>{formatPercent(split.percent)}</span>
+          <span className={cn(columns.percent, 'gv-num text-right text-sm text-text-muted')}>
+            {formatPercent(split.percent)}
+          </span>
         )}
-        <span className={cn(columns.amount, 'text-text-body')}>{money(split.amount)}</span>
+        {/* o valor e, abaixo, quanto o membro leva da venda: a conta que ninguém faz de cabeça */}
+        <span className={cn(columns.amount, 'flex flex-col')}>
+          <span className="text-text-body">{money(split.amount)}</span>
+          <span className="text-xs text-text-faint">{formatPercent(split.salePercent)} da venda</span>
+        </span>
         {editable && (
           <IconButton
             data-remove-member
             icon="trash-2"
             label={`Remover ${party.name} de ${group}`}
-            size="sm"
+            {...rowAction}
             disabled={disabled}
             onClick={onRemove}
           />
         )}
       </div>
-      {duplicate && <IssueMessage issue={duplicate} />}
+      {duplicate && <IssueMessage prefix={prefix} issue={duplicate} />}
     </li>
   );
 }

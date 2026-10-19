@@ -34,6 +34,8 @@ export type CommissionGroup = { name: string; percent: string | null; members: C
 export type CommissionMemberSplit = {
   /** Percentual efetivo dentro do grupo: o próprio ou a parte igual, em quatro casas. */
   percent: string;
+  /** Percentual efetivo sobre o valor líquido da venda: o do grupo vezes o do membro, em quatro casas. */
+  salePercent: string;
   /** Em reais; nulo sem valor líquido. */
   amount: string | null;
   /** Se o percentual é o próprio do membro, não a parte igual. */
@@ -45,7 +47,13 @@ export type CommissionGroupSplit = { amount: string | null; members: CommissionM
 export type CommissionSplit = {
   /** Soma dos percentuais dos grupos, sobre o líquido. */
   percent: string;
+  /** O percentual sobre o líquido, em reais. */
   total: string | null;
+  /**
+   * O que os membros recebem de fato, somados. É o total quando a comissão é
+   * válida; difere dele com sobrescritas que não fecham 100% ou grupo sem membros.
+   */
+  paid: string | null;
   groups: CommissionGroupSplit[];
 };
 
@@ -114,24 +122,31 @@ export function splitCommission(netValue: string | null, groups: readonly Commis
     netValue === null ? null : divRound(toUnits(netValue, MONEY_SCALE) * percent, HUNDRED);
   const groupCents = totalCents === null ? null : apportion(totalCents, groupPercents);
 
+  let paidCents = 0n;
+  const split = groups.map((group, index): CommissionGroupSplit => {
+    const { weights, equalCount, groupWeight } = memberWeights(group.members);
+    const cents = groupCents?.[index] ?? null;
+    const assigned = weights.reduce((sum, weight) => sum + weight, 0n);
+    // sem quem divida o resto, os membros levam só o que pediram: menos (ou mais) que o grupo
+    const memberCents = cents === null ? null : apportion(divRound(cents * assigned, groupWeight), weights);
+    paidCents += memberCents?.reduce((sum, value) => sum + value, 0n) ?? 0n;
+    return {
+      amount: cents === null ? null : toCanonical(cents, MONEY_SCALE),
+      members: group.members.map((member, position) => ({
+        percent: toCanonical(divRound(weights[position]!, equalCount), PERCENT_SCALE),
+        // do grupo vezes a fração exata do membro (peso / peso do grupo), sem arredondar a parte igual antes
+        salePercent: toCanonical(divRound(groupPercents[index]! * weights[position]!, groupWeight), PERCENT_SCALE),
+        amount: memberCents === null ? null : toCanonical(memberCents[position]!, MONEY_SCALE),
+        overridden: member.percent !== null,
+      })),
+    };
+  });
+
   return {
     percent: toCanonical(percent, PERCENT_SCALE),
     total: totalCents === null ? null : toCanonical(totalCents, MONEY_SCALE),
-    groups: groups.map((group, index) => {
-      const { weights, equalCount, groupWeight } = memberWeights(group.members);
-      const cents = groupCents?.[index] ?? null;
-      const assigned = weights.reduce((sum, weight) => sum + weight, 0n);
-      // sem quem divida o resto, os membros levam só o que pediram: menos (ou mais) que o grupo
-      const memberCents = cents === null ? null : apportion(divRound(cents * assigned, groupWeight), weights);
-      return {
-        amount: cents === null ? null : toCanonical(cents, MONEY_SCALE),
-        members: group.members.map((member, position) => ({
-          percent: toCanonical(divRound(weights[position]!, equalCount), PERCENT_SCALE),
-          amount: memberCents === null ? null : toCanonical(memberCents[position]!, MONEY_SCALE),
-          overridden: member.percent !== null,
-        })),
-      };
-    }),
+    paid: totalCents === null ? null : toCanonical(paidCents, MONEY_SCALE),
+    groups: split,
   };
 }
 
@@ -164,12 +179,12 @@ export function validateCommission(groups: readonly CommissionGroup[]): Commissi
 export function describeCommissionIssue(issue: CommissionIssue): string {
   switch (issue.code) {
     case 'overrides_exceed':
-      return `Os percentuais próprios somam ${formatPercent(issue.sum)}, acima de 100% do grupo.`;
+      return `Os percentuais próprios somam ${formatPercent(issue.sum)}, acima de 100% do grupo. Reduza-os até fechar 100%.`;
     case 'overrides_short':
-      return `Os percentuais próprios somam ${formatPercent(issue.sum)} e não fecham 100% do grupo.`;
+      return `Os percentuais próprios somam ${formatPercent(issue.sum)} e não fecham 100% do grupo. Ajuste-os ou deixe um em branco para dividir o resto.`;
     case 'duplicate_member':
-      return `${issue.party.name} já está neste grupo.`;
+      return `${issue.party.name} já está neste grupo. Remova a linha repetida.`;
     case 'empty_group':
-      return 'Grupo sem membros: ninguém recebe esta parte.';
+      return 'Grupo sem membros: ninguém recebe esta parte. Adicione um membro ou remova o grupo.';
   }
 }

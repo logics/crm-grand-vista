@@ -1,7 +1,7 @@
 import { Label as LabelPrimitive } from 'radix-ui';
 import { type ComponentProps, type ReactNode, useId } from 'react';
 import { cn } from '../lib/cn.js';
-import { FieldControlContext, type FieldControlProps } from '../lib/field-control.js';
+import { FieldControlContext, type FieldContextValue } from '../lib/field-control.js';
 
 // Rótulo, dica e erro em volta de um controle de formulário (`Field.jsx` do
 // export). O cadastro de fazendas tem uns trinta campos: todo controle vai
@@ -40,9 +40,11 @@ export function Field({
   const baseId = useId();
   const controlId = htmlFor ?? `${baseId}control`;
   const messageId = `${baseId}message`;
+  const labelId = `${baseId}label`;
   const message = error || hint;
-  const control: FieldControlProps = {
+  const control: FieldContextValue = {
     id: controlId,
+    labelId: label ? labelId : undefined,
     'aria-describedby': message ? messageId : undefined,
     'aria-invalid': error ? true : undefined,
     'aria-required': required || undefined,
@@ -51,6 +53,7 @@ export function Field({
 
   const labelElement = label && (
     <LabelPrimitive.Root
+      id={labelId}
       htmlFor={controlId}
       className={cn(
         'text-sm leading-snug text-text-body',

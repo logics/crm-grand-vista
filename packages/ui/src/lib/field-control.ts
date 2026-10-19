@@ -10,7 +10,10 @@ export type FieldControlProps = Pick<AriaAttributes, 'aria-describedby' | 'aria-
   id?: string;
 };
 
-export const FieldControlContext = createContext<FieldControlProps>({});
+/** O que o `Field` põe no contexto: os atributos do controle e o id do rótulo, quando há rótulo. */
+export type FieldContextValue = FieldControlProps & { labelId?: string };
+
+export const FieldControlContext = createContext<FieldContextValue>({});
 
 /**
  * Junta os atributos do `Field` às props do controle. O que o controle declara
@@ -26,4 +29,13 @@ export function useFieldControl<P extends FieldControlProps>(props: P): P {
     'aria-required': props['aria-required'] ?? field['aria-required'],
     'aria-describedby': describedBy || undefined,
   };
+}
+
+/**
+ * Id do rótulo do `Field`, para o controle composto que não é rotulável pelo
+ * `<label for>` — um `role="group"` com vários campos dentro — nomear-se por
+ * `aria-labelledby`, sem roubar o nome dos botões e campos internos.
+ */
+export function useFieldLabelId(): string | undefined {
+  return useContext(FieldControlContext).labelId;
 }

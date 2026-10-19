@@ -100,3 +100,13 @@ export const mediaFrame = 'relative grid place-items-center overflow-hidden roun
 
 /** Foto ou vídeo cobrindo toda a moldura (`mediaFrame`). */
 export const mediaFill = 'absolute inset-0 size-full object-cover';
+
+/**
+ * Controle compacto (32) que, no mobile, cresce para o alvo de toque de 48:
+ * `square` no `IconButton`, `bar` no `Button`. Nas listas editáveis, onde o
+ * compacto cabe no desktop e o dedo erra no celular.
+ */
+export const mobileTouchTarget = {
+  square: 'max-mobile:size-control-height-lg',
+  bar: 'max-mobile:h-control-height-lg',
+} as const;

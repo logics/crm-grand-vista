@@ -5,6 +5,7 @@ import { Button } from '../components/button.js';
 import { ContactPicker, type ContactPickerSearch } from '../components/contact-picker.js';
 import { UserPicker } from '../components/user-picker.js';
 import type { FieldControlProps } from './field-control.js';
+import { mobileTouchTarget } from './styles.js';
 
 // Escolha de uma pessoa que pode ser corretor interno (usuário) ou externo
 // (contato) — o indicador da cadeia, o participante da comissão: a troca entre
@@ -21,6 +22,8 @@ export type PartySearches = {
 
 export type PartyPickerProps = FieldControlProps &
   PartySearches & {
+    /** A busca escolhida de início, quando as duas existem: o caso mais comum de quem usa. */
+    defaultKind?: ReferrerKind;
     /** Só oferece quem pode entrar. */
     isEligible?: (party: Referrer) => boolean;
     onPick: (party: Referrer) => void;
@@ -37,6 +40,7 @@ type PartyOption = { id: string; name: string };
 export function PartyPicker({
   searchUsers,
   searchContacts,
+  defaultKind = 'contact',
   isEligible,
   onPick,
   placeholder,
@@ -45,7 +49,7 @@ export function PartyPicker({
   ...control
 }: PartyPickerProps) {
   const kinds = (['contact', 'user'] as const).filter((kind) => (kind === 'user' ? searchUsers : searchContacts));
-  const [chosenKind, setChosenKind] = useState<ReferrerKind>(kinds[0] ?? 'contact');
+  const [chosenKind, setChosenKind] = useState<ReferrerKind>(defaultKind);
   const kind = kinds.includes(chosenKind) ? chosenKind : (kinds[0] ?? 'contact');
   if (kinds.length === 0) return null;
 
@@ -75,6 +79,7 @@ export function PartyPicker({
             <Button
               key={option}
               size="sm"
+              className={mobileTouchTarget.bar}
               variant={option === kind ? 'soft' : 'ghost'}
               aria-pressed={option === kind}
               disabled={disabled}

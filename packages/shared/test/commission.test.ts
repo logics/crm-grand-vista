@@ -34,16 +34,19 @@ describe('splitCommission — divisão igual', () => {
     expect(split.total).toBe('50000');
     expect(split.groups.map((entry) => entry.amount)).toEqual(['40000', '10000']);
     expect(split.groups[0]!.members).toEqual([
-      { percent: '50', amount: '20000', overridden: false },
-      { percent: '50', amount: '20000', overridden: false },
+      { percent: '50', salePercent: '2', amount: '20000', overridden: false },
+      { percent: '50', salePercent: '2', amount: '20000', overridden: false },
     ]);
-    expect(split.groups[1]!.members).toEqual([{ percent: '100', amount: '10000', overridden: false }]);
+    expect(split.groups[1]!.members).toEqual([{ percent: '100', salePercent: '1', amount: '10000', overridden: false }]);
+    expect(split.paid).toBe('50000');
   });
 
   it('a parte igual que não fecha em quatro casas é arredondada só na exibição', () => {
     const split = splitCommission('100', [group('Venda', '6', [member(carlos), member(marina), member(joao)])]);
 
     expect(split.groups[0]!.members.map((row) => row.percent)).toEqual(['33.3333', '33.3333', '33.3333']);
+    // sobre a venda, a conta parte da fração exata: 6% / 3 = 2%
+    expect(split.groups[0]!.members.map((row) => row.salePercent)).toEqual(['2', '2', '2']);
   });
 });
 
@@ -54,9 +57,9 @@ describe('splitCommission — sobrescrita', () => {
     ]);
 
     expect(split.groups[0]!.members).toEqual([
-      { percent: '50', amount: '25000', overridden: true },
-      { percent: '25', amount: '12500', overridden: false },
-      { percent: '25', amount: '12500', overridden: false },
+      { percent: '50', salePercent: '2.5', amount: '25000', overridden: true },
+      { percent: '25', salePercent: '1.25', amount: '12500', overridden: false },
+      { percent: '25', salePercent: '1.25', amount: '12500', overridden: false },
     ]);
   });
 
@@ -65,10 +68,13 @@ describe('splitCommission — sobrescrita', () => {
 
     expect(split.groups[0]!.amount).toBe('100');
     expect(split.groups[0]!.members).toEqual([
-      { percent: '80', amount: '80', overridden: true },
-      { percent: '40', amount: '40', overridden: true },
-      { percent: '0', amount: '0', overridden: false },
+      { percent: '80', salePercent: '8', amount: '80', overridden: true },
+      { percent: '40', salePercent: '4', amount: '40', overridden: true },
+      { percent: '0', salePercent: '0', amount: '0', overridden: false },
     ]);
+    // o que se paga de fato passa do total da comissão
+    expect(split.total).toBe('100');
+    expect(split.paid).toBe('120');
   });
 
   it('todos sobrescritos somando menos de 100%: o que sobra do grupo fica sem dono', () => {
@@ -76,6 +82,7 @@ describe('splitCommission — sobrescrita', () => {
 
     expect(split.groups[0]!.amount).toBe('100');
     expect(split.groups[0]!.members.map((row) => row.amount)).toEqual(['30', '30']);
+    expect(split.paid).toBe('60');
   });
 });
 
@@ -133,12 +140,13 @@ describe('splitCommission — dados incompletos', () => {
     const split = splitCommission(null, [group('Venda', '4', [member(carlos), member(marina)])]);
 
     expect(split.total).toBeNull();
+    expect(split.paid).toBeNull();
     expect(split.percent).toBe('4');
     expect(split.groups[0]).toEqual({
       amount: null,
       members: [
-        { percent: '50', amount: null, overridden: false },
-        { percent: '50', amount: null, overridden: false },
+        { percent: '50', salePercent: '2', amount: null, overridden: false },
+        { percent: '50', salePercent: '2', amount: null, overridden: false },
       ],
     });
   });
@@ -154,10 +162,11 @@ describe('splitCommission — dados incompletos', () => {
     const split = splitCommission('1000', [group('Venda', '5', [])]);
 
     expect(split.groups[0]).toEqual({ amount: '50', members: [] });
+    expect(split.paid).toBe('0');
   });
 
   it('sem grupos, o total é zero', () => {
-    expect(splitCommission('1000', [])).toEqual({ percent: '0', total: '0', groups: [] });
+    expect(splitCommission('1000', [])).toEqual({ percent: '0', total: '0', paid: '0', groups: [] });
   });
 });
 
@@ -202,13 +211,13 @@ describe('validateCommission', () => {
 
 describe('describeCommissionIssue', () => {
   it.each([
-    [{ code: 'overrides_exceed', group: 0, sum: '110.5' } as const, 'Os percentuais próprios somam 110,5%, acima de 100% do grupo.'],
-    [{ code: 'overrides_short', group: 0, sum: '60' } as const, 'Os percentuais próprios somam 60% e não fecham 100% do grupo.'],
+    [{ code: 'overrides_exceed', group: 0, sum: '110.5' } as const, 'Os percentuais próprios somam 110,5%, acima de 100% do grupo. Reduza-os até fechar 100%.'],
+    [{ code: 'overrides_short', group: 0, sum: '60' } as const, 'Os percentuais próprios somam 60% e não fecham 100% do grupo. Ajuste-os ou deixe um em branco para dividir o resto.'],
     [
       { code: 'duplicate_member', group: 0, member: 2, firstMember: 0, party: carlos } as const,
-      'Carlos Menezes já está neste grupo.',
+      'Carlos Menezes já está neste grupo. Remova a linha repetida.',
     ],
-    [{ code: 'empty_group', group: 1 } as const, 'Grupo sem membros: ninguém recebe esta parte.'],
+    [{ code: 'empty_group', group: 1 } as const, 'Grupo sem membros: ninguém recebe esta parte. Adicione um membro ou remova o grupo.'],
   ])('%j', (issue, message) => {
     expect(describeCommissionIssue(issue)).toBe(message);
   });
