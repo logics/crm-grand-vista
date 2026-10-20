@@ -8,10 +8,9 @@ Login, logout e sessão corrente: as únicas rotas sem empresa (`/auth/*`).
 
 ## Convenções locais
 
-- O Better Auth é usado por `auth.api`, **nunca montado como handler HTTP**: as rotas `/api/auth/*` da biblioteca (cadastro, organization…) não existem na API. Rota nova de autenticação é uma rota Hono em `routes.ts`, com schema Zod de `@crm/shared`.
+- O Better Auth é usado por `auth.api`, **nunca montado como handler HTTP**: as rotas `/api/auth/*` da biblioteca (cadastro…) não existem na API. Rota nova de autenticação é uma rota Hono em `routes.ts`, com schema Zod de `@crm/shared`.
 - A biblioteca não recebe o Drizzle. `database-adapter.ts` abre uma transação `semTenant({ reason: 'login' })` por operação; um teste falha se a autenticação tocar o banco por outro caminho.
-- `organization`/`member` são nomes da biblioteca e só aparecem em `auth.ts` e `database-adapter.ts`, mapeados para `tenants`/`memberships`. Fora daqui é sempre "empresa" e "vínculo".
-- O plugin de organizations está mapeado só para leitura: `memberships` não tem `role` nem existe tabela de convite, então os endpoints de escrita dele não funcionam contra este schema — vínculo é criado por CLI.
+- A biblioteca só conhece usuário, conta, sessão e verificação. Empresa e vínculo (`tenants`, `memberships`) ficam fora dela, sem plugin de organizations: a leitura é `listUserTenants`/`resolveTenantAccess`, e a escrita de vínculo é de um serviço próprio (CLI hoje; tela e convite na Fase 3). Ver ADR 0004.
 - Usuário só sai daqui por `serializeUser` (`@crm/shared`). Nunca devolva `signIn.response.user` ou `session.user` crus.
 - Credencial inválida responde sempre o mesmo 401, seja qual for o motivo.
 - `POST /auth/login` tem limite de tentativas (`login-rate-limit.ts`): 5 falhas por e-mail a cada 15 min, depois 429 (`too_many_attempts`) igual para e-mail com ou sem conta, inclusive com a senha certa. O contador é em memória: some no restart e não é compartilhado entre instâncias — com mais de uma, migrar para o banco. Não há limite por IP (atrás de proxy o IP é o do proxy).

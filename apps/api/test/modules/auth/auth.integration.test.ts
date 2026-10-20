@@ -1,11 +1,11 @@
 // A instância do Better Auth contra o Postgres real: por onde ela fala com o
-// banco e como o plugin de organizations enxerga as tabelas de empresa.
+// banco.
 import { createDatabase, createPool, type Database, type SemTenantContext } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../../src/app.js';
 import { createAuth } from '../../../src/modules/auth/auth.js';
-import { createMembership, createTenant, createUserWithPassword } from '../../support/fixtures.js';
+import { createUserWithPassword } from '../../support/fixtures.js';
 
 const env = loadApiEnv();
 
@@ -46,21 +46,5 @@ describe('Better Auth', () => {
     expect(login.status).toBe(200);
     expect(calls.length).toBeGreaterThan(0);
     expect(new Set(calls)).toEqual(new Set(['login']));
-  });
-
-  it('mapeia a organization do plugin para as tabelas de empresa e vínculo', async () => {
-    const user = await createUserWithPassword(db, 'Vinculada');
-    const tenant = await createTenant(db, 'auth-plugin');
-    await createMembership(db, user.id, tenant.id, { isDefault: true });
-    const auth = createAuth({ db, env });
-
-    const { headers } = await auth.api.signInEmail({
-      body: { email: user.email, password: user.password },
-      returnHeaders: true,
-    });
-    const cookie = headers.getSetCookie().map((item) => item.split(';')[0]).join('; ');
-    const organizations = await auth.api.listOrganizations({ headers: new Headers({ cookie }) });
-
-    expect(organizations).toEqual([expect.objectContaining({ id: tenant.id, slug: tenant.slug, name: tenant.name })]);
   });
 });

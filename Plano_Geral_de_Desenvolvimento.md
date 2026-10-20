@@ -17,7 +17,7 @@ O documento de escopo (`Escopo CRM.md`, na raiz do projeto, revisão de 24/07/20
 | Produto | **Multi-tenant** desde o dia 1 (licenciamento futuro para outras corretoras rurais) |
 | Site público de captação | **Fora do escopo** desta fase |
 | Isolamento de dados | Schema único + `tenant_id` + Row-Level Security do Postgres |
-| Autenticação | Better Auth (plugin de organizations = tenants) |
+| Autenticação | Better Auth (núcleo); empresa e vínculo são `tenants`/`memberships`, fora da biblioteca (ADR 0004) |
 | Perfis de acesso | **RBAC configurável pelo tenant** — permissões granulares por módulo, N perfis de acesso por usuário. Admin, Gestor e Corretor viram perfis de acesso semeados |
 | Super Admin | Flag `is_super_admin` marcada só via CLI, dá acesso total e é **invisível** para os demais usuários |
 | Contatos | **Cadastro único com papéis**: comprador, proprietário e/ou corretor externo |
@@ -124,7 +124,7 @@ Detalhe de implementação: a tabela `buyer_profiles` agrupa todas as caracterí
 **Runtime:** Node 24 LTS
 **Backend:** Hono + Drizzle ORM + PostgreSQL 18 + Zod
 **Frontend:** React + Vite + Tailwind + shadcn/ui (Radix) + TanStack Query + React Hook Form + MapLibre
-**Auth:** Better Auth (organizations plugin)
+**Auth:** Better Auth (núcleo, sem plugin de organizations — ADR 0004)
 **Storage:** Cloudflare R2 (S3-compatible)
 **Testes:** Vitest (unitários e integração) + Playwright (E2E)
 **Monorepo:** pnpm workspaces + Turborepo
@@ -422,7 +422,7 @@ Em seguida, as specs por módulo escritas contra esse modelo.
 
 ### Fase 0 — Fundação (semanas 1–2)
 
-Monorepo pnpm com Turborepo, Docker Compose com Postgres 18 (mesma major version de produção, fixada por tag exata), Drizzle com migrations, Better Auth com organizations, **motor de permissões granulares** com os perfis de acesso Admin/Gestor/Corretor semeados e o escopo de plataforma desenhado, flag `is_super_admin` e seu script de CLI, provisionamento de tenant por CLI, **RLS ativo e testado** com o teste de schema que falha o CI, resolução de empresa por slug na URL, wrapper de transação que exige tenant, wrapper de auditoria, infraestrutura de testes (Vitest, banco de teste em container, Playwright), CI rodando os testes, deploy contínuo com um "hello world" autenticado.
+Monorepo pnpm com Turborepo, Docker Compose com Postgres 18 (mesma major version de produção, fixada por tag exata), Drizzle com migrations, Better Auth (sem plugin de organizations), **motor de permissões granulares** com os perfis de acesso Admin/Gestor/Corretor semeados e o escopo de plataforma desenhado, flag `is_super_admin` e seu script de CLI, provisionamento de tenant por CLI, **RLS ativo e testado** com o teste de schema que falha o CI, resolução de empresa por slug na URL, wrapper de transação que exige tenant, wrapper de auditoria, infraestrutura de testes (Vitest, banco de teste em container, Playwright), CI rodando os testes, deploy contínuo com um "hello world" autenticado.
 
 **Design System:** triagem do export do Claude Design para `packages/ui` — tokens, primitivos shadcn reestilizados, os componentes de apresentação reescritos em TSX, Storybook, e a config oxlint de aderência virando a config de lint do projeto. Isso acontece depois do scaffold do monorepo, que é o que cria a pasta de destino.
 

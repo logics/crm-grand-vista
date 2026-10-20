@@ -4,7 +4,6 @@
 import { uuidv7, type Database } from '@crm/db';
 import type { ApiEnv } from '@crm/shared/env';
 import { betterAuth } from 'better-auth';
-import { organization } from 'better-auth/plugins/organization';
 import { createAuthDatabaseAdapter } from './database-adapter.js';
 
 interface AuthDependencies {
@@ -22,17 +21,6 @@ export function createAuth({ db, env }: AuthDependencies) {
     advanced: { database: { generateId: () => uuidv7() } },
     // Usuário nasce pelo CLI de provisionamento; não existe autoatendimento.
     emailAndPassword: { enabled: true, disableSignUp: true },
-    plugins: [
-      // `organization` é o nome da biblioteca para **empresa**. O mapeamento
-      // para `tenants`/`memberships` acontece aqui e não vaza desta pasta.
-      organization({
-        allowUserToCreateOrganization: false,
-        schema: {
-          organization: { modelName: 'tenant' },
-          member: { modelName: 'membership', fields: { organizationId: 'tenantId' } },
-        },
-      }),
-    ],
     telemetry: { enabled: false },
   });
 }
