@@ -111,6 +111,8 @@ export function DateRangePicker({
   const [texts, setTexts] = useState<Texts>(() => textsOf(value));
   /** Início escolhido no calendário, à espera do fim. */
   const [anchor, setAnchor] = useState<string>();
+  /** Dia sob o mouse (ou o foco) depois do primeiro clique: o fim provisório da prévia. */
+  const [hovered, setHovered] = useState<string>();
   const [open, setOpen] = useState(defaultOpen);
   /** Mês mostrado, quando o usuário o navegou ou o valor o moveu; sem ele, o do início do valor. */
   const [shownMonth, setMonth] = useState<Date>();
@@ -173,6 +175,7 @@ export function DateRangePicker({
     const iso = toIsoDate(day);
     if (!anchor) {
       setAnchor(iso);
+      setHovered(undefined);
       setTexts({ from: formatDisplayDate(iso), to: '' });
       return;
     }
@@ -202,8 +205,11 @@ export function DateRangePicker({
 
   const complete = parseIsoDate(anchor ? undefined : value.from) && parseIsoDate(value.to);
   const hasText = Boolean(texts.from || texts.to);
+  const preview = anchor && hovered && hovered !== anchor && !isDisabledDate(hovered);
   const draft = anchor
-    ? { from: parseIsoDate(anchor) }
+    ? preview
+      ? { from: parseIsoDate(anchor <= hovered ? anchor : hovered), to: parseIsoDate(anchor <= hovered ? hovered : anchor) }
+      : { from: parseIsoDate(anchor) }
     : { from: parseIsoDate(value.from), to: parseIsoDate(value.to) };
 
   /** Texto completo que não vira uma data utilizável: marca a ponta como inválida. */
@@ -338,6 +344,8 @@ export function DateRangePicker({
           // sem `onSelect` o react-day-picker trata `selected` só como valor inicial; a regra de escolha é `pickDay`
           onSelect={() => {}}
           onDayClick={pickDay}
+          onDayMouseEnter={(day) => setHovered(toIsoDate(day))}
+          onDayFocus={(day) => setHovered(toIsoDate(day))}
           month={month}
           onMonthChange={setMonth}
           numberOfMonths={mobile ? 1 : 2}

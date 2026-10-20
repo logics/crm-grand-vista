@@ -56,6 +56,22 @@ describe('DateRangePicker', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('depois do primeiro clique, o mouse mostra a prévia do intervalo sem alterar o valor', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.click(from());
+    await user.click(day(/5 de outubro de 2026/));
+    await user.hover(day(/8 de outubro de 2026/));
+    expect(day(/5 de outubro de 2026/)).toHaveAttribute('data-range-start');
+    expect(day(/6 de outubro de 2026/)).toHaveAttribute('data-range-middle');
+    expect(day(/8 de outubro de 2026/)).toHaveAttribute('data-range-end');
+    expect(to()).toHaveValue('');
+    expect(value()).toBe('{}');
+    await user.hover(day(/2 de outubro de 2026/));
+    expect(day(/2 de outubro de 2026/)).toHaveAttribute('data-range-start');
+    expect(day(/5 de outubro de 2026/)).toHaveAttribute('data-range-end');
+  });
+
   it('segundo clique antes do primeiro inverte as pontas', async () => {
     const user = userEvent.setup();
     render(<Controlled />);
