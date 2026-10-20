@@ -34,6 +34,17 @@ describe('DateRangePicker', () => {
     expect(screen.getByRole('group', { name: 'Período' })).toBeInTheDocument();
   });
 
+  it('placeholders: dd/mm/aaaa por padrão, um texto para os dois ou um por campo', () => {
+    const { rerender } = render(<DateRangePicker aria-label="Período" />);
+    expect(from()).toHaveAttribute('placeholder', 'dd/mm/aaaa');
+    expect(to()).toHaveAttribute('placeholder', 'dd/mm/aaaa');
+    rerender(<DateRangePicker aria-label="Período" placeholder="Escolha" />);
+    expect(to()).toHaveAttribute('placeholder', 'Escolha');
+    rerender(<DateRangePicker aria-label="Período" placeholder={['Início', 'Fim']} />);
+    expect(from()).toHaveAttribute('placeholder', 'Início');
+    expect(to()).toHaveAttribute('placeholder', 'Fim');
+  });
+
   it('abre ao clicar no campo, com dois meses lado a lado', async () => {
     const user = userEvent.setup();
     render(<DateRangePicker aria-label="Período" today={today} />);

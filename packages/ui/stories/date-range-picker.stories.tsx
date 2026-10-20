@@ -18,6 +18,11 @@ type Story = StoryObj<typeof meta>;
 
 export const Vazio: Story = {};
 
+export const PlaceholdersProprios: Story = {
+  name: 'Placeholders próprios',
+  args: { placeholder: ['Início da visita', 'Fim da visita'] },
+};
+
 export const Preenchido: Story = { args: { defaultValue: { from: '2026-10-05', to: '2026-10-09' } } };
 
 export const Aberto: Story = {

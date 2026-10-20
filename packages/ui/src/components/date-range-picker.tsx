@@ -60,6 +60,8 @@ export type DateRangePickerProps = Pick<
   presets?: DateRangePreset[];
   /** O "hoje" dos atalhos e do destaque do calendário; fixá-lo mantém a vitrine e os testes estáveis. */
   today?: Date;
+  /** Texto dos campos vazios: um para os dois, ou `[início, fim]`. Sem ele, o formato `dd/mm/aaaa`. */
+  placeholder?: string | [from: string, to: string];
   /** sm 32 · md 40 · lg 48 (lg nos formulários do mobile). */
   size?: FieldSize;
   disabled?: boolean;
@@ -94,6 +96,7 @@ export function DateRangePicker({
   disabledDates,
   presets,
   today: todayProp,
+  placeholder = 'dd/mm/aaaa',
   size = 'md',
   disabled = false,
   defaultOpen = false,
@@ -232,7 +235,7 @@ export function DateRangePicker({
       type="text"
       inputMode="numeric"
       autoComplete="off"
-      placeholder="dd/mm/aaaa"
+      placeholder={typeof placeholder === 'string' ? placeholder : placeholder[side === 'from' ? 0 : 1]}
       aria-label={sideLabel[side]}
       aria-invalid={sideInvalid(side) || control['aria-invalid']}
       aria-required={control['aria-required']}
