@@ -92,11 +92,17 @@ Quem tem a flag atravessa todas as verificações de permissão e escopo, inclus
 
 ### Scripts de CLI
 
-Dois, ambos pelo caminho `semTenant()`, ambos registrando em `audit_log` com autor nulo:
+Cinco, todos pelo caminho `semTenant({ reason: 'cli' })`, todos registrando em `audit_log` com autor nulo. A regra mora em `apps/api/src/provisioning/`; os executáveis (`src/cli/`) só leem argumentos e perguntam. Senha é **sempre gerada pelo sistema e mostrada uma única vez**, nunca recebida por argumento, e a credencial é gravada fora do wrapper de auditoria: o hash não vai para o log.
 
-**Provisionar empresa.** Cria a empresa com slug validado, os três perfis de acesso semeados (Admin, Gestor, Corretor — conteúdo definido na spec de permissões), o primeiro usuário administrador e o vínculo entre eles marcado como padrão. É idempotente por slug: rodar duas vezes não cria duplicata nem apaga nada, falha dizendo que já existe.
+**Provisionar empresa** (`pnpm tenant:provision`). Cria a empresa com slug validado, os três perfis de acesso semeados (Admin, Gestor, Corretor — conteúdo definido na spec de permissões), o primeiro usuário administrador e o vínculo entre eles marcado como padrão. É idempotente por slug: rodar duas vezes não cria duplicata nem apaga nada, falha dizendo que já existe.
 
-**Marcar/desmarcar super admin.** Recebe um identificador de usuário, exige confirmação interativa explícita, e nunca lista quem já é — nem no CLI. Listagem de super admins é a ferramenta que torna a flag descobrível.
+**Cadastrar usuário em empresa existente** (`pnpm user:create --name --email --tenant <slug> --profile <nome>`). O perfil de acesso é indicado pelo nome (Admin, Gestor, Corretor ou outro daquela empresa). Numa transação só, cria o usuário, o vínculo e o perfil de acesso no vínculo: ou tudo, ou nada. E-mail já cadastrado **não é recusa**: ganha só o vínculo na empresa pedida e mantém a senha; a saída diz que o usuário já existia, não mostra senha e não revela se o e-mail pertence a um super admin. Vínculo já existente com a mesma empresa falha sem gravar. O primeiro vínculo do usuário nasce como padrão; os seguintes, não. Slug, perfil ou e-mail inválidos falham antes de gravar, com mensagem que nomeia o problema.
+
+**Criar super admin** (`pnpm super-admin create --name --email`). Cria o usuário com `is_super_admin` e **sem nenhum vínculo**. Exige confirmação interativa (digitar o e-mail de novo) e recusa sem TTY. E-mail já existente falha sem revelar se é super admin e orienta usar `grant`.
+
+**Marcar/desmarcar super admin** (`pnpm super-admin grant|revoke <e-mail>`). Exige confirmação interativa explícita, e nunca lista quem já é — nem no CLI. Listagem de super admins é a ferramenta que torna a flag descobrível.
+
+**Redefinir senha** (`pnpm user:reset-password <e-mail>`). Exige confirmação interativa (digitar o e-mail de novo) e recusa sem TTY. Gera uma senha nova, mostra uma única vez e, na mesma transação, troca a credencial e encerra todas as sessões do usuário. Vale para qualquer usuário, super admin incluído, sem a saída revelar se ele é. A auditoria (de plataforma) registra que a senha mudou, nunca o valor. E-mail inexistente falha sem gravar nada. Não há fluxo de "esqueci a senha" por e-mail.
 
 Validação do slug: minúsculas, números e hífen, sem hífen no início ou fim, tamanho mínimo que evite colisão acidental, e uma lista de reservados (`api`, `admin`, `app`, `e`, `assets`, `static`, `login`) para que nenhuma empresa ocupe um caminho que a aplicação precisa.
 

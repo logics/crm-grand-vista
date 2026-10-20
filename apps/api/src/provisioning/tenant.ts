@@ -1,7 +1,6 @@
 // Provisionamento de empresa: a empresa, os perfis de acesso semeados, o
 // primeiro administrador e o vínculo padrão entre eles — tudo numa transação
 // só, pelo caminho nominal do CLI. Ou nasce inteira, ou não nasce.
-import { randomBytes } from 'node:crypto';
 import {
   accounts,
   auditedWrites,
@@ -16,6 +15,7 @@ import { tenantNameSchema, tenantSlugSchema } from '@crm/shared';
 import { hashPassword } from 'better-auth/crypto';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { emailSchema, generatePassword } from './credentials.js';
 import { ADMIN_ACCESS_PROFILE, seedAccessProfiles } from './seeded-access-profiles.js';
 
 export const provisionTenantSchema = z.object({
@@ -23,7 +23,7 @@ export const provisionTenantSchema = z.object({
   name: tenantNameSchema,
   admin: z.object({
     name: z.string().trim().min(1, 'Informe o nome do administrador.'),
-    email: z.email('Informe um e-mail válido para o administrador.').transform((email) => email.toLowerCase()),
+    email: emailSchema('Informe um e-mail válido para o administrador.'),
   }),
 });
 
@@ -42,9 +42,6 @@ export class ProvisioningError extends Error {
     this.name = 'ProvisioningError';
   }
 }
-
-/** Senha inicial do administrador: 24 caracteres aleatórios, seguros em URL e em terminal. */
-const generatePassword = () => randomBytes(18).toString('base64url');
 
 export async function provisionTenant(db: Database, input: ProvisionTenantInput): Promise<ProvisionedTenant> {
   const parsed = provisionTenantSchema.safeParse(input);
