@@ -7,7 +7,7 @@ function A2Deal({ d, onOpen }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--a2-ink-3)' }}><span>Probabilidade</span><span className="num" style={{ color: 'var(--a2-ink)' }}>{d.probability}%</span></div>
         <div className="a2-prob"><i style={{ width: d.probability + '%' }} /></div>
       </div>
-      <div className={'foot' + (d.overdue ? ' late' : '')}><A2Icon name={d.overdue ? 'alert-circle' : 'calendar-clock'} size={14} />{d.nextAction}</div>
+      <div className={'foot' + (d.overdue ? ' late' : '')}><A2Icon name={d.overdue ? 'circle-alert' : 'calendar-clock'} size={14} />{d.nextAction}</div>
     </div>
   );
 }
@@ -73,7 +73,7 @@ function A2Compradores({ onToast }) {
                 <td style={{ color: 'var(--a2-ink-2)' }}>{b.culturas.join(', ')}</td>
                 <td><A2Pill tone={tone[b.qualificacao]}>{b.qualificacao}</A2Pill></td>
                 <td className="r"><A2Score v={b.score} /></td>
-                <td className="r"><div className="row-actions"><A2IconBtn icon="message-circle" label="WhatsApp" plain size={15} onClick={() => onToast('Mensagem aberta no WhatsApp', b.nome)} /><A2IconBtn icon="mail" label="E-mail" plain size={15} /><A2IconBtn icon="more-horizontal" label="Mais ações" plain size={15} /></div></td>
+                <td className="r"><div className="row-actions"><A2IconBtn icon="message-circle" label="WhatsApp" plain size={15} onClick={() => onToast('Mensagem aberta no WhatsApp', b.nome)} /><A2IconBtn icon="mail" label="E-mail" plain size={15} /><A2IconBtn icon="ellipsis" label="Mais ações" plain size={15} /></div></td>
               </tr>))}</tbody>
           </table>
         </div>

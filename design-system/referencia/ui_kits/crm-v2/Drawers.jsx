@@ -8,7 +8,7 @@ function A2Sheet({ onClose, short, children, label }) {
 
 function A2FarmDrawer({ farm, onClose, onStep, onSend }) {
   const D = window.GV_DATA;
-  const ddIc = { ok: ['check', 'var(--a2-success)', 'var(--a2-success-soft)'], pending: ['clock', 'var(--a2-warning)', 'var(--a2-warning-soft)'], blocked: ['alert-triangle', 'var(--a2-danger)', 'var(--a2-danger-soft)'], empty: ['circle-dashed', 'var(--a2-ink-3)', 'var(--a2-surface-2)'] };
+  const ddIc = { ok: ['check', 'var(--a2-success)', 'var(--a2-success-soft)'], pending: ['clock', 'var(--a2-warning)', 'var(--a2-warning-soft)'], blocked: ['triangle-alert', 'var(--a2-danger)', 'var(--a2-danger-soft)'], empty: ['circle-dashed', 'var(--a2-ink-3)', 'var(--a2-surface-2)'] };
   const ddTone = { Concluído: 'success', 'Em análise': 'warning', Pendência: 'danger' };
   return (
     <A2Sheet onClose={onClose} label={farm.nome}>

@@ -36,7 +36,7 @@ export function DealCard({ client, farm, value, probability, owner, nextAction, 
       )}
       {(nextAction || owner) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border-subtle)', fontSize: 12, color: overdue ? 'var(--status-danger-fg)' : 'var(--text-muted)' }}>
-          {nextAction && <><Icon name={overdue ? 'alert-circle' : 'calendar-clock'} size={13} /><span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nextAction}</span></>}
+          {nextAction && <><Icon name={overdue ? 'circle-alert' : 'calendar-clock'} size={13} /><span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nextAction}</span></>}
           {initials && <span title={owner} style={{ marginLeft: 'auto', width: 26, height: 26, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--brand-primary-soft)', color: 'var(--brand-primary)', fontSize: 10, fontWeight: 'var(--weight-semibold)' }}>{initials}</span>}
         </div>
       )}
