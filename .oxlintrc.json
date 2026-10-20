@@ -106,6 +106,10 @@
         "message": "<MoneyInput>, <AreaInput> e <PercentInput> size aceitam só 'sm' | 'md' | 'lg'."
       },
       {
+        "selector": "JSXOpeningElement[name.name='DateRangePicker'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
+        "message": "<DateRangePicker> size aceita só 'sm' | 'md' | 'lg'."
+      },
+      {
         "selector": "JSXOpeningElement[name.name='AreaInput'] > JSXAttribute[name.name='unit'] > Literal[value!=/^(?:hectare|alqueire)$/]",
         "message": "<AreaInput> unit aceita só 'hectare' | 'alqueire'."
       },

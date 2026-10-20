@@ -2,6 +2,11 @@
 // de domínio. Spec: `docs/specs/design-system.md`.
 export { BREAKPOINTS, belowQuery, useBelowBreakpoint, type Breakpoint } from './lib/breakpoints.js';
 export { cn } from './lib/cn.js';
+export {
+  type DateRangePreset,
+  type DateRangeValue,
+  defaultDateRangePresets,
+} from './lib/date-range.js';
 export { initials } from './lib/initials.js';
 export * from './primitives/calendar.js';
 export * from './primitives/checkbox.js';
@@ -24,6 +29,7 @@ export * from './components/compatibility-gauge.js';
 export * from './components/confirm-dialog.js';
 export * from './components/contact-picker.js';
 export * from './components/data-table.js';
+export * from './components/date-range-picker.js';
 export * from './components/document-manager.js';
 export * from './components/empty-state.js';
 export * from './components/entity-form.js';

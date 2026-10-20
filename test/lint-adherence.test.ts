@@ -43,6 +43,10 @@ const violations: Record<string, { source: string; expected: RegExp }> = {
     expected: /<AreaInput> alqueireType/,
   },
   'tamanho inexistente de MoneyInput': { source: `export const el = <MoneyInput size="xl" />;`, expected: /<MoneyInput>/ },
+  'tamanho inexistente de DateRangePicker': {
+    source: `export const el = <DateRangePicker size="xl" />;`,
+    expected: /<DateRangePicker> size/,
+  },
   'tom inexistente de Wordmark': { source: `export const el = <Wordmark tone="gold" />;`, expected: /<Wordmark> tone/ },
   'glifo direto do lucide-react': {
     source: `import { Tractor } from 'lucide-react';\nexport const glyph = Tractor;`,
@@ -65,6 +69,7 @@ const conforming: Record<string, string> = {
     <AreaInput unit="alqueire" alqueireType="paulista" size="lg" min="0" />
     <MoneyInput size="sm" max="1000" />
     <PercentInput size="md" />
+    <DateRangePicker size="lg" disabledDates={{ before: new Date() }} />
   </>
 );`,
   'Textarea e Toast com atributos nativos': `export const el = (
