@@ -40,7 +40,7 @@ window.GV_DATA = {
   }, {
     id: 'relatorios',
     label: 'Relatórios',
-    icon: 'file-bar-chart'
+    icon: 'file-chart-column'
   }, {
     section: 'Administração'
   }, {

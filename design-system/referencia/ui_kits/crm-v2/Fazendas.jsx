@@ -52,7 +52,7 @@ function A2Fazendas({ onOpenFarm, onFilters, onToast }) {
                   <td className="r"><div className="row-actions" onClick={e => e.stopPropagation()}>
                     <A2IconBtn icon="pencil" label="Editar" plain size={15} />
                     <A2IconBtn icon="send" label="Enviar a comprador" plain size={15} onClick={() => onToast('Enviado a 4 compradores compatíveis', f.nome)} />
-                    <A2IconBtn icon="more-horizontal" label="Mais ações" plain size={15} />
+                    <A2IconBtn icon="ellipsis" label="Mais ações" plain size={15} />
                   </div></td>
                 </tr>
               ))}

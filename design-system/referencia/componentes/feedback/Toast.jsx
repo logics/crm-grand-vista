@@ -3,8 +3,8 @@ import { Icon } from '../core/Icon.jsx';
 
 const TONES = {
   success: ['check', 'var(--gv-gold-400)'],
-  warning: ['alert-triangle', '#E9C27A'],
-  danger: ['alert-octagon', '#F0A196'],
+  warning: ['triangle-alert', '#E9C27A'],
+  danger: ['octagon-alert', '#F0A196'],
   info: ['info', '#A9CBE2'],
 };
 

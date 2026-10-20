@@ -5,7 +5,7 @@ import { Badge } from '../core/Badge.jsx';
 const STATE = {
   ok: ['check', 'var(--status-success-fg)', 'var(--status-success-bg)'],
   pending: ['clock', 'var(--status-warning-fg)', 'var(--status-warning-bg)'],
-  blocked: ['alert-triangle', 'var(--status-danger-fg)', 'var(--status-danger-bg)'],
+  blocked: ['triangle-alert', 'var(--status-danger-fg)', 'var(--status-danger-bg)'],
   empty: ['minus', 'var(--text-faint)', 'var(--gv-ink-50)'],
 };
 
