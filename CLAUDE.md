@@ -34,7 +34,7 @@ A multi-tenant CRM tailored to high-value rural real estate brokerage (farm buyi
 
 - **Backend:** Node.js + Hono + Drizzle ORM + PostgreSQL + Zod
 - **Frontend:** React + Vite + shadcn/ui + TanStack Query + React Hook Form + MapLibre
-- **Auth:** Better Auth, using its `organizations` plugin to model tenants
+- **Auth:** Better Auth (core only, no `organizations` plugin); tenants and memberships are our own `tenants`/`memberships` tables, written by our own service (ADR 0004)
 - **Storage:** Cloudflare R2 (S3-compatible), direct upload via signed URL
 - **Tests:** Vitest (unit + integration against a real Postgres container) + Playwright (E2E)
 - **Monorepo:** pnpm workspaces

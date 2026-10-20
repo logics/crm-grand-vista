@@ -4,7 +4,7 @@
 
 ## Objetivo
 
-Responder duas perguntas a cada requisição: **quem é** e **em qual empresa está**. Entrega Better Auth com o plugin de organizations, os vínculos usuário↔empresa, a resolução da empresa pelo slug da URL, a flag invisível de super admin, e os scripts de CLI que provisionam empresa e marcam super admin.
+Responder duas perguntas a cada requisição: **quem é** e **em qual empresa está**. Entrega Better Auth (só o núcleo: usuário, sessão e e-mail/senha), os vínculos usuário↔empresa, a resolução da empresa pelo slug da URL, a flag invisível de super admin, e os scripts de CLI que provisionam empresa e marcam super admin.
 
 Não entrega autorização — o que o usuário **pode fazer** é da spec de permissões. Aqui termina em "este usuário autenticado está legitimamente nesta empresa".
 
@@ -12,7 +12,7 @@ Não entrega autorização — o que o usuário **pode fazer** é da spec de per
 
 `CONTEXT.md`: **Empresa**, **Empresa ativa**, **Vínculo**, **Super admin**, **AdminMaster**, **Corretor interno**.
 
-Nota de nomenclatura: o plugin do Better Auth chama a entidade de `organization`. No domínio ela é **empresa**, e a tabela é `tenants`. O mapeamento acontece na borda da biblioteca; nenhum texto de UI, rótulo, rota de negócio ou nome de tabela nossa usa "organização".
+Nota de nomenclatura: no domínio a entidade é **empresa**, e a tabela é `tenants`; nenhum texto de UI, rótulo, rota de negócio ou nome de tabela usa "organização". O plugin de organizations do Better Auth **não é usado** (ADR 0004), então não há mapeamento de nomes na borda da biblioteca.
 
 ## Decisões que governam
 
@@ -33,7 +33,7 @@ Dois pontos do modelo que governam comportamento aqui:
 
 ### Autenticação
 
-Better Auth com o plugin de organizations, e-mail e senha, sessão em cookie `httpOnly`. Logout invalida a sessão no servidor, não só apaga o cookie.
+Better Auth sem o plugin de organizations (ADR 0004), e-mail e senha, sessão em cookie `httpOnly`. Empresa e vínculo ficam fora da biblioteca: a leitura é `listUserTenants`/`resolveTenantAccess`, e a **escrita de vínculo** (tela de usuários e convite por e-mail, Fase 3) é responsabilidade de um serviço próprio sobre `memberships`, nunca da biblioteca. Logout invalida a sessão no servidor, não só apaga o cookie.
 
 Recuperação de senha e convite de usuário por e-mail **não** entram na Fase 0: não há provedor de e-mail configurado e a criação de usuário é por CLI. Entram na Fase 3, junto do módulo de gestão de empresas.
 

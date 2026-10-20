@@ -1,22 +1,19 @@
 // Adapter de banco do Better Auth. A biblioteca não recebe o Drizzle: cada
 // operação dela abre a própria transação pelo caminho nominal `semTenant()`,
 // porque autenticação acontece antes de haver empresa ativa.
-import { accounts, memberships, sessions, tenants, users, verifications, type Database, type Transaction } from '@crm/db';
+import { accounts, sessions, users, verifications, type Database, type Transaction } from '@crm/db';
 import type { BetterAuthOptions, DBAdapter, DBTransactionAdapter } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 
 /**
- * A borda de nomenclatura: o Better Auth fala `organization` e `member`; as
- * tabelas são `tenants` e `memberships`. As chaves são os nomes de modelo que a
- * biblioteca usa — os do plugin de organizations são renomeados em `auth.ts`.
+ * Só os modelos do núcleo da biblioteca. Empresa e vínculo (`tenants`,
+ * `memberships`) não passam por ela — ver ADR 0004.
  */
 const AUTH_TABLES = {
   user: users,
   session: sessions,
   account: accounts,
   verification: verifications,
-  tenant: tenants,
-  membership: memberships,
 };
 
 const OPERATIONS = [
