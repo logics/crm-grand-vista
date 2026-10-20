@@ -22,7 +22,8 @@
     "tenant:provision": "pnpm --filter @crm/api provision-tenant",
     "user:create": "pnpm --filter @crm/api user:create",
     "user:reset-password": "pnpm --filter @crm/api user:reset-password",
-    "super-admin": "pnpm --filter @crm/api super-admin"
+    "super-admin": "pnpm --filter @crm/api super-admin",
+    "sessions:prune": "pnpm --filter @crm/api sessions:prune"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",

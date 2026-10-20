@@ -1,6 +1,6 @@
 # provisioning
 
-O que os scripts de CLI fazem, separado de como são chamados: provisionar empresa, cadastrar usuário em empresa existente, criar/marcar/desmarcar super admin e redefinir senha. Os executáveis (`src/cli/`) só leem argumentos, perguntam e imprimem; a regra mora aqui e é testada em `apps/api/test/provisioning/`.
+O que os scripts de CLI fazem, separado de como são chamados: provisionar empresa, cadastrar usuário em empresa existente, criar/marcar/desmarcar super admin redefinir senha e limpar sessões e verificações vencidas (`prune.ts`). Os executáveis (`src/cli/`) só leem argumentos, perguntam e imprimem; a regra mora aqui e é testada em `apps/api/test/provisioning/`.
 
 - **Spec:** `docs/specs/fase-0-autenticacao-e-contexto.md` ("Scripts de CLI"); `docs/specs/fase-0-permissoes.md` ("Perfis de acesso semeados")
 - **Tabelas que possui:** nenhuma — escreve em `tenants`, `users`, `accounts`, `memberships`, `access_profiles`, `profile_permissions`, `profile_data_scopes`, `user_profiles`, `sessions` e `audit_log`, de `packages/db`
@@ -26,6 +26,7 @@ pnpm super-admin revoke <e-mail>
 pnpm super-admin create --name "Nome" --email <e-mail>
 pnpm user:create --name "Bia" --email bia@grandvista.com.br --tenant grand-vista --profile Corretor
 pnpm user:reset-password <e-mail>
+pnpm sessions:prune   # sem terminal e sem confirmação: roda pelo cron diário
 ```
 
 Todos leem só `DATABASE_URL` (papel `crm_app`) do `.env`.
