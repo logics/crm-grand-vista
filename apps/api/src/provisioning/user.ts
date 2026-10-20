@@ -114,6 +114,8 @@ export async function createUser(db: Database, input: CreateUserInput): Promise<
     // O primeiro vínculo do usuário é o padrão; os seguintes não.
     const isDefault = userMemberships.length === 0;
     await writes.insert(memberships, { userId: user.id, tenantId, isDefault });
+    // Fora do wrapper: `user_profiles` tem chave composta, sem o `id` que ele exige
+    // (o mesmo caso de `profile_permissions`). O vínculo do usuário já está auditado.
     await tx.insert(userProfiles).values({ tenantId, userId: user.id, profileId: accessProfile.id });
 
     return {
