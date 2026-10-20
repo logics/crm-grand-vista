@@ -16,8 +16,9 @@ const ALLOWED: readonly string[] = [
   'apps/api/src/tenant-context.ts',
   // Resolução da permissão efetiva: o único curto-circuito de permissão e escopo.
   'apps/api/src/authorization/service.ts',
-  // O único caminho que altera a flag: o CLI de super admin.
+  // Os únicos caminhos que gravam a flag: os CLIs de super admin (marcar e criar).
   'apps/api/src/provisioning/super-admin.ts',
+  'apps/api/src/provisioning/user.ts',
 ];
 const CODE_FILE = /\.(?:[cm]?[jt]sx?)$/;
 const FLAG = /is_?super_?admin/i;

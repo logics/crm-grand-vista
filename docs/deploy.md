@@ -86,6 +86,20 @@ A configuração inicial de servidor, aaPanel, Cloudflare, Netlify e GitHub é c
 
 `GET /health`, sem autenticação: `{"status":"ok","version":"<commit>","database":"ok"}`, ou **503** com `"status":"unavailable"` se o banco não responder em 3 s. Nunca devolve nome de banco, papel, host nem a mensagem do driver — é superfície pública. Fora de um release (`pnpm dev`), a versão é `local`.
 
+## Scripts de CLI em produção
+
+Os CLIs de cadastro compilam junto com a API, em `dist/cli/`, e rodam no servidor como `crmgv` — o único, além do root, que lê o `.env`. A partir de `<DEPLOY_PATH>/current`:
+
+```
+sudo -u crmgv node --env-file=.env dist/cli/provision-tenant.js --slug grand-vista --name "Grand Vista" --admin-name "Ana Souza" --admin-email ana@grandvista.com.br
+sudo -u crmgv node --env-file=.env dist/cli/create-user.js --name "Bia" --email bia@grandvista.com.br --tenant grand-vista --profile Corretor
+sudo -u crmgv node --env-file=.env dist/cli/reset-password.js bia@grandvista.com.br
+sudo -u crmgv node --env-file=.env dist/cli/super-admin.js create --name "Fulano" --email fulano@exemplo.com.br
+sudo -u crmgv node --env-file=.env dist/cli/super-admin.js grant|revoke fulano@exemplo.com.br
+```
+
+Os três últimos pedem confirmação digitando o e-mail e recusam sem terminal interativo. A senha de um usuário novo ou redefinido aparece uma única vez na saída: entregue-a na hora, ela não fica guardada. Contrato dos comandos em `docs/specs/fase-0-autenticacao-e-contexto.md` ("Scripts de CLI").
+
 ## Segredos e variáveis
 
 Nenhum segredo vive no repositório nem em arquivo de exemplo. O CI faz a varredura do **histórico inteiro** com o gitleaks (`.gitleaks.toml`); as exceções são valores exatos de teste, nunca arquivos inteiros.

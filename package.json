@@ -20,6 +20,8 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @crm/db migrate",
     "tenant:provision": "pnpm --filter @crm/api provision-tenant",
+    "user:create": "pnpm --filter @crm/api user:create",
+    "user:reset-password": "pnpm --filter @crm/api user:reset-password",
     "super-admin": "pnpm --filter @crm/api super-admin"
   },
   "devDependencies": {
