@@ -100,6 +100,24 @@ sudo -u crmgv node --env-file=.env dist/cli/super-admin.js grant|revoke fulano@e
 
 Os três últimos pedem confirmação digitando o e-mail e recusam sem terminal interativo. A senha de um usuário novo ou redefinido aparece uma única vez na saída: entregue-a na hora, ela não fica guardada. Contrato dos comandos em `docs/specs/fase-0-autenticacao-e-contexto.md` ("Scripts de CLI").
 
+### Limpeza diária de sessões vencidas
+
+A sessão que expira sem logout e a verificação vencida ficam no banco; não autenticam, mas acumulam. O `sessions:prune` apaga as linhas de `sessions` e `verifications` com `expires_at` no passado, não toca nas válidas, não pede confirmação nem terminal e imprime quantas apagou de cada tabela. Rodar de novo é seguro (a segunda rodada apaga zero). Sai com código 0 em sucesso e diferente de 0 em erro.
+
+```
+sudo -u crmgv node --env-file=.env dist/cli/prune-sessions.js
+```
+
+Agendar uma vez por dia no aaPanel:
+
+1. **Cron** → **Add Task**.
+2. Tipo **Shell Script**, nome `CRM: limpar sessões vencidas`, período **Daily** (por exemplo, 03:30).
+3. Script, com `<DEPLOY_PATH>` do servidor:
+   ```
+   cd <DEPLOY_PATH>/current && sudo -u crmgv node --env-file=.env dist/cli/prune-sessions.js
+   ```
+4. Salvar e usar **Execute** uma vez; o log da tarefa deve mostrar as duas contagens.
+
 ## Segredos e variáveis
 
 Nenhum segredo vive no repositório nem em arquivo de exemplo. O CI faz a varredura do **histórico inteiro** com o gitleaks (`.gitleaks.toml`); as exceções são valores exatos de teste, nunca arquivos inteiros.

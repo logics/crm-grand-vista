@@ -20,7 +20,8 @@
     "provision-tenant": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/provision-tenant.ts",
     "user:create": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/create-user.ts",
     "user:reset-password": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/reset-password.ts",
-    "super-admin": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/super-admin.ts"
+    "super-admin": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/super-admin.ts",
+    "sessions:prune": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/prune-sessions.ts"
   },
   "dependencies": {
     "@crm/db": "workspace:*",
