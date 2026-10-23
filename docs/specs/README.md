@@ -47,7 +47,7 @@ fase-0-monorepo
 
 ## Fase 1 — Cadastros base
 
-Divisão fechada; as specs são escritas uma a uma, na ordem do grafo. Cada uma é uma **fatia vertical** de cerca de uma semana — migration, API, tela e testes —, e os itens da ordem de corte são specs inteiras, para que cortar seja "não começar", nunca editar uma spec em andamento.
+Divisão fechada; as specs são escritas uma a uma, na ordem do grafo — nome sem link é spec ainda não escrita. Cada uma é uma **fatia vertical** de cerca de uma semana — migration, API, tela e testes —, e os itens da ordem de corte são specs inteiras, para que cortar seja "não começar", nunca editar uma spec em andamento.
 
 ```
 fundacao ──> configuracoes ──┬──> contatos ──┬──> perfil-de-compra <── municipios
@@ -66,7 +66,7 @@ r2 ─────────────────────────�
 
 | Spec | Entrega | Depende de |
 |---|---|---|
-| `fase-1-fundacao.md` | Registro de metadados de campo em `packages/shared`; leitura genérica do histórico de alterações (rota + `AuditTimeline`); padrão de listagem — paginação, ordenação e filtro validados por Zod, helper de consulta paginada no servidor, `DataTable` + `Pagination` | — |
+| [`fase-1-fundacao.md`](fase-1-fundacao.md) | Registro de metadados de campo em `packages/shared`; leitura genérica do histórico de alterações (rota + `AuditTimeline`); padrão de listagem — paginação, ordenação e filtro validados por Zod, helper de consulta paginada no servidor, `DataTable` + `Pagination` | — |
 | `fase-1-municipios.md` | Carga do IBGE em `municipalities` (fora do RLS, compartilhada entre empresas) | — |
 | `fase-1-r2.md` | Upload direto ao R2 por URL assinada, chave com prefixo da empresa, confirmação do upload. Infra humana via `/wizard` | — |
 | `fase-1-configuracoes.md` | Motor genérico de vocabulário (uma rota e uma tela parametrizadas por tabela, inclusive o caso com `system_meaning`), em que os vocabulários das fases seguintes só se registram; tela de parâmetros com **só** o tipo de alqueire padrão e a unidade de exibição de área — as demais colunas de `tenant_settings` entram na tela com a spec que as consome; semente (status comercial com os quatro significados, categorias de documento do escopo, tipos de galeria) aplicada no `tenant:provision` e por migration nas empresas existentes | fundacao |
