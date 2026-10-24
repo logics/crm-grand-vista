@@ -6,7 +6,8 @@ import { listQuerySchema } from '@crm/shared';
 import { loadApiEnv } from '@crm/shared/env';
 import { eq, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defineList, paginatedQuery, withoutDataScope } from '../../src/listing/query.js';
+import { withoutDataScope } from '../../src/authorization/data-scope.js';
+import { defineList, paginatedQuery } from '../../src/listing/query.js';
 import { createTenant } from '../support/fixtures.js';
 
 const env = loadApiEnv();

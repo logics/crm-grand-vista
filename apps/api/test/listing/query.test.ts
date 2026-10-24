@@ -4,7 +4,8 @@
 import { PgDialect, numeric, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { sql, type SQL } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { defineList, escapeLike, listOrderBy, searchClause } from '../../src/listing/query.js';
+import type { Transaction } from '@crm/db';
+import { defineList, escapeLike, listOrderBy, paginatedQuery, searchClause } from '../../src/listing/query.js';
 
 const records = pgTable('records', {
   id: uuid('id').primaryKey(),
@@ -62,5 +63,28 @@ describe('busca textual da listagem', () => {
 
   it('curinga digitado é texto, não padrão', () => {
     expect(escapeLike('100%_a\\b')).toBe('100\\%\\_a\\\\b');
+  });
+});
+
+describe('declaração da lista', () => {
+  it('não aceita coluna pesquisável que não seja de texto', () => {
+    // @ts-expect-error -- `unaccent` sobre numeric quebra no Postgres
+    defineList({ ...list, searchable: [records.totalAreaHa] });
+    // @ts-expect-error -- idem para uuid
+    defineList({ ...list, searchable: [records.id] });
+  });
+
+  it('não aceita ordenação que a lista não declara', () => {
+    // Só tipo: a consulta nunca roda.
+    const typeOnly = (tx: Transaction) =>
+      paginatedQuery(
+        tx,
+        // @ts-expect-error -- `city` passou pelo schema da rota, mas a lista não tem a coluna
+        list,
+        { page: 1, pageSize: 25, sort: 'city' },
+        { scope: sql`true` },
+      );
+
+    expect(typeOnly).toBeTypeOf('function');
   });
 });

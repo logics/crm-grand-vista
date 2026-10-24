@@ -3,11 +3,14 @@
 // Os parâmetros chegam já validados pelo schema de `listQuerySchema`
 // (`@crm/shared`).
 import type { Transaction } from '@crm/db';
-import { parseSort, type ListPage, type PageSize, type SortParam } from '@crm/shared';
+import { parseSort, type ListPage, type ListQuery, type SortParam } from '@crm/shared';
 import { and, asc, desc, or, sql, type Column, type InferSelectModel, type SQL } from 'drizzle-orm';
-import type { PgTable } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn, PgTable } from 'drizzle-orm/pg-core';
 
 type ListTable = PgTable & { id: Column };
+
+/** Só coluna de texto: `unaccent` sobre `numeric` ou `uuid` é erro no Postgres. */
+type TextColumn = AnyPgColumn<{ columnType: 'PgText' | 'PgVarchar' | 'PgChar' }>;
 
 /**
  * O que um módulo declara sobre a própria lista: a tabela, as colunas por trás
@@ -18,7 +21,7 @@ export interface ListDefinition<TTable extends ListTable, TSortField extends str
   table: TTable;
   sortable: Record<TSortField, Column>;
   defaultSort?: SortParam<NoInfer<TSortField>>;
-  searchable: readonly Column[];
+  searchable: readonly TextColumn[];
 }
 
 /** Identidade com inferência: `defineList({ ... })` tipa os campos ordenáveis pelas chaves. */
@@ -61,25 +64,15 @@ export function searchClause(list: Pick<ListDefinition<ListTable, string>, 'sear
   return or(...list.searchable.map((column) => sql`unaccent(${column}) ilike unaccent(${pattern})`));
 }
 
-/**
- * Lista sem escopo de dados — a que não tem corretor responsável, como os
- * vocabulários da empresa. Explícito de propósito: esquecer o escopo não pode
- * ser o mesmo que declarar que ele não existe.
- */
-export const withoutDataScope: SQL = sql`true`;
-
-export interface ListPageQuery<TSortField extends string> {
-  page: number;
-  pageSize: PageSize;
-  sort?: SortParam<TSortField> | undefined;
-  q?: string | undefined;
-}
+/** Os parâmetros base da listagem, já validados; os filtros do módulo vêm em predicados. */
+export type ListPageQuery<TSortField extends string> = Pick<ListQuery<TSortField>, 'page' | 'pageSize' | 'sort' | 'q'>;
 
 /**
  * Uma página da lista e o total. O predicado de escopo de dados
- * (`dataScopeClause`, ou `withoutDataScope`) entra **também no total**: total
- * que conta registro invisível revela o tamanho da carteira dos colegas. Página
- * além do fim volta vazia, com o total verdadeiro.
+ * (`dataScopeClause` ou `withoutDataScope`, de `authorization/data-scope.ts`)
+ * entra **também no total**: total que conta registro invisível revela o
+ * tamanho da carteira dos colegas. Página além do fim volta vazia, com o total
+ * verdadeiro.
  */
 export async function paginatedQuery<TTable extends ListTable, TSortField extends string>(
   tx: Transaction,
