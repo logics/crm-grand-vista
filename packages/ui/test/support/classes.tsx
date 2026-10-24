@@ -19,6 +19,13 @@ function classesInDocument(): string[] {
   return [...classes].sort();
 }
 
+/** Classes do documento sem regra na folha compilada — para estados que só aparecem depois de uma interação. */
+export function classesWithoutCss(build: (candidates: string[]) => string): string[] {
+  const classes = classesInDocument();
+  const css = build(classes);
+  return classes.filter((className) => !hasRule(css, className));
+}
+
 /** Declara um teste por caso: toda classe que o caso renderiza gera CSS com o tema dos tokens. */
 export function describeEveryClassGeneratesCss(title: string, cases: Record<string, ComponentType>) {
   let build: (candidates: string[]) => string;
@@ -30,11 +37,8 @@ export function describeEveryClassGeneratesCss(title: string, cases: Record<stri
   describe(title, () => {
     it.each(Object.entries(cases))('%s: toda classe gera CSS com o tema dos tokens', (_, Case) => {
       render(<Case />);
-      const classes = classesInDocument();
-      expect(classes.length).toBeGreaterThan(0);
-      const css = build(classes);
-      const missing = classes.filter((className) => !hasRule(css, className));
-      expect(missing).toEqual([]);
+      expect(classesInDocument().length).toBeGreaterThan(0);
+      expect(classesWithoutCss(build)).toEqual([]);
     });
   });
 }
