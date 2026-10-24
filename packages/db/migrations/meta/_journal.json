@@ -50,6 +50,13 @@
       "when": 1792017510773,
       "tag": "0006_audit_log_platform_rows",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792802242945,
+      "tag": "0007_unaccent",
+      "breakpoints": true
     }
   ]
 }
