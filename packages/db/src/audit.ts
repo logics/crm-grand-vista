@@ -32,7 +32,7 @@ const IGNORED_FIELDS: ReadonlySet<string> = new Set(['created_at', 'updated_at']
  * de uma empresa — que vira resposta de API — a flag de super admin o revelaria
  * a quem o lê; a marcação, pelo CLI, é ação de plataforma e fica registrada lá.
  */
-const PLATFORM_ONLY_FIELDS: ReadonlySet<string> = new Set(['is_super_admin']);
+export const PLATFORM_ONLY_FIELDS: ReadonlySet<string> = new Set(['is_super_admin']);
 
 /** Todo tipo vira `text`; a formatação legível vem dos metadados de campo. */
 export function toAuditText(value: unknown): string | null {
