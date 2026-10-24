@@ -45,6 +45,49 @@ fase-0-monorepo
 
 `design-system` é paralelizável com toda a trilha de banco — não há código compartilhado entre as duas.
 
-## Fases 1–5
+## Fase 1 — Cadastros base
 
-Escritas quando a fase chegar, contra o modelo de dados que já está fechado. Não antecipe: spec escrita cedo demais envelhece sem ninguém notar, e a Fase 0 ainda pode ensinar algo que muda a forma delas.
+Divisão fechada; as specs são escritas uma a uma, na ordem do grafo — nome sem link é spec ainda não escrita. Cada uma é uma **fatia vertical** de cerca de uma semana — migration, API, tela e testes —, e os itens da ordem de corte são specs inteiras, para que cortar seja "não começar", nunca editar uma spec em andamento.
+
+```
+fundacao ──> configuracoes ──┬──> contatos ──┬──> perfil-de-compra <── municipios
+                             │               │
+municipios ──────────────────┼──> fazendas <─┘
+                             │       ├──> fazendas-mapa
+                             │       ├──> cotacoes
+r2 ──────────────────────────┼───────├──> fazendas-galerias ──> fazendas-videos
+                             │       └──> fazendas-documentos
+                             │
+          contatos + fazendas ──> cadeia-de-indicacao
+          contatos + fazendas ──> campos-personalizados
+
+                                   homologacao   (fim da fase; sem bloqueio de código)
+```
+
+| Spec | Entrega | Depende de |
+|---|---|---|
+| [`fase-1-fundacao.md`](fase-1-fundacao.md) | Registro de metadados de campo em `packages/shared`; leitura genérica do histórico de alterações (rota + `AuditTimeline`); padrão de listagem — paginação, ordenação e filtro validados por Zod, helper de consulta paginada no servidor, `DataTable` + `Pagination` | — |
+| `fase-1-municipios.md` | Carga do IBGE em `municipalities` (fora do RLS, compartilhada entre empresas) | — |
+| `fase-1-r2.md` | Upload direto ao R2 por URL assinada, chave com prefixo da empresa, confirmação do upload. Infra humana via `/wizard` | — |
+| `fase-1-configuracoes.md` | Motor genérico de vocabulário (uma rota e uma tela parametrizadas por tabela, inclusive o caso com `system_meaning`), em que os vocabulários das fases seguintes só se registram; tela de parâmetros com **só** o tipo de alqueire padrão e a unidade de exibição de área — as demais colunas de `tenant_settings` entram na tela com a spec que as consome; semente (status comercial com os quatro significados, categorias de documento do escopo, tipos de galeria) aplicada no `tenant:provision` e por migration nas empresas existentes | fundacao |
+| `fase-1-contatos.md` | Contato PF/PJ, papéis acumuláveis, classificação, origem do lead e do relacionamento, observações estratégicas, filtros, histórico | configuracoes |
+| `fase-1-perfil-de-compra.md` | `buyer_profiles`, `buyer_regions` (município **ou** UF), `buyer_crops`, `buyer_payment_methods` — a seção da ficha que só existe com o papel comprador | contatos, municipios |
+| `fase-1-fazendas.md` | `farms` completa: identificação, áreas, técnico, comercial, os dois modos de precificação na entrada, derivados em reais, filtros da listagem (os critérios de busca do escopo), histórico na ficha, e a **prova de integração do escopo de dados `own`** que a `fase-0-permissoes` deixou para cá. Latitude e longitude como campos numéricos | contatos, configuracoes, municipios |
+| `fase-1-fazendas-mapa.md` | Mapa MapLibre na ficha: exibir o ponto e escolhê-lo no mapa | fazendas |
+| `fase-1-cotacoes.md` | `crop_quotes` por cultura, praça e data, e o cálculo puro do equivalente em reais de uma avaliação em sacas. Até ela chegar, a ficha mostra a avaliação em sacas sem equivalente | fazendas |
+| `fase-1-fazendas-galerias.md` | Galerias nomeadas e fotos | fazendas, r2 |
+| `fase-1-fazendas-videos.md` | Vídeos nas galerias — sem migration, `farm_media.kind` já aceita `video` | fazendas-galerias |
+| `fase-1-fazendas-documentos.md` | Documentos por categoria | fazendas, r2 |
+| `fase-1-cadeia-de-indicacao.md` | `referral_links` nos dois lados (contato e fazenda) de uma vez, com o `ReferralChainEditor` nas duas fichas | contatos, fazendas |
+| `fase-1-campos-personalizados.md` | Definição em Configurações (`custom_field_defs`) e renderização e validação do `custom_fields` nas fichas de contato e de fazenda. Última da fase | contatos, fazendas |
+| `fase-1-homologacao.md` | Troca de ambientes e pipeline com aprovação — ver abaixo | fim da fase |
+
+**Não há spec de busca.** Cada módulo é dono dos próprios filtros; busca global na barra superior não está no escopo. **Impostos** não entram nesta fase: o cadastro vai para a Fase 2, junto da venda, único lugar onde tem efeito.
+
+**Ordem de corte**, se a fase atrasar: tela de configuração do matching (Fase 2) → `campos-personalizados` → `fazendas-videos`. `cadeia-de-indicacao` é inegociável.
+
+**Homologação, por troca.** O ambiente publicado na Fase 0 (`crmgv.logics.com.br` / `api.crmgv.logics.com.br`) vira homologação, e a produção nasce nova, no domínio da Grand Vista — pré-requisito humano da spec. Merge em `main` publica em homologação automaticamente; produção recebe **o mesmo artefato**, sem novo build, quando o passo de deploy do Environment `production` do GitHub é aprovado (revisor obrigatório). Mesma instância Postgres, com banco e par de papéis (`crm_owner`/`crm_app`) próprios por ambiente — papéis valem para a instância inteira, e um par compartilhado deixaria uma string de conexão trocada abrir a produção sem erro.
+
+## Fases 2–5
+
+Escritas quando a fase chegar, contra o modelo de dados que já está fechado. Não antecipe: spec escrita cedo demais envelhece sem ninguém notar, e a fase anterior ainda pode ensinar algo que muda a forma delas.

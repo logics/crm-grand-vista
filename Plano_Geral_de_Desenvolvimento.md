@@ -166,6 +166,8 @@ A instância é **compartilhada com outros projetos** do mesmo servidor, o que i
 
 **Sem homologação na Fase 0** — local direto para produção, que é o que a fase pede e ninguém está usando ainda. O ambiente de homologação nasce ao fim da Fase 1, quando a Grand Vista começa a usar de verdade: a partir daí, subir migration quebrada na produção do cliente é risco de outra natureza. É o mesmo pipeline apontando para outro diretório e outro banco.
 
+**O ambiente atual vira homologação; produção é o novo.** Os domínios e a estrutura publicados na Fase 0 (`crmgv.logics.com.br`, `api.crmgv.logics.com.br`, diretório e banco no servidor) passam a ser a homologação, e o ambiente de produção é criado do zero ao lado. Uma branch só: merge em `main` publica em homologação automaticamente, e produção recebe o mesmo artefato — sem novo build — quando o deploy do Environment `production` do GitHub é aprovado. Detalhes em `docs/specs/README.md`, seção da Fase 1.
+
 **Backups:** o mecanismo do aaPanel cobre o servidor da aplicação, não o servidor de banco, que é máquina separada. O Postgres precisa de estratégia própria — `pg_dump` agendado ou o que a provedora oferecer — e isso entra na Fase 5 junto do resto do endurecimento.
 
 ---
@@ -432,13 +434,13 @@ Entrega uma casca vazia mas publicada e testada. A partir daqui todo incremento 
 
 ### Fase 1 — Cadastros base (semanas 3–8)
 
-Módulo de Configurações (parâmetros do tenant e vocabulários controlados, incluindo praças, impostos com suas alíquotas e o tipo de alqueire padrão). Contatos com papéis de comprador, proprietário e corretor externo, perfil de compra completo, regiões, culturas e formas de pagamento. Cadeia de indicação para contatos e fazendas. Fazendas com todos os campos técnicos, os dois modos de precificação, galerias nomeadas de fotos e vídeos no R2, documentos por categoria, campos personalizados, mapa MapLibre, histórico de alterações na ficha. Cotação por cultura, praça e data, com o cálculo do valor em sacas. Carga de municípios do IBGE. Busca e filtros.
+Módulo de Configurações (parâmetros do tenant e vocabulários controlados, incluindo praças e o tipo de alqueire padrão; o cadastro de impostos fica na Fase 2, junto da venda, único lugar onde tem efeito). Contatos com papéis de comprador, proprietário e corretor externo, perfil de compra completo, regiões, culturas e formas de pagamento. Cadeia de indicação para contatos e fazendas. Fazendas com todos os campos técnicos, os dois modos de precificação, galerias nomeadas de fotos e vídeos no R2, documentos por categoria, campos personalizados, mapa MapLibre, histórico de alterações na ficha. Cotação por cultura, praça e data, com o cálculo do valor em sacas. Carga de municípios do IBGE. Busca e filtros.
 
-Ao fim desta fase nasce o **ambiente de homologação** — a Grand Vista começa a usar de verdade, e a partir daí subir migration quebrada direto na produção do cliente é risco de outra natureza.
+Ao fim desta fase nasce o **ambiente de homologação** — por troca: o ambiente publicado hoje vira homologação, e a produção é criada nova — a Grand Vista começa a usar de verdade, e a partir daí subir migration quebrada direto na produção do cliente é risco de outra natureza.
 
 ### Fase 2 — Comercial (semanas 9–12) → **MVP em 3 meses**
 
-Oportunidades ligando comprador a uma ou mais fazendas, com os critérios da demanda próprios. Funil kanban com as 10 etapas configuráveis, histórico de negociação, probabilidade e valor potencial. **Venda** como entidade, com valor bruto e líquido, impostos congelados, status, área vendida e parcelas da venda. **Acordo de comissão** completo: grupos por venda, participantes, rateio com override e visibilidade restrita. Motor de matching nas duas direções, retornando demandas, com tela de configuração de regras. Envio de oportunidade por WhatsApp (`wa.me`) e e-mail.
+Oportunidades ligando comprador a uma ou mais fazendas, com os critérios da demanda próprios. Funil kanban com as 10 etapas configuráveis, histórico de negociação, probabilidade e valor potencial. **Venda** como entidade, com valor bruto e líquido, cadastro de impostos e suas alíquotas, impostos congelados, status, área vendida e parcelas da venda. **Acordo de comissão** completo: grupos por venda, participantes, rateio com override e visibilidade restrita. Motor de matching nas duas direções, retornando demandas, com tela de configuração de regras. Envio de oportunidade por WhatsApp (`wa.me`) e e-mail.
 
 **Marco dos 3 meses.** Aqui o sistema já substitui as planilhas: cadastra, encontra, acompanha negociações, registra vendas e calcula comissão.
 

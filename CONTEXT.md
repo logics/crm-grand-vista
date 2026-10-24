@@ -39,6 +39,13 @@ O papel **visível** de administrador da plataforma, que gere empresas pela inte
 **Auditoria**:
 O registro de alterações (`audit_log`), um mecanismo único que atende tanto o requisito geral de "logs de auditoria" quanto o campo "histórico de alterações" da ficha da fazenda. Alimentado por um wrapper de escrita, não por disciplina do desenvolvedor. Guarda campo, valor anterior, valor novo, autor e instante, mais um `change_id` que agrupa as linhas de um mesmo save; o rótulo legível e a formatação vêm dos metadados de campo.
 
+**Histórico de alterações**:
+A vista da auditoria de **um registro**, na ficha dele: uma entrada por save, com o que mudou no registro e nos seus filhos (documento anexado, região de interesse trocada). Quem vê o registro vê o histórico dele — a permissão e o escopo de dados são os do módulo, não os da auditoria.
+_Avoid_: confundir com **logs de auditoria**
+
+**Logs de auditoria**:
+A vista da auditoria da **empresa inteira**, atravessando registros e módulos. Exige a permissão `auditoria.ver`.
+
 **Papel do banco**:
 Um dos dois papéis Postgres do projeto. `crm_owner` é dono do schema e roda as migrations; `crm_app` é o que a API usa e está sujeito às policies. A distinção não é organizacional: o Postgres **não aplica RLS ao dono da tabela**, então usar o papel errado na aplicação desliga o isolamento em silêncio.
 _Avoid_: "usuário do banco" — em Postgres papel e usuário são a mesma coisa, mas "papel" é o termo que a documentação usa
