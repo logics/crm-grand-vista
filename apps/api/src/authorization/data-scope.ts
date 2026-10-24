@@ -6,6 +6,13 @@ import { eq, sql, type Column, type SQL } from 'drizzle-orm';
 import { dataScopeOf, type EffectiveAccess } from './effective-access.js';
 
 /**
+ * Lista sem escopo de dados — a que não tem corretor responsável, como os
+ * vocabulários da empresa. Explícito de propósito: esquecer o escopo não pode
+ * ser o mesmo que declarar que ele não existe.
+ */
+export const withoutDataScope: SQL = sql`true`;
+
+/**
  * Predicado que restringe o módulo ao escopo de dados do usuário: com `own`, só
  * os registros de que ele é o corretor responsável (`responsibleColumn`); com
  * `all`, nenhum recorte. Vai no `where` junto do resto da consulta.
@@ -14,5 +21,5 @@ import { dataScopeOf, type EffectiveAccess } from './effective-access.js';
  * não 403: se a listagem não o mostra, o detalhe não pode confirmar que existe.
  */
 export function dataScopeClause(access: EffectiveAccess, module: PermissionModule, responsibleColumn: Column): SQL {
-  return dataScopeOf(access, module) === 'all' ? sql`true` : eq(responsibleColumn, access.userId);
+  return dataScopeOf(access, module) === 'all' ? withoutDataScope : eq(responsibleColumn, access.userId);
 }
