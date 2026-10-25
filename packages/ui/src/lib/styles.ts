@@ -4,6 +4,13 @@
 /** Anel dourado de foco do teclado (`--ring-focus`). */
 export const focusRing = 'outline-none focus-visible:shadow-ring-focus';
 
+/**
+ * Botão com cara de link em texto (verde, dourado no hover, anel de foco):
+ * ação secundária dentro de um conteúdo, como "Ver tudo". O glifo ao lado do
+ * rótulo fica alinhado; o tamanho do texto é de quem usa.
+ */
+export const textLink = `inline-flex cursor-pointer items-center gap-1 rounded-xs font-medium text-text-link transition-control hover:text-text-link-hover ${focusRing}`;
+
 /** Controle desabilitado: esmaecido e sem clique. */
 export const disabledControl =
   'disabled:cursor-not-allowed disabled:opacity-45 data-disabled:cursor-not-allowed data-disabled:opacity-45';

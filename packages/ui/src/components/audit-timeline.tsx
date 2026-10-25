@@ -1,7 +1,7 @@
 import { useId, useState, type ComponentProps, type Key, type ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 import { orEmDash } from '../lib/em-dash.js';
-import { focusRing } from '../lib/styles.js';
+import { textLink } from '../lib/styles.js';
 import { Icon, type IconName } from './icon.js';
 
 // Histórico de alterações (a linha do tempo de `components/data/` do export,
@@ -159,7 +159,7 @@ type DisclosureToggleProps = {
   children: ReactNode;
 };
 
-/** Botão em texto de link que abre e fecha um trecho da entrada; `<button>`, então Enter e Espaço acionam. */
+/** Botão em link de texto (`textLink`) que abre e fecha um trecho da entrada; `<button>`, então Enter e Espaço acionam. */
 function DisclosureToggle({ open, onToggle, controls, className, children }: DisclosureToggleProps) {
   return (
     <button
@@ -167,11 +167,7 @@ function DisclosureToggle({ open, onToggle, controls, className, children }: Dis
       aria-expanded={open}
       aria-controls={controls}
       onClick={() => onToggle(!open)}
-      className={cn(
-        'inline-flex cursor-pointer items-center gap-1 rounded-xs text-xs font-medium text-text-link transition-control hover:text-text-link-hover',
-        focusRing,
-        className,
-      )}
+      className={cn(textLink, 'text-xs', className)}
     >
       {children}
       <Icon name={open ? 'chevron-up' : 'chevron-down'} size="xs" />
