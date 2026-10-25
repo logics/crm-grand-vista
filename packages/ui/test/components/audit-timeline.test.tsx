@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 import '../support/dom.js';
 import { render, screen, within } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { composeStories } from '@storybook/react-vite';
 import { AuditTimeline } from '../../src/index.js';
+import * as stories from '../../stories/audit-timeline.stories.js';
+import { classesWithoutCss } from '../support/classes.js';
+import { compileStyles } from '../support/tailwind.js';
 
 describe('AuditTimeline', () => {
   it('uma entrada por alteração salva, na ordem recebida, com autor e instante', () => {
@@ -48,5 +53,90 @@ describe('AuditTimeline', () => {
       <AuditTimeline items={[{ title: 'Status comercial alterado', detail: 'Proprietário suspendeu a venda.' }]} />,
     );
     expect(screen.getByText('Proprietário suspendeu a venda.')).toBeInTheDocument();
+  });
+
+  it('lista de campos recolhível: nasce fechada e abre e fecha pelo teclado', async () => {
+    const user = userEvent.setup();
+    render(
+      <AuditTimeline
+        items={[
+          {
+            title: 'Fazenda cadastrada',
+            changesLabel: 'Ver valores iniciais',
+            changes: [{ field: 'Nome', to: 'Fazenda Três Barras' }],
+          },
+        ]}
+      />,
+    );
+    const toggle = screen.getByRole('button', { name: 'Ver valores iniciais' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Fazenda Três Barras')).not.toBeVisible();
+
+    await user.tab();
+    expect(toggle).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Fazenda Três Barras')).toBeVisible();
+
+    await user.keyboard(' ');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Fazenda Três Barras')).not.toBeVisible();
+  });
+
+  it('sem rótulo de recolher, a lista de campos aparece aberta e sem botão', () => {
+    render(<AuditTimeline items={[{ title: 'Nome alterado', changes: [{ field: 'Nome', from: 'A', to: 'B' }] }]} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText('B')).toBeVisible();
+  });
+
+  it('texto longo: uma linha truncada; "Ver tudo" abre o anterior e o novo completos, um embaixo do outro', async () => {
+    const user = userEvent.setup();
+    const before = 'Fazenda com sede reformada em 2019, curral de alvenaria e três represas.';
+    const after = 'Fazenda com sede reformada em 2024, curral de alvenaria, três represas e pivô central.';
+    render(
+      <AuditTimeline items={[{ title: 'Descrição alterada', changes: [{ field: 'Descrição', from: before, to: after, long: true }] }]} />,
+    );
+    const toggle = screen.getByRole('button', { name: 'Ver tudo' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText(before)).toHaveClass('truncate');
+    expect(screen.getByText(after)).toHaveClass('truncate');
+
+    await user.tab();
+    expect(toggle).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAccessibleName('Ver menos');
+    const from = screen.getByText(before);
+    const to = screen.getByText(after);
+    expect(from.tagName).toBe('DEL');
+    expect(to.tagName).toBe('INS');
+    expect(from).not.toHaveClass('truncate');
+    expect(to).not.toHaveClass('truncate');
+    expect(from.compareDocumentPosition(to) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.keyboard(' ');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText(after)).toHaveClass('truncate');
+  });
+
+  it('texto longo vazio vira travessão', () => {
+    render(<AuditTimeline items={[{ title: 'Descrição alterada', changes: [{ field: 'Descrição', to: 'Nova', long: true }] }]} />);
+    expect(screen.getByText('—').tagName).toBe('DEL');
+  });
+
+  it('aberto, toda classe da lista recolhível e do texto longo gera CSS', async () => {
+    const user = userEvent.setup();
+    const build = await compileStyles();
+    const { ValoresIniciaisRecolhidos, TextoLongo } = composeStories(stories);
+    render(
+      <>
+        <ValoresIniciaisRecolhidos />
+        <TextoLongo />
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Ver valores iniciais' }));
+    await user.click(screen.getByRole('button', { name: 'Ver tudo' }));
+    expect(screen.getAllByRole('button', { expanded: true })).toHaveLength(2);
+    expect(classesWithoutCss(build)).toEqual([]);
   });
 });
