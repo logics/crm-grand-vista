@@ -144,6 +144,9 @@ export const MONEY_FORMAT: DecimalFormat = { minScale: MONEY_SCALE, maxScale: MO
 /** Percentual: só as casas que tem, até quatro. Também a do `PercentInput`, que põe o "%" no sufixo. */
 export const PERCENT_FORMAT: DecimalFormat = { minScale: 0, maxScale: PERCENT_SCALE };
 
+/** Área e número: só as casas que tem, até as quatro da área. */
+export const AREA_FORMAT: DecimalFormat = { minScale: 0, maxScale: AREA_SCALE };
+
 /** Dinheiro por extenso, como nas fichas: `"1480.5"` vira `"R$ 1.480,50"`. */
 export const formatMoney = (value: string) => `R$ ${formatDecimal(value, MONEY_FORMAT)}`;
 
