@@ -146,7 +146,7 @@ Na entrada de cadastro, `changes` são os valores iniciais (o componente os most
 
 **`packages/ui`:**
 
-- `AuditTimeline` ganha, por entrada, uma lista de campos **recolhível** com rótulo próprio ("ver valores iniciais"), e o tratamento de **texto longo** (uma linha truncada, "ver tudo" abre o valor anterior e o novo completos, um embaixo do outro). Story para cada variante; regra de lint de variante atualizada se houver
+- `AuditTimeline` ganha, por entrada, uma lista de campos **recolhível** com rótulo próprio ("ver valores iniciais"), e o tratamento de **texto longo** (uma linha truncada, "ver tudo" abre o valor anterior e o novo completos, um embaixo do outro) e os **filhos** do save como linhas próprias da entrada (`related`). Story para cada variante; regra de lint de variante atualizada se houver
 - Nenhum outro componente novo
 
 **`apps/web`:**

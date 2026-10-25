@@ -95,6 +95,31 @@ export const TextoLongo: Story = {
   },
 };
 
+/** Filhos alterados no mesmo save — documentos, fotos — são linhas próprias da entrada, depois dos campos da fazenda. */
+export const ComFilhos: Story = {
+  name: 'Com filhos',
+  args: {
+    items: [
+      {
+        title: '3 alterações',
+        date: '24/07 · 14h30',
+        author: 'Ana Prado',
+        changes: [{ field: 'Preço pedido', from: 'R$ 18.000.000', to: 'R$ 16.400.000' }],
+        related: [
+          {
+            title: 'Documento adicionado: Matrícula 12.345',
+            changes: [
+              { field: 'Tipo', to: 'Matrícula' },
+              { field: 'Validade', to: '31/12/2026' },
+            ],
+          },
+          { title: 'Foto removida: Sede vista do curral' },
+        ],
+      },
+    ],
+  },
+};
+
 export const EntradaUnica: Story = {
   name: 'Entrada única',
   args: { items: [{ title: 'Fazenda cadastrada', icon: 'plus', date: '02/07/2026', author: 'Rafael Tavares' }] },

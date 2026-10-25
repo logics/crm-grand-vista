@@ -7,7 +7,7 @@ Casca da aplicação: a empresa ativa, a navegação lateral filtrada pelas perm
 ## Convenções locais
 
 - Página de empresa entra como filha da rota `TENANT_PAGES_ROUTE_ID` (`src/routes.tsx`): fica sob `TenantLayout`, que só a monta depois de a API aceitar a empresa da URL, e sob `TenantRouteError`.
-- Consulta de empresa usa `useTenantQuery` (`tenant-query.ts`), que põe o slug na chave do cache. Chave de empresa montada à mão é bug: trocar de empresa poderia mostrar o registro da anterior.
+- Consulta de empresa usa `useTenantQuery` (`tenant-query.ts`), que põe o slug na chave do cache; a paginada por cursor (o histórico), `useTenantInfiniteQuery`, que também passa o cursor à busca. Chave de empresa montada à mão é bug: trocar de empresa poderia mostrar o registro da anterior.
 - Estados de página saem de `page-state.tsx`: `PageState` e `LoadFailedState` para a página inteira, fora da casca; `LoadFailedState inline` e `LoadingState` para uma região dentro dela.
 - Registro que a API responde 404 lança `ResourceNotFoundError`. Vindo da troca de empresa, `TenantRouteError` leva à raiz da empresa; fora dela, diz que o registro não existe.
 - Caminhos de empresa saem de `tenant-path.ts` (`tenantRootPath`, `tenantPath`, `switchTenantPath`), nunca de concatenação à mão.

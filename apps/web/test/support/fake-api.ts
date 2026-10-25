@@ -30,9 +30,17 @@ interface FakeApiOptions {
   extraTenants?: string[];
   /** Permissões efetivas do usuário em toda empresa em que entra. */
   permissions?: PermissionCode[];
-  /** Registros de empresa por caminho (`/e/norte/farms/1`): GET devolve o corpo, ou 404. */
-  records?: Record<string, unknown>;
+  /**
+   * Registros de empresa por caminho (`/e/norte/farms/1`), ou por caminho e
+   * query quando ela importa (`/e/norte/users/1/history?cursor=c2`): GET
+   * devolve o corpo, ou 404. Uma `FakeResponse` responde por conta própria —
+   * falha do servidor, resposta que demora.
+   */
+  records?: Record<string, unknown | FakeResponse>;
 }
+
+/** Resposta montada pelo teste, a cada pedido: `() => new Response(null, { status: 500 })`. */
+export type FakeResponse = () => Response | Promise<Response>;
 
 export interface FakeApi {
   /** Requisições recebidas, na ordem: método, caminho e o `RequestInit`. */
@@ -106,7 +114,11 @@ export function stubFakeApi({
         }
         if (linked?.blocked) return json({ error: { code: 'tenant_blocked', message: TENANT_BLOCKED_MESSAGE } }, 403);
         if (tenantPath[2] === '/permissions/effective') return json({ permissions, dataScopes: {} });
-        if (url.pathname in records) return json(records[url.pathname]);
+        const key = [url.pathname + url.search, url.pathname].find((candidate) => candidate in records);
+        if (key !== undefined) {
+          const record = records[key];
+          return typeof record === 'function' ? record() : json(record);
+        }
         return json({ error: { code: 'not_found', message: 'Registro não encontrado.' } }, 404);
       }
       return json({ error: { code: 'not_found', message: 'Rota inexistente na API falsa.' } }, 404);

@@ -16,6 +16,10 @@ import { Icon, type IconName } from './icon.js';
 // iniciais da entrada de cadastro, que já estão na ficha. Campo de texto longo
 // (`long`) ocupa uma linha truncada; "Ver tudo" abre o valor anterior e o novo
 // completos, um embaixo do outro. Sem diff palavra a palavra.
+//
+// Registros filhos alterados no mesmo save (um documento da fazenda) vêm em
+// `related`: cada um é uma linha própria ("Documento adicionado: Matrícula
+// 12.345"), com os campos dele, depois dos campos do registro.
 
 /** Um campo alterado: rótulo legível e os valores já formatados. */
 export type AuditTimelineChange = {
@@ -26,6 +30,13 @@ export type AuditTimelineChange = {
   to?: ReactNode;
   /** Texto longo: uma linha truncada, com "Ver tudo". */
   long?: boolean;
+};
+
+/** Um registro filho alterado no mesmo save: a linha dele e os campos alterados. */
+export type AuditTimelineRelated = {
+  /** "Documento adicionado: Matrícula 12.345". */
+  title: ReactNode;
+  changes?: AuditTimelineChange[];
 };
 
 export type AuditTimelineItem = {
@@ -42,6 +53,8 @@ export type AuditTimelineItem = {
   changes?: AuditTimelineChange[];
   /** Rótulo do botão que abre a lista de campos, como "Ver valores iniciais"; com ele, a lista nasce recolhida. */
   changesLabel?: ReactNode;
+  /** Filhos alterados no mesmo save, cada um numa linha própria, depois de `changes`. */
+  related?: AuditTimelineRelated[];
   /** Glifo do marcador; lápis por padrão. */
   icon?: IconName;
 };
@@ -73,6 +86,12 @@ export function AuditTimeline({ className, items, ...props }: AuditTimelineProps
               {item.changes && item.changes.length > 0 && (
                 <AuditTimelineChanges changes={item.changes} label={item.changesLabel} />
               )}
+              {item.related?.map((related, relatedIndex) => (
+                <div key={relatedIndex} className="mt-2 text-xs leading-normal">
+                  <span className="font-medium text-text-body">{related.title}</span>
+                  {related.changes && related.changes.length > 0 && <ChangeList changes={related.changes} className="mt-1" />}
+                </div>
+              ))}
               {item.author && <span className="text-micro text-text-faint">{item.author}</span>}
             </div>
           </li>
@@ -93,12 +112,18 @@ function AuditTimelineChanges({ changes, label }: { changes: AuditTimelineChange
           {label}
         </DisclosureToggle>
       )}
-      <ul id={listId} hidden={collapsible && !open} className="mt-2 flex flex-col gap-1 text-xs leading-normal">
-        {changes.map((change, index) =>
-          change.long ? <LongChange key={index} change={change} /> : <ShortChange key={index} change={change} />,
-        )}
-      </ul>
+      <ChangeList id={listId} hidden={collapsible && !open} changes={changes} className="mt-2" />
     </>
+  );
+}
+
+function ChangeList({ changes, className, ...props }: ComponentProps<'ul'> & { changes: AuditTimelineChange[] }) {
+  return (
+    <ul className={cn('flex flex-col gap-1 text-xs leading-normal', className)} {...props}>
+      {changes.map((change, index) =>
+        change.long ? <LongChange key={index} change={change} /> : <ShortChange key={index} change={change} />,
+      )}
+    </ul>
   );
 }
 
