@@ -8,6 +8,7 @@ export {
   defaultDateRangePresets,
 } from './lib/date-range.js';
 export { initials } from './lib/initials.js';
+export { pageCount } from './lib/pagination.js';
 export * from './primitives/calendar.js';
 export * from './primitives/checkbox.js';
 export * from './primitives/command.js';

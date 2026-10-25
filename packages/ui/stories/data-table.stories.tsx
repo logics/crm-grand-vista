@@ -40,6 +40,14 @@ export const Padrao: Story = { name: 'Padrão' };
 
 export const DensaComSelecao: Story = { name: 'Densa, com seleção', args: { dense: true, selected: [2] } };
 
+export const Ordenavel: Story = {
+  name: 'Ordenável',
+  args: {
+    columns: columns.map((column) => ({ ...column, sortable: column.key !== 'status' })),
+    onSortChange: fn(),
+  },
+};
+
 export const Vazia: Story = {
   args: {
     rows: [],
