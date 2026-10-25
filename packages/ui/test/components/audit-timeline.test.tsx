@@ -119,6 +119,30 @@ describe('AuditTimeline', () => {
     expect(screen.getByText(after)).toHaveClass('truncate');
   });
 
+  it('cada filho alterado no mesmo save é uma linha própria, com os campos dele, depois dos campos do registro', () => {
+    render(
+      <AuditTimeline
+        items={[
+          {
+            title: '2 alterações',
+            changes: [{ field: 'Preço pedido', from: 'R$ 18,4 mi', to: 'R$ 16,9 mi' }],
+            related: [
+              { title: 'Documento adicionado: Matrícula 12.345', changes: [{ field: 'Tipo', to: 'Matrícula' }] },
+              { title: 'Foto removida' },
+            ],
+          },
+        ]}
+      />,
+    );
+    const entry = screen.getAllByRole('listitem')[0]!;
+    const document = within(entry).getByText('Documento adicionado: Matrícula 12.345');
+    expect(within(entry).getByText('Foto removida')).toBeInTheDocument();
+    expect(screen.getByText('Preço pedido').compareDocumentPosition(document) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const type = screen.getByText('Tipo').closest('li')!;
+    expect(within(type).getByText('Matrícula').tagName).toBe('INS');
+    expect(document.compareDocumentPosition(type) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('texto longo vazio vira travessão', () => {
     render(<AuditTimeline items={[{ title: 'Descrição alterada', changes: [{ field: 'Descrição', to: 'Nova', long: true }] }]} />);
     expect(screen.getByText('—').tagName).toBe('DEL');

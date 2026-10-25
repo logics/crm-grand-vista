@@ -1,7 +1,7 @@
 // Cache do cliente separado por empresa: toda consulta de empresa leva o slug
 // na chave, então trocar de empresa nunca encontra no cache o registro da
 // anterior — nem por um instante, enquanto o da nova carrega.
-import { type UseQueryOptions, useQuery } from '@tanstack/react-query';
+import { type UseQueryOptions, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 import { TENANT_PARAM } from './tenant-path.js';
 
@@ -42,6 +42,28 @@ export function useTenantQuery<T>(
     ...options,
     queryKey: tenantQueryKey(slug, ...key),
     queryFn: () => queryFn(slug),
-    throwOnError: (error) => error instanceof ResourceNotFoundError,
+    throwOnError: isResourceNotFound,
   });
 }
+
+/**
+ * Consulta paginada por cursor da empresa ativa (o histórico): a chave ganha
+ * o slug, e a busca recebe o slug e o cursor — nenhum na primeira página. Sem
+ * cursor seguinte, não há próxima página.
+ */
+export function useTenantInfiniteQuery<T>(
+  key: readonly unknown[],
+  queryFn: (slug: string, cursor: string | undefined) => Promise<T>,
+  nextCursor: (page: T) => string | undefined,
+) {
+  const slug = useTenantSlug();
+  return useInfiniteQuery({
+    queryKey: tenantQueryKey(slug, ...key),
+    queryFn: ({ pageParam }) => queryFn(slug, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: nextCursor,
+    throwOnError: isResourceNotFound,
+  });
+}
+
+const isResourceNotFound = (error: Error) => error instanceof ResourceNotFoundError;
