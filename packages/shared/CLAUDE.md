@@ -2,7 +2,7 @@
 
 Schemas Zod, tipos, metadados de campo e constantes usados pela API e pelo front. Não depende de nenhum outro pacote.
 
-- **Spec:** `docs/specs/fase-0-monorepo.md`; `docs/specs/fase-0-permissoes.md` (catálogo de permissões); `docs/specs/fase-1-fundacao.md` (padrão de listagem e metadados de campo)
+- **Spec:** `docs/specs/fase-0-monorepo.md`; `docs/specs/fase-0-permissoes.md` (catálogo de permissões); `docs/specs/fase-1-fundacao.md` (padrão de listagem, metadados de campo e histórico de alterações)
 
 ## Convenções locais
 
@@ -12,5 +12,6 @@ Schemas Zod, tipos, metadados de campo e constantes usados pela API e pelo front
 - `src/user.ts` tem os **únicos** serializadores de usuário: `serializeUser` e, para listagem de equipe e seletor de responsável, `serializeTeamMember` (que passa por `serializeUser`). São o único caminho pelo qual um usuário atravessa a borda HTTP. Campo público novo entra em `userSchema`; `is_super_admin` nunca. Rota que altera usuário valida o corpo com `updateUserSchema`, que descarta em silêncio o que não é editável.
 - `src/permissions.ts` é o catálogo de permissões (`<modulo>.<acao>`, em pt-BR), fonte da verdade da tabela `permissions`. Permissão nova entra ali e chega ao banco no próximo `db:migrate`; remover dali não apaga do banco (ver `packages/db/CLAUDE.md`). Escopo `platform` é decisão de revisão — o teste trava a lista.
 - `src/listing.ts` é o contrato de toda listagem: `listQuerySchema({ sortable, filters })` para os parâmetros (`page`, `pageSize` 25/50/100, `sort` entre os declarados, `q`, mais os filtros do módulo) e `listPageSchema(item)` para a resposta `{ items, total, page, pageSize }`. A API valida a requisição por ele e o front, a URL; lista nova compõe esse schema, nunca declara `page`/`pageSize` de novo. O lado do servidor está em `apps/api/src/listing`.
-- Metadados de campo: tipos e formatação em `src/field-metadata.ts`, registro em `src/field-registry.ts` (regras na spec `fase-1-fundacao.md`). Rótulo de campo nunca é escrito em tela, tabela ou formulário: sai daqui. Tabela nova entra no registro com todas as colunas; a guarda de cobertura está em `packages/db` (ver `packages/db/CLAUDE.md`).
+- Metadados de campo: tipos e formatação em `src/field-metadata.ts`, registro em `src/field-registry.ts` (regras na spec `fase-1-fundacao.md`). Rótulo de campo nunca é escrito em tela, tabela ou formulário: sai daqui. Tabela nova entra no registro com todas as colunas; a guarda de cobertura está em `packages/db` (ver `packages/db/CLAUDE.md`). Campo cujo rótulo é feminino declara `gender: 'f'` ("Foto alterad**a**" no histórico); omitido, é masculino.
+- `src/history.ts` é o contrato do histórico de alterações (`historyPageSchema`): valores já formatados, instante em ISO 8601 UTC, cursor opaco. A montagem é da API (`apps/api/src/history`).
 - Tudo aqui precisa rodar no navegador e no Node: sem I/O, sem dependência de Node no índice.

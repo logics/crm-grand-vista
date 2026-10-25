@@ -58,6 +58,10 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
     path: `/e/${tenantSlug}/users/${credentials?.id ?? '00000000-0000-7000-8000-000000000000'}`,
     body: { name: credentials?.name ?? 'Ninguém', ...FLAG_PROBE },
   }),
+  'GET /e/:tenant/users/:id/history': ({ credentials }, tenantSlug) => ({
+    // Cada um lê o próprio histórico; o anônimo aponta para um id qualquer.
+    path: `/e/${tenantSlug}/users/${credentials?.id ?? '00000000-0000-7000-8000-000000000000'}/history`,
+  }),
 };
 
 /** A flag em qualquer grafia: `is_super_admin`, `isSuperAdmin`, `super-admin`. */
