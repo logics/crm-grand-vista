@@ -15,9 +15,9 @@ export const FIELD_REGISTRY = {
       ...RECORD_COLUMNS,
       slug: { type: 'text', label: 'Slug' },
       name: { type: 'text', label: 'Nome' },
-      legal_name: { type: 'text', label: 'Razão social' },
+      legal_name: { type: 'text', label: 'Razão social', gender: 'f' },
       tax_id: { type: 'text', label: 'CNPJ' },
-      blocked: { type: 'boolean', label: 'Bloqueada' },
+      blocked: { type: 'boolean', label: 'Bloqueada', gender: 'f' },
     },
   },
   users: {
@@ -28,7 +28,7 @@ export const FIELD_REGISTRY = {
       name: { type: 'text', label: 'Nome' },
       email: { type: 'text', label: 'E-mail' },
       email_verified: { type: 'boolean', label: 'E-mail verificado' },
-      image: { type: 'text', label: 'Foto' },
+      image: { type: 'text', label: 'Foto', gender: 'f' },
       // Muda a cada login: é dado de acesso, não alteração do cadastro.
       last_login_at: HIDDEN,
     },
@@ -40,7 +40,7 @@ export const FIELD_REGISTRY = {
       ...RECORD_COLUMNS,
       user_id: { type: 'reference', label: 'Usuário', references: { table: 'users', nameColumn: 'name' } },
       tenant_id: HIDDEN,
-      is_default: { type: 'boolean', label: 'Empresa padrão' },
+      is_default: { type: 'boolean', label: 'Empresa padrão', gender: 'f' },
     },
   },
   access_profiles: {
@@ -50,7 +50,7 @@ export const FIELD_REGISTRY = {
       ...RECORD_COLUMNS,
       tenant_id: HIDDEN,
       name: { type: 'text', label: 'Nome' },
-      description: { type: 'long_text', label: 'Descrição' },
+      description: { type: 'long_text', label: 'Descrição', gender: 'f' },
       is_seeded: { type: 'boolean', label: 'Perfil do sistema' },
     },
   },

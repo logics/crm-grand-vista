@@ -28,6 +28,12 @@ const membersOf = (tx: Transaction, tenantId: string, userId?: string) =>
     .from(memberships)
     .where(and(eq(memberships.tenantId, tenantId), userId ? eq(memberships.userId, userId) : undefined));
 
+/** Se o usuário tem vínculo com a empresa: é o que o torna visível nela. */
+export async function isTeamMember(tx: Transaction, tenantId: string, userId: string): Promise<boolean> {
+  const [member] = await membersOf(tx, tenantId, userId);
+  return member !== undefined;
+}
+
 /**
  * Equipe da empresa ativa, por nome, com os perfis de acesso de fato vinculados
  * a cada um. Alimenta a listagem de equipe e o seletor de responsável; o super

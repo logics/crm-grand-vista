@@ -11,19 +11,28 @@ import { formatAlqueires, formatHectares } from './farm.js';
 /** Gênero gramatical da entidade: "Fazenda cadastrad**a**", "Contato cadastrad**o**". */
 export type GrammaticalGender = 'f' | 'm';
 
+/** O que todo campo visível declara. */
+interface LabeledField {
+  label: string;
+  /**
+   * Gênero do rótulo, para o título do histórico: "Nome alterado", "Foto
+   * alterad**a**". Masculino quando omitido.
+   */
+  gender?: GrammaticalGender;
+}
+
 /** Campos que se formatam sozinhos, a partir do valor gravado. */
 export type ScalarField =
-  | { type: 'text' | 'long_text' | 'number' | 'money' | 'area' | 'percent' | 'date' | 'boolean'; label: string }
+  | (LabeledField & { type: 'text' | 'long_text' | 'number' | 'money' | 'area' | 'percent' | 'date' | 'boolean' })
   /** Lista fechada: o rótulo de cada valor gravado (`high` → "Alto"). */
-  | { type: 'enum'; label: string; options: Readonly<Record<string, string>> };
+  | (LabeledField & { type: 'enum'; options: Readonly<Record<string, string>> });
 
 /**
  * Referência a outro registro, exibida pelo nome atual dele. Aqui só se declara
  * de onde vem o nome; resolvê-lo é do histórico, que lê o banco.
  */
-export interface ReferenceField {
+export interface ReferenceField extends LabeledField {
   type: 'reference';
-  label: string;
   references: { table: string; nameColumn: string };
 }
 
@@ -40,9 +49,8 @@ export interface ExpandedChange {
  * (`custom_fields`, rotulado por `custom_field_defs`): dado o JSON anterior e o
  * novo, devolve uma alteração por chave.
  */
-export interface ExpandedJsonbField {
+export interface ExpandedJsonbField extends LabeledField {
   type: 'jsonb';
-  label: string;
   expand: (
     previous: Readonly<Record<string, unknown>> | null,
     next: Readonly<Record<string, unknown>> | null,

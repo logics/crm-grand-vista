@@ -37,7 +37,7 @@ Nenhuma tabela nova. Uma migration instala a extensão **`unaccent`** (marcada c
 
 **Por entidade:** rótulo no singular e **gênero gramatical** (`'f' | 'm'`). O gênero existe para os títulos do histórico — "Fazenda cadastrad**a**", "Contato cadastrad**o**" — e é o que impede "cadastrado(a)" na tela.
 
-**Por campo**, na **ordem do formulário** (é a ordem em que aparecem no histórico): rótulo e tipo. Tipos:
+**Por campo**, na **ordem do formulário** (é a ordem em que aparecem no histórico): rótulo e tipo, e o gênero do rótulo quando é feminino — "Foto alterad**a**" no título de uma alteração só; omitido, é masculino. Tipos:
 
 | Tipo | Formatação | Observação |
 |---|---|---|
@@ -131,7 +131,8 @@ GET /e/:tenant/<recurso>/:id/history?cursor=<opaco>
     }],
     nextCursor?
   }
-→ 404 registro inexistente ou fora do escopo de dados
+→ 400 cursor que não foi emitido pela API
+→ 404 registro inexistente, fora do escopo de dados ou com id malformado
 ```
 
 Na entrada de cadastro, `changes` são os valores iniciais (o componente os mostra recolhidos).

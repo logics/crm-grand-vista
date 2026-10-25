@@ -124,3 +124,13 @@ export type {
 } from './field-metadata.js';
 export { FIELD_REGISTRY, entityFields } from './field-registry.js';
 export type { EntityField, RegisteredTable } from './field-registry.js';
+export {
+  HISTORY_KINDS,
+  HISTORY_PAGE_SIZE,
+  SYSTEM_AUTHOR,
+  historyChangeSchema,
+  historyChildSchema,
+  historyEntrySchema,
+  historyPageSchema,
+} from './history.js';
+export type { HistoryChange, HistoryChild, HistoryEntry, HistoryKind, HistoryPage } from './history.js';
