@@ -12,7 +12,7 @@ import {
   useBelowBreakpoint,
 } from '@crm/ui';
 import { keepPreviousData } from '@tanstack/react-query';
-import { type Key, type ReactNode, useEffect } from 'react';
+import { type Key, type ReactNode, useEffect, useState } from 'react';
 import type { z } from 'zod';
 import { LoadFailedState, LoadingState } from '../shell/page-state.js';
 import { useTenantQuery } from '../shell/tenant-query.js';
@@ -88,6 +88,15 @@ export function ListPage<S extends ListSchema, Row>({
     }
   }, [result.isPlaceholderData, lastPage, query.page, update]);
 
+  // O campo de busca é controlado: segue a URL quando ela muda por fora
+  // (voltar, limpar), sem remontar — quem acabou de buscar não perde o foco.
+  const [draft, setDraft] = useState(query.q ?? '');
+  const [syncedQ, setSyncedQ] = useState(query.q);
+  if (syncedQ !== query.q) {
+    setSyncedQ(query.q);
+    setDraft(query.q ?? '');
+  }
+
   const sorted = query.sort ? parseSort(query.sort) : undefined;
   const tableColumns: DataTableColumn<Row>[] = columns.map((column) => ({
     ...column,
@@ -111,19 +120,17 @@ export function ListPage<S extends ListSchema, Row>({
     }
     const { items } = result.data;
     if (items.length === 0) {
+      const emptyState = filtered
+        ? {
+            icon: 'search-x' as const,
+            title: 'Nenhum resultado',
+            description: 'Nenhum registro bate com a busca e os filtros.',
+            action: <Button onClick={clearFilters}>Limpar busca e filtros</Button>,
+          }
+        : empty;
       return (
         <Card padding="none">
-          {filtered ? (
-            <EmptyState
-              compact
-              icon="search-x"
-              title="Nenhum resultado"
-              description="Nenhum registro bate com a busca e os filtros."
-              action={<Button onClick={clearFilters}>Limpar busca e filtros</Button>}
-            />
-          ) : (
-            <EmptyState compact {...empty} />
-          )}
+          <EmptyState compact {...emptyState} />
         </Card>
       );
     }
@@ -153,9 +160,7 @@ export function ListPage<S extends ListSchema, Row>({
     <div className="flex flex-col gap-gap-shell max-mobile:gap-gap-shell-mobile">
       <SearchBar
         placeholder={searchPlaceholder}
-        // remonta o campo quando a busca muda por fora (voltar, limpar)
-        key={query.q ?? ''}
-        inputProps={{ defaultValue: query.q ?? '' }}
+        inputProps={{ value: draft, onChange: (event) => setDraft(event.target.value) }}
         filters={children?.(list)}
         onSubmit={(q) => update({ q })}
       />

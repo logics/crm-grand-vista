@@ -20,7 +20,7 @@ export interface ListQueryBase {
 export type ListSchema = z.ZodObject & z.ZodType<ListQueryBase>;
 
 /** Parâmetros que não restringem a lista, só a ordenam ou fatiam. */
-const LAYOUT_KEYS = new Set(['page', 'pageSize', 'sort']);
+const LAYOUT_KEYS = ['page', 'pageSize', 'sort'] as const;
 
 const defaultsOf = (schema: ListSchema): Record<string, unknown> => schema.safeParse({}).data ?? {};
 
@@ -40,7 +40,8 @@ export function readListQuery<S extends ListSchema>(schema: S, params: URLSearch
     const result = schema.safeParse(raw);
     if (result.success) return result.data;
     const rejected = result.error.issues.map((issue) => issue.path[0]).filter((key) => typeof key === 'string' && key in raw);
-    if (rejected.length === 0) throw result.error;
+    // recusa do objeto inteiro (refine entre filtros) não aponta parâmetro: vale a lista padrão
+    if (rejected.length === 0) return schema.parse({});
     for (const key of rejected) delete raw[key as string];
   }
 }
@@ -60,7 +61,7 @@ export function writeListQuery<S extends ListSchema>(schema: S, query: z.output<
 
 /** Se a busca ou algum filtro, fora do padrão, restringe a lista. */
 export function isFilteredQuery<S extends ListSchema>(schema: S, query: z.output<S>): boolean {
-  return [...writeListQuery(schema, query).keys()].some((key) => !LAYOUT_KEYS.has(key));
+  return [...writeListQuery(schema, query).keys()].some((key) => !(LAYOUT_KEYS as readonly string[]).includes(key));
 }
 
 export interface UpdateListOptions {
@@ -77,21 +78,27 @@ export function useListQuery<S extends ListSchema>(schema: S) {
   const [params, setParams] = useSearchParams();
   const query = useMemo(() => readListQuery(schema, params), [schema, params]);
 
-  const update = useCallback(
-    (patch: Partial<z.output<S>>, { replace = false }: UpdateListOptions = {}) => {
-      setParams((current) => writeListQuery(schema, { ...readListQuery(schema, current), page: 1, ...patch }), {
-        replace,
-      });
+  // Troca que não muda a URL (a mesma busca de novo) não empilha entrada no
+  // histórico: voltar sempre leva a outra lista.
+  const navigate = useCallback(
+    (next: URLSearchParams, replace = false) => {
+      if (next.toString() !== writeListQuery(schema, query).toString()) setParams(next, { replace });
     },
-    [schema, setParams],
+    [schema, query, setParams],
   );
 
+  const update = useCallback(
+    (patch: Partial<z.output<S>>, { replace = false }: UpdateListOptions = {}) => {
+      navigate(writeListQuery(schema, { ...query, page: 1, ...patch }), replace);
+    },
+    [schema, query, navigate],
+  );
+
+  /** Tira a busca e os filtros; ordenação e tamanho ficam. */
   const clearFilters = useCallback(() => {
-    setParams((current) => {
-      const { pageSize, sort } = readListQuery(schema, current);
-      return writeListQuery(schema, { ...defaultsOf(schema), pageSize, sort } as z.output<S>);
-    });
-  }, [schema, setParams]);
+    const layout = Object.fromEntries(LAYOUT_KEYS.map((key) => [key, query[key]]));
+    navigate(writeListQuery(schema, { ...defaultsOf(schema), ...layout, page: 1 } as z.output<S>));
+  }, [schema, query, navigate]);
 
   return { query, filtered: isFilteredQuery(schema, query), update, clearFilters };
 }

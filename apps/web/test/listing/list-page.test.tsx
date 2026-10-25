@@ -192,6 +192,20 @@ describe('página de lista', () => {
     expect(lastQuery()).toEqual({ page: 1, pageSize: 25, q: 'sao jose', state: 'GO' });
   });
 
+  it('enviar a busca mantém o foco no campo', async () => {
+    serveFarms(60);
+    const app = renderList();
+    const user = userEvent.setup();
+
+    await table();
+    const search = screen.getByRole('searchbox', { name: 'Buscar fazenda' });
+    await user.type(search, 'rio{Enter}');
+    await waitFor(() => expect(app.router.state.location.search).toBe('?q=rio'));
+
+    expect(screen.getByRole('searchbox', { name: 'Buscar fazenda' })).toBe(search);
+    expect(search).toHaveFocus();
+  });
+
   it('voltar do navegador reabre a lista anterior, com a busca no campo', async () => {
     serveFarms(60);
     const app = renderList('?q=rio');

@@ -8,6 +8,7 @@ export {
   defaultDateRangePresets,
 } from './lib/date-range.js';
 export { initials } from './lib/initials.js';
+export { pageCount } from './lib/pagination.js';
 export * from './primitives/calendar.js';
 export * from './primitives/checkbox.js';
 export * from './primitives/command.js';
@@ -44,7 +45,6 @@ export * from './components/money-input.js';
 export * from './components/municipality-picker.js';
 export * from './components/opportunity-card.js';
 export * from './components/pagination.js';
-export { pageCount } from './lib/pagination.js';
 export * from './components/percent-input.js';
 export * from './components/progress-bar.js';
 export * from './components/referral-chain-editor.js';

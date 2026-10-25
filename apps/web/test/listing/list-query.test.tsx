@@ -36,6 +36,11 @@ describe('readListQuery', () => {
     expect(read('page=0&minAreaHa=-5&sort=name')).toEqual({ page: 1, pageSize: 25, sort: 'name' });
   });
 
+  it('recusa do objeto inteiro (refine entre filtros) cai na lista padrão', () => {
+    const refined = schema.refine((query) => !(query.state === 'MT' && query.minAreaHa === 1), 'combinação inválida');
+    expect(readListQuery(refined, new URLSearchParams('state=MT&minAreaHa=1&page=2'))).toEqual({ page: 1, pageSize: 25 });
+  });
+
   it('ignora parâmetro que a lista não conhece', () => {
     expect(read('utm=x&page=2')).toEqual({ page: 2, pageSize: 25 });
   });
@@ -115,6 +120,14 @@ describe('useListQuery', () => {
     act(() => hook.result.current.update({ page: 2 }));
     await act(() => router.navigate(-1));
     expect(hook.result.current.query).toEqual({ page: 1, pageSize: 25, q: 'rio' });
+  });
+
+  it('troca que não muda a lista não empilha entrada no histórico', () => {
+    const { hook, router } = renderListQuery('/farms?q=rio');
+    act(() => hook.result.current.update({ page: 2 }));
+    const key = router.state.location.key;
+    act(() => hook.result.current.update({ page: 2 }));
+    expect(router.state.location.key).toBe(key);
   });
 
   it('substituir troca a entrada atual em vez de criar outra', async () => {

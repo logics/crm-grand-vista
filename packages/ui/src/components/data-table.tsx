@@ -107,21 +107,7 @@ export function DataTable<Row>({
                   cellAlign[column.align ?? 'left'],
                 )}
               >
-                {column.sortable && onSortChange ? (
-                  <button
-                    type="button"
-                    className={quietButton}
-                    onClick={() => onSortChange(column.key, column.sorted === 'asc' ? 'desc' : 'asc')}
-                  >
-                    {column.label}
-                    <Icon name={column.sorted ? sortIcon[column.sorted] : 'arrow-up-down'} size="xs" />
-                  </button>
-                ) : (
-                  <span className="inline-flex items-center gap-2">
-                    {column.label}
-                    {column.sorted && <Icon name={sortIcon[column.sorted]} size="xs" />}
-                  </span>
-                )}
+                <HeaderLabel column={column} onSortChange={onSortChange} />
               </th>
             ))}
           </tr>
@@ -173,5 +159,30 @@ export function DataTable<Row>({
         </tbody>
       </table>
     </div>
+  );
+}
+
+type HeaderLabelProps<Row> = { column: DataTableColumn<Row>; onSortChange: DataTableProps<Row>['onSortChange'] };
+
+/** Rótulo do cabeçalho com a seta do sentido; na coluna ordenável, um botão que pede a ordenação. */
+function HeaderLabel<Row>({ column, onSortChange }: HeaderLabelProps<Row>) {
+  if (!column.sortable || !onSortChange) {
+    return (
+      <span className="inline-flex items-center gap-2">
+        {column.label}
+        {column.sorted && <Icon name={sortIcon[column.sorted]} size="xs" />}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={quietButton}
+      onClick={() => onSortChange(column.key, column.sorted === 'asc' ? 'desc' : 'asc')}
+    >
+      {column.label}
+      {/* sem ordenação, a seta dupla diz que dá para ordenar */}
+      <Icon name={column.sorted ? sortIcon[column.sorted] : 'arrow-up-down'} size="xs" />
+    </button>
   );
 }
