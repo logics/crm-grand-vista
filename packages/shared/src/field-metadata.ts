@@ -40,6 +40,8 @@ export interface ReferenceField extends LabeledField {
 export interface ExpandedChange {
   /** Rótulo da chave, resolvido pelo `expand` (não a chave crua do JSON). */
   label: string;
+  /** Gênero do rótulo, para o título de uma alteração só. Masculino quando omitido. */
+  gender?: GrammaticalGender;
   from: string | null;
   to: string | null;
 }

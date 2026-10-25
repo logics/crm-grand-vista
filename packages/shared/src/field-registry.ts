@@ -65,8 +65,10 @@ export type EntityField = FieldMeta & {
   property: string;
 };
 
-/** Campos da entidade na ordem do formulário, com o nome camelCase derivado. */
-export function entityFields(table: RegisteredTable): EntityField[] {
-  const fields: Readonly<Record<string, FieldMeta>> = FIELD_REGISTRY[table].fields;
+/** Campos de uma entidade na ordem do formulário, com o nome camelCase derivado. */
+export function metaFields({ fields }: EntityMeta): EntityField[] {
   return Object.entries(fields).map(([column, meta]) => ({ ...meta, column, property: columnToProperty(column) }));
 }
+
+/** Campos da entidade registrada na ordem do formulário, com o nome camelCase derivado. */
+export const entityFields = (table: RegisteredTable): EntityField[] => metaFields(FIELD_REGISTRY[table]);

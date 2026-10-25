@@ -122,7 +122,7 @@ export type {
   ReferenceField,
   ScalarField,
 } from './field-metadata.js';
-export { FIELD_REGISTRY, entityFields } from './field-registry.js';
+export { FIELD_REGISTRY, entityFields, metaFields } from './field-registry.js';
 export type { EntityField, RegisteredTable } from './field-registry.js';
 export {
   HISTORY_KINDS,

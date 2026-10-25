@@ -72,7 +72,7 @@ Nenhuma tabela nova. Uma migration instala a extensão **`unaccent`** (marcada c
 
 **Filhos declarados.** O módulo declara, além do registro, as tabelas filhas e a coluna que aponta para o pai (`farm_documents.farm_id`). O histórico inclui as alterações dos filhos **mesmo depois de excluídos**: a exclusão grava todos os campos como valor anterior, inclusive a coluna do pai, então o filho é encontrado por ela.
 
-**Filtro de visibilidade por filho.** Cada filho declarado pode trazer um filtro que recebe o leitor e a linha e decide se ela aparece. É o ponto de extensão da quarta camada de controle: na Fase 2, os participantes da comissão são filhos da venda, e sem `comissao.ver_de_terceiros` o leitor só vê a própria linha. Linha filtrada some **por inteiro** — não conta no título ("2 alterações") nem deixa entrada vazia.
+**Filtro de visibilidade por filho.** Cada filho declarado pode trazer um filtro que recebe o leitor e a linha e decide se ela aparece. A decisão é **por filho**, sobre o último estado dele (o de antes da exclusão, se excluído), e é tomada **antes de paginar**: a página de 20 saves conta só os que o leitor vê. É o ponto de extensão da quarta camada de controle: na Fase 2, os participantes da comissão são filhos da venda, e sem `comissao.ver_de_terceiros` o leitor só vê a própria linha. Linha filtrada some **por inteiro** — não conta no título ("2 alterações"), não deixa entrada vazia nem ocupa lugar na página.
 
 **Uma entrada por save.** Agrupada por `change_id`, mais nova primeiro. Registro e filhos alterados no mesmo envio ficam na mesma entrada; cada filho é uma linha própria ("Documento adicionado: Matrícula 12.345").
 
@@ -85,6 +85,7 @@ Nenhuma tabela nova. Uma migration instala a extensão **`unaccent`** (marcada c
 | um campo alterado | "Preço pedido alterado" |
 | vários campos e/ou filhos | "3 alterações" |
 | só um filho incluído / excluído | "Documento adicionado" / "Documento removido" |
+| só um filho alterado | "Documento alterado" |
 
 **Cadastro.** A entrada "Fazenda cadastrada" traz os valores iniciais **recolhidos**, abertos por "ver valores iniciais". Os valores já estão na ficha; listá-los abertos empurra para baixo o que importa — o que mudou depois.
 
