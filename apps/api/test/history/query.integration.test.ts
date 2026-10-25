@@ -3,6 +3,7 @@
 // visibilidade por filho. Usa `users` com `memberships` como filho — as únicas
 // tabelas auditadas que já têm essa relação.
 import { auditedWrites, createDatabase, createPool, memberships, users, type Transaction } from '@crm/db';
+import { HISTORY_PAGE_SIZE } from '@crm/shared';
 import { loadApiEnv } from '@crm/shared/env';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -72,6 +73,20 @@ describe('readHistory com filhos e referências', () => {
     const { entries } = await read({ entity: 'users', entityId: parent.id, children: [hidden] });
 
     expect(entries).toMatchObject([{ title: 'Nome alterado', children: [] }]);
+  });
+
+  it('filho barrado não ocupa página: o filtro roda antes de paginar', async () => {
+    const lonely = await createUserWithPassword(db, 'Lúcia Sozinha');
+    await asCli((tx) => writes(tx).update(users, { name: 'Lúcia Acompanhada' }, eq(users.id, lonely.id)));
+    const membership = await asCli((tx) => writes(tx).insert(memberships, { userId: lonely.id, tenantId }));
+    // Mais saves do filho barrado do que cabem numa página.
+    for (let save = 0; save < HISTORY_PAGE_SIZE; save++) {
+      await asCli((tx) => writes(tx).update(memberships, { isDefault: save % 2 === 0 }, eq(memberships.id, membership.id)));
+    }
+
+    const page = await read({ entity: 'users', entityId: lonely.id, children: [{ ...memberChild, canSee: () => false }] });
+
+    expect(page).toEqual({ entries: [expect.objectContaining({ title: 'Nome alterado' })] });
   });
 
   it('referência pelo nome atual; referenciado excluído vira "(registro excluído)"', async () => {

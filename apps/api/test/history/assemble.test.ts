@@ -375,6 +375,18 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
     expect(entries).toEqual([]);
   });
 
+  it('o filtro decide por filho, pelo último estado dele: vale para todos os saves do filho', () => {
+    const broker = child('farm_brokers', '0190a000-0000-7000-8000-00000000b003');
+    const entries = assembleFarm([
+      broker('c1', 'id', null, 'b3'),
+      broker('c1', 'farm_id', null, FARM_ID),
+      broker('c1', 'user_id', null, COLLEAGUE_ID),
+      broker('c2', 'user_id', COLLEAGUE_ID, AUTHOR_ID),
+    ]);
+
+    expect(entries.map((entry) => entry.changeId)).toEqual(['c2', 'c1']);
+  });
+
   it('save que só altera um jsonb expandido aparece, com uma alteração por chave e o rótulo do resolvedor', () => {
     const [entry] = assembleFarm([
       farm('c1', 'custom_fields', '{"irrigation":"Não","pivots":2}', '{"irrigation":"Sim","pivots":3,"slope":"plano"}'),

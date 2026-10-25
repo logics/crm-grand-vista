@@ -10,6 +10,7 @@ import type { EffectiveAccess } from '../authorization/effective-access.js';
 import {
   assembleHistory,
   referencesToResolve,
+  visibleChildren,
   type AuditRow,
   type HistoryChildDeclaration,
   type ReferenceNames,
@@ -43,10 +44,10 @@ export interface HistoryQuery {
 /**
  * As linhas de um filho declarado do registro: de todo filho cuja coluna do pai
  * apontou para ele em alguma linha — valor novo no cadastro, anterior na
- * exclusão. A história inteira do filho, não só a do save: é dela que sai a
- * linha que o filtro de visibilidade lê.
+ * exclusão. A história inteira do filho, não só a da página: é dela que sai o
+ * estado que o filtro de visibilidade lê. A mesma regra, sobre as linhas já
+ * lidas, está em `visibleChildren` (assemble.ts).
  */
-// A mesma regra, sobre as linhas já lidas, está em `childIdsOf` (assemble.ts).
 function childRows({ entity, parentColumn }: HistoryChildDeclaration, entityId: string): SQL {
   const linked = sql`(select ${auditLog.entityId} from ${auditLog} where ${and(
     eq(auditLog.entity, entity),
@@ -79,18 +80,45 @@ async function readReferenceNames(tx: Transaction, rows: readonly AuditRow[], qu
   return names;
 }
 
+const auditRow = {
+  id: auditLog.id,
+  entity: auditLog.entity,
+  entityId: auditLog.entityId,
+  changeId: auditLog.changeId,
+  field: auditLog.field,
+  oldValue: auditLog.oldValue,
+  newValue: auditLog.newValue,
+  userId: auditLog.userId,
+  createdAt: auditLog.createdAt,
+};
+
 /** Uma página do histórico do registro, mais nova primeiro, de até `HISTORY_PAGE_SIZE` saves. */
 export async function readHistory(tx: Transaction, query: HistoryQuery): Promise<HistoryPage> {
-  const { entity, entityId, children = [], cursor } = query;
+  const { entity, entityId, children = [], reader, cursor } = query;
   const ofRecord = and(eq(auditLog.entity, entity), eq(auditLog.entityId, entityId));
-  const ofChildren = children.map((child) => childRows(child, entityId));
   const newest = max(auditLog.id);
+
+  // Os filhos vêm antes da página: o filtro de visibilidade decide quais o
+  // leitor vê, e a página conta só os saves deles e do registro — filho
+  // barrado não ocupa lugar nela.
+  const childHistory =
+    children.length === 0
+      ? []
+      : await tx
+          .select(auditRow)
+          .from(auditLog)
+          .where(or(...children.map((child) => childRows(child, entityId))));
+  const seen = visibleChildren(childHistory, query, reader);
+  const ofSeenChildren = children.flatMap((child, index) => {
+    const ids = [...(seen[index]?.keys() ?? [])];
+    return ids.length === 0 ? [] : [and(eq(auditLog.entity, child.entity), inArray(auditLog.entityId, ids))];
+  });
 
   // Um a mais que a página: se vier, há página seguinte.
   const saves = await tx
     .select({ changeId: auditLog.changeId, newest })
     .from(auditLog)
-    .where(or(ofRecord, ...ofChildren))
+    .where(or(ofRecord, ...ofSeenChildren))
     .groupBy(auditLog.changeId)
     .having(cursor === undefined ? undefined : (lt(newest, cursor) as SQL))
     .orderBy(desc(newest))
@@ -101,20 +129,12 @@ export async function readHistory(tx: Transaction, query: HistoryQuery): Promise
   if (!last) return { entries: [] };
 
   const pageIds = new Set(page.map((save) => save.changeId));
-  const rows = await tx
-    .select({
-      id: auditLog.id,
-      entity: auditLog.entity,
-      entityId: auditLog.entityId,
-      changeId: auditLog.changeId,
-      field: auditLog.field,
-      oldValue: auditLog.oldValue,
-      newValue: auditLog.newValue,
-      userId: auditLog.userId,
-      createdAt: auditLog.createdAt,
-    })
+  const recordRows = await tx
+    .select(auditRow)
     .from(auditLog)
-    .where(or(and(ofRecord, inArray(auditLog.changeId, [...pageIds])), ...ofChildren));
+    .where(and(ofRecord, inArray(auditLog.changeId, [...pageIds])));
+  // Só os filhos visíveis seguem para a montagem: o barrado nunca passa daqui.
+  const rows = [...recordRows, ...seen.flatMap((histories) => [...histories.values()].flat())];
 
   // Pelo nome, sem recorte por vínculo: quem saiu da empresa continua autor do
   // que fez, e o super admin aparece como qualquer um. Só são lidos os autores

@@ -50,9 +50,10 @@ export interface HistoryChildDeclaration<Table extends string = string> {
   /** Coluna que nomeia o filho no título da linha ("Documento adicionado: Matrícula 12.345"). */
   nameColumn?: string;
   /**
-   * Se o leitor vê a linha — a quarta camada de controle de acesso. Recebe o
-   * filho inteiro como estava naquele save, não só as colunas que ele gravou.
-   * Linha barrada some por inteiro: não aparece nem conta no título.
+   * Se o leitor vê o filho — a quarta camada de controle de acesso. Decide uma
+   * vez por filho, sobre o último estado dele (o de antes da exclusão, se foi
+   * excluído), e vale para todos os saves dele. Roda antes da paginação: filho
+   * barrado some por inteiro, não aparece, não conta no título nem ocupa página.
    */
   canSee?: (reader: EffectiveAccess, child: ChildState) => boolean;
 }
@@ -171,35 +172,64 @@ function changesOf(fields: readonly EntityField[], rows: readonly AuditRow[], op
 }
 
 /**
- * Os ids dos filhos do registro, pela coluna do pai em qualquer linha deles —
- * valor novo no cadastro, anterior na exclusão. É o que acha o filho já excluído.
- * A mesma regra, em SQL, está em `childRows` (query.ts).
- */
-function childIdsOf(rows: readonly AuditRow[], child: HistoryChildDeclaration, parentId: string): Set<string> {
-  return new Set(
-    rows
-      .filter(
-        (row) =>
-          row.entity === child.entity &&
-          row.field === child.parentColumn &&
-          (row.oldValue === parentId || row.newValue === parentId),
-      )
-      .map((row) => row.entityId),
-  );
-}
-
-/**
  * O filho como estava ao fim do save, a partir de todas as suas linhas até
  * ali; no save que o exclui, como estava antes de sair.
  */
-function childStateAt(history: readonly AuditRow[], changeId: string, deleted: boolean): ChildState {
-  const last = Math.max(...history.filter((row) => row.changeId === changeId).map((row) => row.id));
+function childStateAt(history: readonly AuditRow[], changeId: string): ChildState {
+  const saved = history.filter((row) => row.changeId === changeId);
+  const deleted = kindOf(saved) === 'deleted';
+  const last = Math.max(...saved.map((row) => row.id));
   const state: Record<string, string | null> = {};
   for (const row of history) {
     if (row.id > last) break;
     state[row.field] = deleted && row.changeId === changeId ? row.oldValue : row.newValue;
   }
   return state;
+}
+
+/** A história de cada filho visível, por id do filho, em ordem de gravação. */
+export type ChildHistories = ReadonlyMap<string, readonly AuditRow[]>;
+
+/**
+ * Os filhos do registro que o leitor vê, de cada declaração, com a história
+ * inteira de cada um. O filho é achado pela coluna do pai em qualquer linha
+ * dele — valor novo no cadastro, anterior na exclusão —, o que acha também o
+ * já excluído; a mesma regra, em SQL, está em `childRows` (query.ts). O filtro
+ * olha o último estado do filho.
+ *
+ * A consulta pagina só sobre os filhos daqui, e a montagem só os exibe: os
+ * dois lados decidem a visibilidade pela mesma função.
+ */
+export function visibleChildren(
+  rows: readonly AuditRow[],
+  { entityId, children = [] }: HistorySubject,
+  reader: EffectiveAccess,
+): ChildHistories[] {
+  const sorted = [...rows].sort(byId);
+  return children.map((declaration) => {
+    const linked = new Set(
+      sorted
+        .filter(
+          (row) =>
+            row.entity === declaration.entity &&
+            row.field === declaration.parentColumn &&
+            (row.oldValue === entityId || row.newValue === entityId),
+        )
+        .map((row) => row.entityId),
+    );
+    const histories = new Map<string, AuditRow[]>();
+    for (const row of sorted) {
+      if (row.entity === declaration.entity && linked.has(row.entityId)) {
+        histories.set(row.entityId, [...(histories.get(row.entityId) ?? []), row]);
+      }
+    }
+    return new Map(
+      [...histories].filter(([, history]) => {
+        const last = history.at(-1);
+        return !declaration.canSee || (last !== undefined && declaration.canSee(reader, childStateAt(history, last.changeId)));
+      }),
+    );
+  });
 }
 
 const CHILD_VERBS: Record<HistoryKind, string> = { created: 'adicionado', updated: 'alterado', deleted: 'removido' };
@@ -213,15 +243,13 @@ interface VisibleChild {
 /** O que a montagem dos filhos de um save consome, além das fontes. */
 interface ChildrenContext extends FormatOptions {
   entityId: string;
-  reader: EffectiveAccess;
 }
 
 interface ChildSource {
   declaration: HistoryChildDeclaration;
   meta: EntityMeta;
   fields: EntityField[];
-  /** Todas as linhas de cada filho do registro, por id do filho, em ordem de gravação. */
-  histories: Map<string, AuditRow[]>;
+  histories: ChildHistories;
 }
 
 /** Cadastro e exclusão pelo registro; senão, o título da única alteração, ou "N alterações". */
@@ -253,7 +281,7 @@ function belongsTo(entityId: string, parentColumn: string, state: ChildState, sa
   );
 }
 
-/** As linhas dos filhos num save, uma por filho, sem as que o leitor não vê. */
+/** As linhas dos filhos (já só os visíveis) num save, uma por filho. */
 function childrenOf(sources: readonly ChildSource[], changeId: string, options: ChildrenContext): VisibleChild[] {
   return sources.flatMap(({ declaration, meta, fields, histories }) =>
     [...histories.values()].flatMap((history): VisibleChild[] => {
@@ -261,9 +289,8 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
       if (saved.length === 0) return [];
 
       const kind = kindOf(saved);
-      const state = childStateAt(history, changeId, kind === 'deleted');
+      const state = childStateAt(history, changeId);
       if (!belongsTo(options.entityId, declaration.parentColumn, state, saved)) return [];
-      if (declaration.canSee && !declaration.canSee(options.reader, state)) return [];
 
       const changes = changesOf(fields, saved, options);
       if (kind === 'updated' && changes.length === 0) return [];
@@ -315,18 +342,13 @@ export function assembleHistory(rows: readonly AuditRow[], options: AssembleOpti
   const { entity, entityId, children = [], registry = FIELD_REGISTRY, authors, references, reader } = options;
   const meta = metaOf(registry, entity);
   const fields = metaFields(meta);
-  const formatting: ChildrenContext = { entityId, reader, references, context: options.context ?? DEFAULT_DISPLAY_CONTEXT };
+  const formatting: ChildrenContext = { entityId, references, context: options.context ?? DEFAULT_DISPLAY_CONTEXT };
 
   const sorted = [...rows].sort(byId);
-  const sources: ChildSource[] = children.map((declaration) => {
-    const ids = childIdsOf(sorted, declaration, entityId);
-    const histories = new Map<string, AuditRow[]>();
-    for (const row of sorted) {
-      if (row.entity !== declaration.entity || !ids.has(row.entityId)) continue;
-      histories.set(row.entityId, [...(histories.get(row.entityId) ?? []), row]);
-    }
+  const seen = visibleChildren(sorted, options, reader);
+  const sources: ChildSource[] = children.map((declaration, index) => {
     const childMeta = metaOf(registry, declaration.entity);
-    return { declaration, meta: childMeta, fields: metaFields(childMeta), histories };
+    return { declaration, meta: childMeta, fields: metaFields(childMeta), histories: seen[index] ?? new Map() };
   });
 
   // Só as linhas do registro e dos seus filhos; a de maior id é a mais recente
