@@ -36,7 +36,7 @@ interface FakeApiOptions {
    * devolve o corpo, ou 404. Uma `FakeResponse` responde por conta própria —
    * falha do servidor, resposta que demora.
    */
-  records?: Record<string, unknown>;
+  records?: Record<string, unknown | FakeResponse>;
 }
 
 /** Resposta montada pelo teste, a cada pedido: `() => new Response(null, { status: 500 })`. */
@@ -117,7 +117,7 @@ export function stubFakeApi({
         const key = [url.pathname + url.search, url.pathname].find((candidate) => candidate in records);
         if (key !== undefined) {
           const record = records[key];
-          return typeof record === 'function' ? (record as FakeResponse)() : json(record);
+          return typeof record === 'function' ? record() : json(record);
         }
         return json({ error: { code: 'not_found', message: 'Registro não encontrado.' } }, 404);
       }

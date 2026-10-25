@@ -3,7 +3,7 @@
 O histórico de alterações de um registro do lado do front: o componente que toda ficha usa para mostrar o histórico dela. Contrapartida de `apps/api/src/history`. Não é módulo de negócio — a primeira ficha que o usa é de `fase-1-configuracoes`.
 
 - **Spec:** `docs/specs/fase-1-fundacao.md` (seções "Histórico de alterações", "Contratos de API" e "Telas e componentes")
-- **Depende de:** `@crm/shared` (`historyPageSchema`), `@crm/ui` (`AuditTimeline`), `src/shell` (`useTenantInfiniteQuery`, `ResourceNotFoundError`, `page-state`), `src/lib/instant.ts`
+- **Depende de:** `@crm/shared` (`historyPageSchema`), `@crm/ui` (`AuditTimeline`), `src/shell` (`useTenantInfiniteQuery`, `ResourceNotFoundError`, `page-state`, `ErrorMessage`), `src/lib/instant.ts`
 
 ## Convenções locais
 
