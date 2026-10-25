@@ -44,6 +44,7 @@ export * from './components/money-input.js';
 export * from './components/municipality-picker.js';
 export * from './components/opportunity-card.js';
 export * from './components/pagination.js';
+export { pageCount } from './lib/pagination.js';
 export * from './components/percent-input.js';
 export * from './components/progress-bar.js';
 export * from './components/referral-chain-editor.js';

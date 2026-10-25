@@ -1,7 +1,7 @@
 // Cache do cliente separado por empresa: toda consulta de empresa leva o slug
 // na chave, então trocar de empresa nunca encontra no cache o registro da
 // anterior — nem por um instante, enquanto o da nova carrega.
-import { useQuery } from '@tanstack/react-query';
+import { type UseQueryOptions, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 import { TENANT_PARAM } from './tenant-path.js';
 
@@ -25,13 +25,21 @@ export function useTenantSlug(): string {
   return slug;
 }
 
+/** Opções do TanStack Query que a consulta de empresa repassa (`placeholderData`). */
+export type TenantQueryOptions<T> = Pick<UseQueryOptions<T>, 'placeholderData'>;
+
 /**
  * Consulta da empresa ativa: a chave ganha o slug, e a busca o recebe. Lance
  * `ResourceNotFoundError` no 404 do registro para a página de erro tratá-lo.
  */
-export function useTenantQuery<T>(key: readonly unknown[], queryFn: (slug: string) => Promise<T>) {
+export function useTenantQuery<T>(
+  key: readonly unknown[],
+  queryFn: (slug: string) => Promise<T>,
+  options: TenantQueryOptions<T> = {},
+) {
   const slug = useTenantSlug();
   return useQuery({
+    ...options,
     queryKey: tenantQueryKey(slug, ...key),
     queryFn: () => queryFn(slug),
     throwOnError: (error) => error instanceof ResourceNotFoundError,

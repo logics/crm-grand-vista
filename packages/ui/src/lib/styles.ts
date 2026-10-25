@@ -11,6 +11,12 @@ export const focusRing = 'outline-none focus-visible:shadow-ring-focus';
  */
 export const textLink = `inline-flex cursor-pointer items-center gap-1 rounded-xs font-medium text-text-link transition-control hover:text-text-link-hover ${focusRing}`;
 
+/**
+ * Botão sem moldura que herda a cor do texto em volta e escurece no hover,
+ * com o anel de foco: o cabeçalho ordenável da `DataTable`.
+ */
+export const quietButton = `inline-flex cursor-pointer items-center gap-2 rounded-xs transition-control hover:text-text-body ${focusRing}`;
+
 /** Controle desabilitado: esmaecido e sem clique. */
 export const disabledControl =
   'disabled:cursor-not-allowed disabled:opacity-45 data-disabled:cursor-not-allowed data-disabled:opacity-45';

@@ -1,13 +1,16 @@
+import type { SortDirection } from '@crm/shared';
 import type { ComponentProps, Key, ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 import { pressable } from '../lib/pressable.js';
+import { quietButton } from '../lib/styles.js';
 import { Icon } from './icon.js';
 
 // Tabela de registros, a lista de trabalho (`DataTable.jsx` do export): faixa
 // de cabeçalho em pedra com rótulos cinza em sentence case, linhas de 56px,
 // filetes finos, tom ao passar o mouse. Vai dentro de um `Card padding="none"`;
 // no mobile, a tela troca a tabela por uma lista de cartões. Coluna numérica é
-// `mono` e alinhada à direita, sempre.
+// `mono` e alinhada à direita, sempre. Ordenar é da tela: a tabela só diz qual
+// coluna está ordenada (`sorted`) e avisa o clique no cabeçalho (`onSortChange`).
 
 const cellAlign = {
   left: 'text-left',
@@ -15,7 +18,9 @@ const cellAlign = {
   center: 'text-center',
 } as const;
 
-const ariaSort = { asc: 'ascending', desc: 'descending' } as const;
+const ariaSort = { asc: 'ascending', desc: 'descending' } as const satisfies Record<SortDirection, string>;
+
+const sortIcon = { asc: 'arrow-up', desc: 'arrow-down' } as const satisfies Record<SortDirection, string>;
 
 export type DataTableColumn<Row> = {
   /** Campo do registro mostrado na célula, quando não há `render`; também é a chave da coluna. */
@@ -32,7 +37,9 @@ export type DataTableColumn<Row> = {
   muted?: boolean;
   /** Deixa a célula quebrar linha (o padrão é não quebrar). */
   wrap?: boolean;
-  sorted?: keyof typeof ariaSort;
+  sorted?: SortDirection;
+  /** O cabeçalho vira botão que pede a ordenação por esta coluna (com `onSortChange`). */
+  sortable?: boolean;
   /** Célula sob medida: `Badge`, `Tag`, `IconButton`. */
   render?: (row: Row, index: number) => ReactNode;
 };
@@ -48,6 +55,11 @@ export type DataTableProps<Row> = Omit<ComponentProps<'div'>, 'children'> & {
   selected?: Key[];
   /** Chave de cada linha; por padrão, `row.id` ou a posição. */
   rowKey?: (row: Row, index: number) => Key;
+  /**
+   * Clique no cabeçalho de coluna `sortable`: a ordenada inverte o sentido, a
+   * outra começa crescente.
+   */
+  onSortChange?: (key: string, direction: SortDirection) => void;
   /** Texto da tabela vazia. */
   empty?: ReactNode;
 };
@@ -73,6 +85,7 @@ export function DataTable<Row>({
   onRowClick,
   selected = [],
   rowKey = (row, index) => rowId(row) ?? index,
+  onSortChange,
   empty = 'Nenhum registro encontrado.',
   ...props
 }: DataTableProps<Row>) {
@@ -94,10 +107,21 @@ export function DataTable<Row>({
                   cellAlign[column.align ?? 'left'],
                 )}
               >
-                <span className="inline-flex items-center gap-2">
-                  {column.label}
-                  {column.sorted && <Icon name={column.sorted === 'desc' ? 'arrow-down' : 'arrow-up'} size="xs" />}
-                </span>
+                {column.sortable && onSortChange ? (
+                  <button
+                    type="button"
+                    className={quietButton}
+                    onClick={() => onSortChange(column.key, column.sorted === 'asc' ? 'desc' : 'asc')}
+                  >
+                    {column.label}
+                    <Icon name={column.sorted ? sortIcon[column.sorted] : 'arrow-up-down'} size="xs" />
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    {column.label}
+                    {column.sorted && <Icon name={sortIcon[column.sorted]} size="xs" />}
+                  </span>
+                )}
               </th>
             ))}
           </tr>

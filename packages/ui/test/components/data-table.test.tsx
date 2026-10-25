@@ -41,6 +41,36 @@ describe('DataTable', () => {
     expect(screen.getByRole('columnheader', { name: 'Fazenda' })).not.toHaveAttribute('aria-sort');
   });
 
+  it('coluna ordenável vira botão: a ordenada inverte o sentido, a outra começa crescente', async () => {
+    const onSortChange = vi.fn();
+    const sortable = columns.map((column) => ({ ...column, sortable: column.key !== 'status' }));
+    render(<DataTable columns={sortable} rows={farms} onSortChange={onSortChange} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Área útil' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Fazenda' }));
+
+    expect(onSortChange.mock.calls).toEqual([
+      ['area', 'asc'],
+      ['name', 'asc'],
+    ]);
+    expect(within(screen.getByRole('columnheader', { name: 'Status' })).queryByRole('button')).toBeNull();
+  });
+
+  it('a ordenada crescente passa a decrescente', async () => {
+    const onSortChange = vi.fn();
+    const sortable: DataTableColumn<Farm>[] = [{ key: 'name', label: 'Fazenda', sortable: true, sorted: 'asc' }];
+    render(<DataTable columns={sortable} rows={farms} onSortChange={onSortChange} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fazenda' }));
+
+    expect(onSortChange).toHaveBeenCalledWith('name', 'desc');
+  });
+
+  it('sem onSortChange, a coluna ordenável não vira botão', () => {
+    render(<DataTable columns={[{ key: 'name', label: 'Fazenda', sortable: true }]} rows={farms} />);
+    expect(screen.queryByRole('button', { name: 'Fazenda' })).toBeNull();
+  });
+
   it('sem registros, mostra a mensagem de vazio ocupando a linha toda', () => {
     render(<DataTable columns={columns} rows={[]} />);
     expect(screen.getByRole('cell', { name: 'Nenhum registro encontrado.' })).toHaveAttribute('colspan', '3');
