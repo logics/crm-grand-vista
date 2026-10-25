@@ -1,6 +1,6 @@
 // Fazenda como os seletores a mostram: nome, município e área total.
 import { z } from 'zod';
-import { AREA_SCALE, formatDecimal } from './decimal.js';
+import { ALQUEIRE_LABELS, AREA_FORMAT, type AlqueireType, formatDecimal, hectaresToAlqueires } from './decimal.js';
 import { municipalityOptionSchema } from './region.js';
 
 /** Fazenda como a busca a devolve. Área em hectares, decimal canônico (`numeric`, nunca `float`). */
@@ -14,4 +14,8 @@ export const farmOptionSchema = z.object({
 export type FarmOption = z.infer<typeof farmOptionSchema>;
 
 /** "1.480 ha", "1.480,5 ha": só as casas que a área tem. */
-export const formatHectares = (area: string) => `${formatDecimal(area, { minScale: 0, maxScale: AREA_SCALE })} ha`;
+export const formatHectares = (area: string) => `${formatDecimal(area, AREA_FORMAT)} ha`;
+
+/** Área em hectares exibida em alqueires do tipo dado: `"48.4"` vira `"10 alq. goiano"`. */
+export const formatAlqueires = (hectares: string, type: AlqueireType) =>
+  `${formatDecimal(hectaresToAlqueires(hectares, type), AREA_FORMAT)} ${ALQUEIRE_LABELS[type]}`;
