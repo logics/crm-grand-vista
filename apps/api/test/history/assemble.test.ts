@@ -216,7 +216,7 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
   const brokers: HistoryChildDeclaration = {
     entity: 'farm_brokers',
     parentColumn: 'farm_id',
-    isVisible: (who, child) => child['user_id'] === who.userId,
+    canSee: (who, child) => child['user_id'] === who.userId,
   };
 
   const farm = (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
@@ -302,6 +302,20 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
     expect(entries).toEqual([]);
   });
 
+  it('filho que passou para outro registro sai do histórico deste a partir da mudança', () => {
+    const entries = assembleFarm([
+      doc('c1', 'id', null, DOC_ID),
+      doc('c1', 'farm_id', null, FARM_ID),
+      doc('c1', 'title', null, 'CAR'),
+      doc('c2', 'farm_id', FARM_ID, OTHER_FARM_ID),
+      doc('c2', 'title', 'CAR', 'CAR da outra'),
+      doc('c3', 'title', 'CAR da outra', 'CAR retificado'),
+    ]);
+
+    // O save da mudança ainda é deste registro (a coluna do pai saiu dele); o seguinte, não.
+    expect(entries.map((entry) => entry.changeId)).toEqual(['c2', 'c1']);
+  });
+
   it('referência pelo nome atual; referenciado que não existe mais vira "(registro excluído)"', () => {
     const [entry] = assembleFarm([farm('c1', 'status_id', STATUS_OLD, STATUS_NEW)]);
 
@@ -374,6 +388,26 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
         { field: 'slope', from: null, to: 'plano' },
       ],
     });
+  });
+
+  it('chave de jsonb com rótulo feminino: título no gênero dela', () => {
+    const feminine = {
+      ...registry,
+      farms: {
+        ...registry.farms,
+        fields: {
+          ...registry.farms.fields,
+          custom_fields: {
+            type: 'jsonb',
+            label: 'Campos personalizados',
+            expand: (): ExpandedChange[] => [{ label: 'Irrigação', gender: 'f', from: 'Não', to: 'Sim' }],
+          },
+        },
+      },
+    } satisfies Record<string, EntityMeta>;
+    const [entry] = assembleHistory([farm('c1', 'custom_fields', '{}', '{"irrigation":"Sim"}')], { ...options, registry: feminine });
+
+    expect(entry?.title).toBe('Irrigação alterada');
   });
 
   it('jsonb expandido na ordem do campo dentro do registro', () => {

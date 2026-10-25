@@ -54,7 +54,7 @@ export interface HistoryChildDeclaration<Table extends string = string> {
    * filho inteiro como estava naquele save, não só as colunas que ele gravou.
    * Linha barrada some por inteiro: não aparece nem conta no título.
    */
-  isVisible?: (reader: EffectiveAccess, child: ChildState) => boolean;
+  canSee?: (reader: EffectiveAccess, child: ChildState) => boolean;
 }
 
 /** Nome atual de cada registro referenciado, por `referenceKey` e pelo id. */
@@ -93,6 +93,10 @@ export interface AssembleOptions extends HistorySubject {
 const RECORD_KEY = 'id';
 
 export const inflect = (word: string, gender: GrammaticalGender) => (gender === 'f' ? `${word.slice(0, -1)}a` : word);
+
+/** O rótulo seguido da palavra no gênero dele: "Fazenda cadastrada", "Nome alterado". */
+export const labelWith = (word: string, { label, gender }: { label: string; gender: GrammaticalGender }) =>
+  `${label} ${inflect(word, gender)}`;
 
 const byId = (a: AuditRow, b: AuditRow) => a.id - b.id;
 
@@ -149,7 +153,7 @@ function formatChanges(field: EntityField, rows: readonly AuditRow[], { referenc
   if (field.type === 'jsonb') {
     return field
       .expand(parseObject(first.oldValue), parseObject(last.newValue), context)
-      .map(({ label, from, to }) => ({ change: { field: label, from, to }, gender: 'm' }));
+      .map(({ label, gender: keyGender = 'm', from, to }) => ({ change: { field: label, from, to }, gender: keyGender }));
   }
 
   const [from, to] =
@@ -169,6 +173,7 @@ function changesOf(fields: readonly EntityField[], rows: readonly AuditRow[], op
 /**
  * Os ids dos filhos do registro, pela coluna do pai em qualquer linha deles —
  * valor novo no cadastro, anterior na exclusão. É o que acha o filho já excluído.
+ * A mesma regra, em SQL, está em `childRows` (query.ts).
  */
 function childIdsOf(rows: readonly AuditRow[], child: HistoryChildDeclaration, parentId: string): Set<string> {
   return new Set(
@@ -205,6 +210,12 @@ interface VisibleChild {
   shortTitle: string;
 }
 
+/** O que a montagem dos filhos de um save consome, além das fontes. */
+interface ChildrenContext extends FormatOptions {
+  entityId: string;
+  reader: EffectiveAccess;
+}
+
 interface ChildSource {
   declaration: HistoryChildDeclaration;
   meta: EntityMeta;
@@ -213,23 +224,37 @@ interface ChildSource {
   histories: Map<string, AuditRow[]>;
 }
 
+/** Cadastro e exclusão pelo registro; senão, o título da única alteração, ou "N alterações". */
 function titleOf(
   kind: HistoryKind,
-  { label, gender }: EntityMeta,
+  meta: EntityMeta,
   changes: readonly VisibleChange[],
   children: readonly VisibleChild[],
 ): string {
-  if (kind === 'created') return `${label} ${inflect('cadastrado', gender)}`;
-  if (kind === 'deleted') return `${label} ${inflect('excluído', gender)}`;
-  const [onlyChange] = changes;
-  const [onlyChild] = children;
-  if (changes.length + children.length > 1) return `${changes.length + children.length} alterações`;
-  if (onlyChange) return `${onlyChange.change.field} ${inflect('alterado', onlyChange.gender)}`;
-  return onlyChild?.shortTitle ?? '';
+  if (kind === 'created') return labelWith('cadastrado', meta);
+  if (kind === 'deleted') return labelWith('excluído', meta);
+  const singles = [
+    ...changes.map(({ change, gender }) => labelWith('alterado', { label: change.field, gender })),
+    ...children.map((child) => child.shortTitle),
+  ];
+  const [only, ...rest] = singles;
+  return only !== undefined && rest.length === 0 ? only : `${singles.length} alterações`;
+}
+
+/**
+ * Se o save do filho é deste registro: a coluna do pai aponta para ele ao fim
+ * do save, ou o save a tirou dele. Filho que passou para outro registro some
+ * daqui a partir dos saves seguintes à mudança.
+ */
+function belongsTo(entityId: string, parentColumn: string, state: ChildState, saved: readonly AuditRow[]): boolean {
+  return (
+    state[parentColumn] === entityId ||
+    saved.some((row) => row.field === parentColumn && (row.oldValue === entityId || row.newValue === entityId))
+  );
 }
 
 /** As linhas dos filhos num save, uma por filho, sem as que o leitor não vê. */
-function childrenOf(sources: readonly ChildSource[], changeId: string, options: AssembleOptions & FormatOptions): VisibleChild[] {
+function childrenOf(sources: readonly ChildSource[], changeId: string, options: ChildrenContext): VisibleChild[] {
   return sources.flatMap(({ declaration, meta, fields, histories }) =>
     [...histories.values()].flatMap((history): VisibleChild[] => {
       const saved = history.filter((row) => row.changeId === changeId);
@@ -237,12 +262,13 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
 
       const kind = kindOf(saved);
       const state = childStateAt(history, changeId, kind === 'deleted');
-      if (declaration.isVisible && !declaration.isVisible(options.reader, state)) return [];
+      if (!belongsTo(options.entityId, declaration.parentColumn, state, saved)) return [];
+      if (declaration.canSee && !declaration.canSee(options.reader, state)) return [];
 
       const changes = changesOf(fields, saved, options);
       if (kind === 'updated' && changes.length === 0) return [];
 
-      const shortTitle = `${meta.label} ${inflect(CHILD_VERBS[kind], meta.gender)}`;
+      const shortTitle = labelWith(CHILD_VERBS[kind], meta);
       const name = declaration.nameColumn ? state[declaration.nameColumn] : null;
       return [
         {
@@ -286,10 +312,10 @@ export function referencesToResolve(
  * visível não vira entrada vazia: some.
  */
 export function assembleHistory(rows: readonly AuditRow[], options: AssembleOptions): HistoryEntry[] {
-  const { entity, entityId, children = [], registry = FIELD_REGISTRY, authors, context = DEFAULT_DISPLAY_CONTEXT } = options;
+  const { entity, entityId, children = [], registry = FIELD_REGISTRY, authors, references, reader } = options;
   const meta = metaOf(registry, entity);
   const fields = metaFields(meta);
-  const formatting = { ...options, context };
+  const formatting: ChildrenContext = { entityId, reader, references, context: options.context ?? DEFAULT_DISPLAY_CONTEXT };
 
   const sorted = [...rows].sort(byId);
   const sources: ChildSource[] = children.map((declaration) => {

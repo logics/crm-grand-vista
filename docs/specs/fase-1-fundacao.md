@@ -85,6 +85,7 @@ Nenhuma tabela nova. Uma migration instala a extensão **`unaccent`** (marcada c
 | um campo alterado | "Preço pedido alterado" |
 | vários campos e/ou filhos | "3 alterações" |
 | só um filho incluído / excluído | "Documento adicionado" / "Documento removido" |
+| só um filho alterado | "Documento alterado" |
 
 **Cadastro.** A entrada "Fazenda cadastrada" traz os valores iniciais **recolhidos**, abertos por "ver valores iniciais". Os valores já estão na ficha; listá-los abertos empurra para baixo o que importa — o que mudou depois.
 

@@ -46,6 +46,7 @@ export interface HistoryQuery {
  * exclusão. A história inteira do filho, não só a do save: é dela que sai a
  * linha que o filtro de visibilidade lê.
  */
+// A mesma regra, sobre as linhas já lidas, está em `childIdsOf` (assemble.ts).
 function childRows({ entity, parentColumn }: HistoryChildDeclaration, entityId: string): SQL {
   const linked = sql`(select ${auditLog.entityId} from ${auditLog} where ${and(
     eq(auditLog.entity, entity),
@@ -55,7 +56,8 @@ function childRows({ entity, parentColumn }: HistoryChildDeclaration, entityId: 
   return and(eq(auditLog.entity, entity), sql`${auditLog.entityId} in ${linked}`) as SQL;
 }
 
-const uuidSchema = z.uuid();
+/** Id de registro: todo `id()` do schema é uuid. */
+export const uuidSchema = z.uuid();
 
 /**
  * O nome atual de cada registro referenciado. Tabela e coluna vêm dos

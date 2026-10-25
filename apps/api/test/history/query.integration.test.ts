@@ -68,7 +68,7 @@ describe('readHistory com filhos e referências', () => {
   });
 
   it('linha barrada pelo filtro some, e o save que só tinha ela também', async () => {
-    const hidden = { ...memberChild, isVisible: () => false };
+    const hidden = { ...memberChild, canSee: () => false };
     const { entries } = await read({ entity: 'users', entityId: parent.id, children: [hidden] });
 
     expect(entries).toMatchObject([{ title: 'Nome alterado', children: [] }]);
