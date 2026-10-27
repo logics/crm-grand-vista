@@ -50,26 +50,29 @@ fase-0-monorepo
 Divisão fechada; as specs são escritas uma a uma, na ordem do grafo — nome sem link é spec ainda não escrita. Cada uma é uma **fatia vertical** de cerca de uma semana — migration, API, tela e testes —, e os itens da ordem de corte são specs inteiras, para que cortar seja "não começar", nunca editar uma spec em andamento.
 
 ```
-fundacao ──> configuracoes ──┬──> contatos ──┬──> perfil-de-compra <── municipios
-                             │               │
-municipios ──────────────────┼──> fazendas <─┘
-                             │       ├──> fazendas-mapa
-                             │       ├──> cotacoes
-r2 ──────────────────────────┼───────├──> fazendas-galerias ──> fazendas-videos
-                             │       └──> fazendas-documentos
-                             │
+fundacao ───┐
+            ├──> configuracoes ──┬──> contatos ──┬──> perfil-de-compra
+municipios ─┘                    │               │
+                                 └──> fazendas <─┘
+                                         ├──> fazendas-mapa
+                                         ├──> cotacoes
+r2 ──────────────────────────────────────├──> fazendas-galerias ──> fazendas-videos
+                                         └──> fazendas-documentos
+
           contatos + fazendas ──> cadeia-de-indicacao
           contatos + fazendas ──> campos-personalizados
 
                                    homologacao   (fim da fase; sem bloqueio de código)
 ```
 
+`municipios` chega a `perfil-de-compra` e a `fazendas` através de `configuracoes` (a praça e os seus municípios atendidos), e continua listado na coluna "Depende de" delas, porque elas também o usam diretamente.
+
 | Spec | Entrega | Depende de |
 |---|---|---|
 | [`fase-1-fundacao.md`](fase-1-fundacao.md) | Registro de metadados de campo em `packages/shared`; leitura genérica do histórico de alterações (rota + `AuditTimeline`); padrão de listagem — paginação, ordenação e filtro validados por Zod, helper de consulta paginada no servidor, `DataTable` + `Pagination` | — |
 | `fase-1-municipios.md` | Carga do IBGE em `municipalities` (fora do RLS, compartilhada entre empresas) | — |
 | `fase-1-r2.md` | Upload direto ao R2 por URL assinada, chave com prefixo da empresa, confirmação do upload. Infra humana via `/wizard` | — |
-| `fase-1-configuracoes.md` | Motor genérico de vocabulário (uma rota e uma tela parametrizadas por tabela, inclusive o caso com `system_meaning`), em que os vocabulários das fases seguintes só se registram; tela de parâmetros com **só** o tipo de alqueire padrão e a unidade de exibição de área — as demais colunas de `tenant_settings` entram na tela com a spec que as consome; semente (status comercial com os quatro significados, categorias de documento do escopo, tipos de galeria) aplicada no `tenant:provision` e por migration nas empresas existentes | fundacao |
+| [`fase-1-configuracoes.md`](fase-1-configuracoes.md) | Motor genérico de cadastros auxiliares (uma rota e uma tela parametrizadas pelo cadastro, com ordem alfabética ou manual, significado de sistema e campos extras), em que os cadastros das fases seguintes só se registram; praça com os municípios atendidos; `VocabularyPicker`; tela de parâmetros com **só** o tipo de alqueire padrão e a unidade de exibição de área — as demais colunas de `tenant_settings` entram com a spec que as consome; semente (status comercial, categorias de documento, culturas) aplicada uma vez por empresa, no `tenant:provision` e por migration nas existentes | fundacao, municipios |
 | `fase-1-contatos.md` | Contato PF/PJ, papéis acumuláveis, classificação, origem do lead e do relacionamento, observações estratégicas, filtros, histórico | configuracoes |
 | `fase-1-perfil-de-compra.md` | `buyer_profiles`, `buyer_regions` (município **ou** UF), `buyer_crops`, `buyer_payment_methods` — a seção da ficha que só existe com o papel comprador | contatos, municipios |
 | `fase-1-fazendas.md` | `farms` completa: identificação, áreas, técnico, comercial, os dois modos de precificação na entrada, derivados em reais, filtros da listagem (os critérios de busca do escopo), histórico na ficha, e a **prova de integração do escopo de dados `own`** que a `fase-0-permissoes` deixou para cá. Latitude e longitude como campos numéricos | contatos, configuracoes, municipios |
