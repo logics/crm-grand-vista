@@ -46,9 +46,8 @@ O documento de escopo (`Escopo CRM.md`, na raiz do projeto, revisão de 24/07/20
 Pendências de **negócio**, resolvíveis durante a Fase 1 (não bloqueiam o início):
 
 - **Logo vetorial.** Os tokens de marca (cores, tipografia, espaçamento) já vêm resolvidos do export, mas não existe vetor do logotipo — só raster. O monograma não deve ser aproximado: enquanto o vetor não chegar, a marca aparece pelo componente `Wordmark`, só tipográfico.
-- Valores iniciais dos vocabulários controlados: aptidões, culturas, status comercial, classificações, origens de lead, categorias de documento, nomes de galeria, etapas de venda. Todos viram cadastros configuráveis por tenant, mas precisam de uma carga inicial.
+- Valores iniciais das etapas de venda. Os dos cadastros auxiliares da Fase 1 estão decididos em `docs/specs/fase-1-configuracoes.md` (status comercial, categorias de documento e culturas semeados; os demais nascem vazios, preenchidos pela empresa).
 - **Alíquotas dos impostos vigentes** e as **praças de comercialização** que a Grand Vista usa como referência de cotação.
-- **Tipo de alqueire padrão** do tenant, para entrada e exibição de área.
 
 ---
 
@@ -313,7 +312,7 @@ O escopo pede "logs de auditoria" como requisito geral e "histórico de alteraç
 - `trading_posts` — praças de comercialização (vocabulário configurável)
 - `taxes` — impostos incidentes na venda, com nome e alíquota vigente. Hoje o caso real é o Funrural, mas o catálogo é genérico de propósito: o governo pode criar outros, alterar alíquotas ou extinguir o atual, como já fez. Não há histórico de vigência próprio — o `audit_log` registra as mudanças de alíquota, e cada venda congela o que valia na época
 - `municipalities` — municípios brasileiros com estado e região, carga inicial do IBGE
-- Vocabulários configuráveis: `aptitudes`, `crops`, `commercial_statuses`, `lead_sources`, `document_categories`, `gallery_types`, `trading_posts`, `sale_statuses`
+- Cadastros auxiliares (vocabulários configuráveis): `aptitudes`, `crops`, `commercial_statuses`, `lead_sources`, `document_categories`, `trading_posts` (com os municípios atendidos), `payment_methods`, `contact_classifications`, `purchase_profiles`, `pipeline_stages`, `sale_statuses`, `activity_types`
 
 **Significado de sistema nos vocabulários.** Todo vocabulário que o tenant pode criar e renomear livremente carrega, além do nome, um **significado de uma lista fechada** — para venda: `em_andamento`, `concluida`, `cancelada`; para o funil: `aberta`, `ganha`, `perdida`. A empresa renomeia, reordena e cria quantas entradas quiser; cada uma aponta para exatamente um significado. Sem isso o sistema perde a capacidade de calcular: "Valor Vendido" precisa saber quais etapas contam como concluída, "Tempo Médio para finalizar venda" precisa saber onde termina, e comissão devida só vale sobre venda concluída. Vale igual para `pipeline_stages`, `commercial_statuses` e `sale_statuses`.
 
@@ -329,9 +328,9 @@ O escopo pede "logs de auditoria" como requisito geral e "histórico de alteraç
 Modela literalmente "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda veio pelo corretor Carlos, que soube pelo Antônio". Vale para os dois lados, comprador e vendedor, e não depende de o proprietário estar identificado. Renderizada e editada pelo `ReferralChainEditor`.
 
 **Fazendas**
-- `farms` — identificação, município, **proprietário opcional** (`owner_contact_id`), corretor responsável (`responsible_user_id`), áreas total e útil **em hectares**, aptidão, solo, topografia, água, disponibilidade hídrica, potencial de irrigação, distâncias de rodovias e armazéns, produtividade histórica e potencial, infraestrutura, situação documental, status comercial, **potencial de venda** (`sales_potential`), prioridade, resumo técnico, diferenciais, coordenada aproximada, praça de referência (`trading_post_id`, normalmente derivada do município mas sobrescrevível), `custom_fields` (JSONB)
+- `farms` — identificação, município, **proprietário opcional** (`owner_contact_id`), corretor responsável (`responsible_user_id`), áreas total e útil **em hectares**, aptidão, solo, topografia, água, disponibilidade hídrica, potencial de irrigação, distâncias de rodovias e armazéns, produtividade histórica e potencial, infraestrutura, situação documental, status comercial, **potencial de venda** (`sales_potential`), prioridade, resumo técnico, diferenciais, coordenada aproximada, praça de referência (`trading_post_id`, sugerida pela praça que atende o município, sobrescrevível), `custom_fields` (JSONB)
 - Precificação na mesma tabela, com discriminador `pricing_mode`: no modo `reais`, `asking_price`; no modo `sacas`, a quantidade (`valuation_bags`), a unidade (por alqueire ou por hectare) e a cultura de referência. O equivalente em reais de uma avaliação em sacas é **sempre calculado**, nunca persistido, a partir da cotação vigente da praça da fazenda. Valor por hectare, por hectare útil e faixa de valor são derivados
-- `farm_galleries` — agrupamento de mídia por tipo nomeado (Solo, Aérea, Sede…), com os nomes vindos de `gallery_types`
+- `farm_galleries` — agrupamento de mídia por nome livre (Solo, Aérea, Sede…), sem cadastro de tipos
 - `farm_media` — fotos e vídeos no R2, vinculados a uma galeria
 - `farm_documents` — anexos vinculados a `document_categories`
 

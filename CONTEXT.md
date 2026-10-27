@@ -50,6 +50,23 @@ A vista da auditoria da **empresa inteira**, atravessando registros e módulos. 
 Um dos dois papéis Postgres do projeto. `crm_owner` é dono do schema e roda as migrations; `crm_app` é o que a API usa e está sujeito às policies. A distinção não é organizacional: o Postgres **não aplica RLS ao dono da tabela**, então usar o papel errado na aplicação desliga o isolamento em silêncio.
 _Avoid_: "usuário do banco" — em Postgres papel e usuário são a mesma coisa, mas "papel" é o termo que a documentação usa
 
+### Configurações
+
+**Cadastro auxiliar**:
+Lista de opções que a própria empresa mantém — culturas, aptidões, praças, categorias de documento, status comercial — e que os cadastros principais referenciam em vez de texto livre. Cada item é uma **entrada**. A empresa cria, renomeia e desativa entradas; o nome é único na empresa sem distinguir caixa nem acento ("Soja" e "sôja" são a mesma entrada). As opções aparecem em ordem alfabética, salvo nos cadastros auxiliares cuja ordem expressa um fluxo (status comercial, etapas do funil), em que a empresa define a ordem.
+_Avoid_: "vocabulário" em texto de UI ou conversa com o cliente — é só o identificador em código (`vocabulary`); "lista" e "tabela", que colidem com listagem e tabela de banco
+
+**Entrada inativa**:
+Entrada de cadastro auxiliar retirada de uso: some das opções de cadastro novo, mas continua aparecendo nos registros e no histórico que já a usam. É o destino de toda entrada em uso — só a que nunca foi usada pode ser excluída.
+_Avoid_: entrada excluída, arquivada
+
+**Significado de sistema**:
+O sentido fixo, de uma lista fechada definida pelo sistema, a que cada entrada de certos cadastros auxiliares (status comercial, etapas do funil, status da venda) aponta — é o que permite calcular "vendido" ou "concluída" por mais que a empresa renomeie as entradas. É escolhido na criação da entrada e não muda depois; e cada significado mantém sempre ao menos uma entrada ativa. A primeira entrada ativa de um significado é a que um registro novo recebe por padrão (fazenda nova nasce com o primeiro status "disponível").
+
+**Parâmetros da empresa**:
+Os ajustes de comportamento que valem para a empresa inteira — tipo de alqueire padrão, unidade de exibição de área, limiares de inércia, comissão padrão. Um por empresa, sem lista.
+_Avoid_: "configurações" para esta coisa específica — Configurações é o módulo, que contém parâmetros e cadastros auxiliares
+
 ### Fazenda
 
 **Fazenda**:
@@ -148,7 +165,7 @@ _Avoid_: "Perfil" sozinho
 Unidade única de área no banco. Toda área é armazenada em hectares (`numeric`), sem exceção — é o que mantém matching por faixa de área, relatórios e agregações regionais comparáveis entre si.
 
 **Alqueire**:
-Unidade de entrada e exibição, nunca de armazenamento. Não é uma medida única — o goiano/mineiro (geométrico) tem 4,84 ha, o paulista 2,42 ha, o do norte 2,72 ha — então informar área em alqueires exige dizer qual. O corretor digita em alqueires, o sistema converte e guarda hectares. A unidade de exibição preferida é parâmetro do tenant.
+Unidade de entrada e exibição, nunca de armazenamento. Não é uma medida única — o goiano/mineiro (geométrico) tem 4,84 ha, o paulista 2,42 ha, o do norte 2,72 ha — então informar área em alqueires exige dizer qual. O corretor digita em alqueires, o sistema converte e guarda hectares. O tipo de alqueire padrão da empresa é só o **pré-preenchimento** da entrada e a referência de exibição: todo valor gravado *por alqueire* (como uma avaliação em sacas por alqueire) congela o próprio tipo, e trocar o padrão nunca reinterpreta o que já foi gravado.
 
 ### Valores e impostos
 
@@ -162,7 +179,7 @@ Precificação da fazenda em sacas por unidade de área (ex.: 7.000 sacas por al
 Qual das duas naturezas acima a fazenda usa — reais ou sacas. Determina o que é digitado e o que é calculado; o equivalente em reais de uma avaliação nunca é persistido.
 
 **Praça**:
-Praça de comercialização que serve de referência para a cotação. Não existe cotação nacional única, então cultura + praça + data é o que identifica uma cotação. Normalmente derivada do município da fazenda, mas sobrescrevível — a praça de comercialização nem sempre é o município onde a fazenda está.
+Praça de comercialização que serve de referência para a cotação. Não existe cotação nacional única, então cultura + praça + data é o que identifica uma cotação. Cada praça atende uma lista de municípios, e a fazenda recebe como sugestão a praça que atende o seu município — sobrescrevível, porque a praça de comercialização nem sempre é a do município onde a fazenda está. A sugestão vale só no momento da escolha: depois de salva, a praça é dado da fazenda, e mudar os municípios que uma praça atende não reatribui fazendas existentes. Um município é atendido por no máximo uma praça da empresa.
 
 **Imposto**:
 Tributo incidente sobre a venda, cadastrado por tenant com nome e alíquota vigente. Hoje o caso real é o Funrural, mas o catálogo é genérico de propósito: o governo pode criar outros, alterar alíquotas ou extinguir o atual, como já fez. Cada venda congela os impostos e as alíquotas que valiam no fechamento.

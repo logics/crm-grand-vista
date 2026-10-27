@@ -62,7 +62,7 @@ Estas tabelas **não** carregam policy por tenant. O vínculo usuário↔empresa
 
 | Tabela | Fase | Colunas distintivas |
 |---|---|---|
-| `tenant_settings` | 1 | `tenant_id` PK (1:1). `default_alqueire_type` CHECK `('goiano','paulista','norte')`, `area_display_unit` CHECK `('hectare','alqueire')`, `currency` DEFAULT `'BRL'`, `default_pricing_basis` CHECK `('gross','net')`, `default_commission_percent`, e os limiares de inércia: `forgotten_client_days`, `stalled_deal_days`, `owner_no_return_days` |
+| `tenant_settings` | 1 | `tenant_id` PK (1:1). `default_alqueire_type` CHECK `('goiano','paulista','norte')` DEFAULT `'goiano'` — só pré-preenchimento e referência de exibição, nunca reinterpreta valor gravado —, `area_display_unit` CHECK `('hectare','alqueire')` DEFAULT `'hectare'`. Essas duas nascem com `fase-1-configuracoes`; as demais entram como colunas novas, com default, na spec que as consome: `currency` DEFAULT `'BRL'`, `default_pricing_basis` CHECK `('gross','net')`, `default_commission_percent`, e os limiares de inércia: `forgotten_client_days`, `stalled_deal_days`, `owner_no_return_days` |
 | `custom_field_defs` | 1 | `entity`, `key`, `label`, `type` CHECK `('text','number','date','boolean','select')`, `options` jsonb, `required`, `display_order`, `active`. UNIQUE `(tenant_id, entity, key)` |
 | `matching_rules` | 2 | `criterion` CHECK `('region','area_range','value_range','aptitude','crop')`, `weight`, `active`. UNIQUE `(tenant_id, criterion)` |
 | `taxes` | 2 | `name`, `rate`, `active`. UNIQUE `(tenant_id, name)`. Sem histórico de vigência próprio: o `audit_log` registra mudança de alíquota e cada venda congela a sua em `sale_taxes` |
@@ -70,16 +70,18 @@ Estas tabelas **não** carregam policy por tenant. O vínculo usuário↔empresa
 
 ### Vocabulários configuráveis
 
-Forma comum: `name` text, `display_order` int, `active` boolean, UNIQUE `(tenant_id, name)`.
+Forma comum: `name` text, `display_order` int NOT NULL DEFAULT 0, `active` boolean, e unicidade do nome **sem distinguir caixa nem acento** — índice único em `(tenant_id, <nome normalizado>)`, normalização `lower` + `unaccent` por função `IMMUTABLE`. A ordem de exibição é **alfabética** (collation pt-BR, `display_order` ignorado) ou **manual** (`display_order`), declarada por cadastro em código; toda FK para um cadastro auxiliar é `ON DELETE RESTRICT` — entrada em uso só se desativa. Ver `fase-1-configuracoes.md`.
 
 | Tabela | Fase | Observação |
 |---|---|---|
-| `aptitudes`, `crops`, `lead_sources`, `document_categories`, `gallery_types`, `trading_posts`, `payment_methods`, `activity_types`, `contact_classifications`, `purchase_profiles` | 1 | Forma comum, sem significado de sistema |
-| `commercial_statuses` | 1 | `system_meaning` NOT NULL CHECK `('available','negotiating','sold','suspended')` |
-| `pipeline_stages` | 2 | `system_meaning` NOT NULL CHECK `('open','won','lost')`. As 10 etapas do escopo entram semeadas |
-| `sale_statuses` | 2 | `system_meaning` NOT NULL CHECK `('in_progress','completed','cancelled')` |
+| `aptitudes`, `crops`, `lead_sources`, `document_categories`, `trading_posts`, `payment_methods`, `contact_classifications`, `purchase_profiles` | 1 | Forma comum, sem significado de sistema, ordem alfabética |
+| `trading_post_municipalities` | 1 | `trading_post_id` → `trading_posts` ON DELETE CASCADE, `municipality_ibge_code` → `municipalities`. UNIQUE `(tenant_id, municipality_ibge_code)`: um município é atendido por no máximo uma praça da empresa. É de onde a fazenda recebe a **sugestão** de praça |
+| `activity_types` | 3 | Forma comum, ordem alfabética. Nasce com a agenda |
+| `commercial_statuses` | 1 | `system_meaning` NOT NULL CHECK `('available','negotiating','sold','suspended')`. Ordem manual |
+| `pipeline_stages` | 2 | `system_meaning` NOT NULL CHECK `('open','won','lost')`. Ordem manual. As 10 etapas do escopo entram semeadas |
+| `sale_statuses` | 2 | `system_meaning` NOT NULL CHECK `('in_progress','completed','cancelled')`. Ordem manual |
 
-**Por que o significado de sistema:** a empresa renomeia, reordena e cria quantas entradas quiser, mas o sistema precisa calcular. "Valor Vendido" precisa saber quais entradas contam como concluída, "Tempo Médio para finalizar venda" precisa saber onde termina, e comissão devida só vale sobre venda concluída. Cada entrada aponta para exatamente um significado da lista fechada.
+**Por que o significado de sistema:** a empresa renomeia, reordena e cria quantas entradas quiser, mas o sistema precisa calcular. "Valor Vendido" precisa saber quais entradas contam como concluída, "Tempo Médio para finalizar venda" precisa saber onde termina, e comissão devida só vale sobre venda concluída. Cada entrada aponta para exatamente um significado da lista fechada, escolhido na criação e **imutável** depois; cada significado mantém ao menos uma entrada ativa, e a primeira ativa na ordem é a que um registro novo recebe por padrão.
 
 ---
 
@@ -110,7 +112,7 @@ Modela "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda vei
 
 ### `farms`
 
-**Identificação e responsabilidade:** `name`, `municipality_ibge_code`, `owner_contact_id` **nulo** (proprietário é opcional — muitas vezes só é identificado depois), `responsible_user_id` (corretor responsável), `trading_post_id` (praça de referência, normalmente derivada do município mas sobrescrevível).
+**Identificação e responsabilidade:** `name`, `municipality_ibge_code`, `owner_contact_id` **nulo** (proprietário é opcional — muitas vezes só é identificado depois), `responsible_user_id` (corretor responsável), `trading_post_id` (praça de referência: sugerida pela praça que atende o município — `trading_post_municipalities` — no momento da escolha, sobrescrevível, e nunca reatribuída quando a lista da praça muda).
 
 **Áreas:** `total_area_ha`, `usable_area_ha`. Sempre hectares.
 
@@ -122,7 +124,7 @@ Modela "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda vei
 
 - `pricing_mode` NOT NULL CHECK `('brl','bags')`
 - modo `brl`: `asking_price`
-- modo `bags`: `valuation_bags` numeric(14,4), `valuation_bags_unit` CHECK `('per_hectare','per_alqueire')`, `valuation_crop_id`
+- modo `bags`: `valuation_bags` numeric(14,4), `valuation_bags_unit` CHECK `('per_hectare','per_alqueire')`, `valuation_bags_alqueire_type` CHECK `('goiano','paulista','norte')` — obrigatório quando a unidade é `per_alqueire`, nulo caso contrário: a avaliação congela o próprio tipo de alqueire, e trocar o padrão da empresa não a reinterpreta —, `valuation_crop_id`
 - `CHECK` garantindo que o conjunto do modo escolhido está preenchido
 
 **Derivados, nunca colunas:** valor por hectare, valor por hectare útil, valor em sacas, faixa de valor, e o equivalente em reais de uma avaliação em sacas. Uma avaliação é valor **móvel** — muda todo dia com a cotação, sem ninguém tocar no cadastro —, então persistir o equivalente seria guardar um número que envelhece em silêncio. O histórico de alterações registra mudança na quantidade de sacas, não a variação diária da cotação.
@@ -131,7 +133,7 @@ Modela "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda vei
 
 | Tabela | Colunas distintivas |
 |---|---|
-| `farm_galleries` | `farm_id`, `gallery_type_id`, `name`, `display_order` |
+| `farm_galleries` | `farm_id`, `name`, `display_order`. Sem tipo: a galeria é identificada só pelo nome |
 | `farm_media` | `farm_id`, `gallery_id`, `kind` CHECK `('photo','video')`, `r2_key`, `filename`, `content_type`, `size_bytes`, `width`, `height`, `duration_seconds`, `display_order` |
 | `farm_documents` | `farm_id`, `document_category_id`, `r2_key`, `filename`, `content_type`, `size_bytes`, `notes` |
 
