@@ -20,6 +20,7 @@ export const TABLES_WITHOUT_FIELD_METADATA: Readonly<Record<string, string>> = {
   profile_data_scopes: 'junção sem `id`, sincronizada como conjunto',
   user_profiles: 'junção sem `id`, sincronizada como conjunto',
   user_platform_permissions: 'junção sem `id`, vazia até o AdminMaster',
+  municipalities: 'dado de referência do IBGE, carregado por migration; ninguém o edita nem o audita',
 };
 
 /** O que o teste precisa do registro: as colunas declaradas de cada tabela. */

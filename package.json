@@ -19,6 +19,7 @@
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @crm/db migrate",
+    "municipalities:snapshot": "pnpm --filter @crm/db municipalities:snapshot",
     "tenant:provision": "pnpm --filter @crm/api provision-tenant",
     "user:create": "pnpm --filter @crm/api user:create",
     "user:reset-password": "pnpm --filter @crm/api user:reset-password",

@@ -18,6 +18,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "generate": "drizzle-kit generate",
+    "municipalities:snapshot": "tsx --conditions=@crm/source src/cli/municipalities-snapshot.ts",
     "migrate": "tsx --conditions=@crm/source --env-file-if-exists=../../.env src/cli/migrate.ts"
   },
   "devDependencies": {
