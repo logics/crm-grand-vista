@@ -3,7 +3,7 @@
 Schema Drizzle e migrations: fonte única da verdade das tabelas.
 
 - **Spec:** `docs/specs/fase-0-monorepo.md` (pacote, pool, container); `docs/specs/fase-0-banco-e-rls.md` (schema, RLS, wrappers); `docs/specs/fase-0-permissoes.md` (catálogo de permissões)
-- **Tabelas que possui:** fora do RLS, `tenants`, `users`, `sessions`, `accounts`, `verifications`, `memberships`, `permissions`, `user_platform_permissions`; dentro, `access_profiles`, `profile_permissions`, `profile_data_scopes`, `user_profiles`, `audit_log` — colunas de todas as fases em `docs/specs/modelo-de-dados.md`
+- **Tabelas que possui:** fora do RLS, `tenants`, `users`, `sessions`, `accounts`, `verifications`, `memberships`, `permissions`, `user_platform_permissions`, `municipalities`; dentro, `access_profiles`, `profile_permissions`, `profile_data_scopes`, `user_profiles`, `audit_log` — colunas de todas as fases em `docs/specs/modelo-de-dados.md`
 - **Depende de:** `@crm/shared`
 
 ## Convenções locais
@@ -25,5 +25,6 @@ Schema Drizzle e migrations: fonte única da verdade das tabelas.
 - Escopo de permissão é garantido pelo banco: o trigger `enforce_permission_scope` (`migrations/0005_*.sql`) recusa permissão `platform` em `profile_permissions` e `tenant` em `user_platform_permissions`.
 - Migration é **só para frente** e precisa funcionar com o código do release anterior: o rollback do deploy volta o código, nunca o banco. Expandir num deploy, contrair noutro. Apagar, renomear, mudar tipo, tornar coluna obrigatória (ou criar `NOT NULL` sem `DEFAULT`), `TRUNCATE` e `DELETE` só passam pela guarda (`test/migration-safety.test.ts`) com `-- contração: <motivo>` no mesmo bloco do comando — escrito quando o release no ar já não depende do que sai. Desfazer uma mudança é migration nova, não `down()`.
 - Extensão do Postgres entra por migration, como `crm_owner`, e só se for *trusted* (o papel não é superusuário): `unaccent` (`migrations/0007_*.sql`) serve a busca textual das listagens.
+- `municipalities` é dado de referência do IBGE, carregado pelas migrations a partir de `data/municipalities.json`; `crm_app` só lê. `pnpm municipalities:snapshot` baixa a lista, e havendo diferença regrava o snapshot e gera a migration do delta (`INSERT`/`UPDATE`/`active = false`, nunca `DELETE`). Se o `fetch` do Node recusar o certificado do ambiente, rode com `NODE_EXTRA_CA_CERTS`.
 - Gerar migration: `pnpm --filter @crm/db generate`. Aplicar: `pnpm db:migrate`.
 - Teste de integração termina em `.integration.test.ts`; o setup (`test/support/global-setup.ts`) zera o banco `*_test` e aplica as migrations do zero.
