@@ -42,7 +42,7 @@ Estas tabelas **não** carregam policy por tenant. O vínculo usuário↔empresa
 | `memberships` | 0 | `user_id`, `tenant_id`, `is_default boolean`. UNIQUE `(user_id, tenant_id)`; índice único parcial em `(user_id) WHERE is_default` garante no máximo uma empresa padrão por usuário |
 | `permissions` | 0 | Catálogo global, definido em código e sincronizado por migration. `code` text PK (`fazendas.criar`), `module`, `action`, `scope` CHECK `('tenant','platform')`, `description` |
 | `user_platform_permissions` | 0 | `user_id`, `permission_code` (só `scope='platform'`), `granted_at`, `granted_by`. **Vazia na Fase 0** — só o `is_super_admin` passa pelas permissões de plataforma. É a estrutura que o AdminMaster usará quando existir, sem reestruturação |
-| `municipalities` | 1 | `ibge_code` text PK, `name`, `uf` char(2), `region`. Dado de referência público, carga do IBGE, compartilhado entre tenants |
+| `municipalities` | 1 | `ibge_code` text PK, `name`, `uf` char(2), `region` (grande região), `active boolean NOT NULL DEFAULT true`. Dado de referência público, compartilhado entre tenants, carregado de um snapshot versionado da API do IBGE por migration. Nunca excluído: o município extinto fica `active = false`. Ver `fase-1-municipios.md` |
 
 ---
 
