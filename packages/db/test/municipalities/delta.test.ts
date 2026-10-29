@@ -35,7 +35,7 @@ describe('delta de municípios', () => {
   });
 
   it('UF alterada vira UPDATE com a região nova', () => {
-    const moved = { ...rioVerde, uf: 'MT', region: 'Centro-Oeste' };
+    const moved: MunicipalityRecord = { ...rioVerde, uf: 'MT', region: 'Centro-Oeste' };
 
     expect(buildMunicipalitiesDelta([rioVerde], [moved])!).toContain(`"uf" = 'MT'`);
   });

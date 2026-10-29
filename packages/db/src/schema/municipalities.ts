@@ -1,5 +1,6 @@
 import { boolean, char, check, pgTable, text } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { REGIONS } from '../municipalities/types.js';
 
 /**
  * Município do IBGE — dado de referência, carregado pelas migrations a partir do
@@ -18,6 +19,6 @@ export const municipalities = pgTable(
     active: boolean('active').notNull().default(true),
   },
   (table) => [
-    check('municipalities_region_check', sql`${table.region} in ('Norte','Nordeste','Centro-Oeste','Sudeste','Sul')`),
+    check('municipalities_region_check', sql`${table.region} in (${sql.raw(REGIONS.map((region) => `'${region}'`).join(','))})`),
   ],
 );

@@ -1,4 +1,4 @@
-import { type MunicipalityRecord, REGIONS } from './types.js';
+import { type MunicipalityRecord, isRegion } from './types.js';
 
 export const IBGE_MUNICIPALITIES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/municipios';
 
@@ -28,7 +28,7 @@ export function parseIbgeMunicipalities(payload: unknown): MunicipalityRecord[] 
       const region = String(field(field(uf, 'regiao', where), 'nome', where));
 
       if (!/^\d{7}$/.test(ibgeCode)) throw new Error(`Código IBGE fora do formato de 7 dígitos: ${ibgeCode}.`);
-      if (!(REGIONS as readonly string[]).includes(region)) throw new Error(`Grande região desconhecida em ${where}: ${region}.`);
+      if (!isRegion(region)) throw new Error(`Grande região desconhecida em ${where}: ${region}.`);
 
       return { ibgeCode, name: String(field(item, 'nome', where)), uf: String(field(uf, 'sigla', where)), region };
     })
