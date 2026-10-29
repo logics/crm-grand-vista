@@ -92,7 +92,7 @@ Mudar o modo de um cadastro é editar o registro, sem migration: as entradas com
 ### Praça e municípios atendidos
 
 - A praça se edita no mesmo diálogo das demais, com o campo extra **Municípios atendidos** (`MunicipalityPicker` múltiplo). Gravar nome e municípios é um save só.
-- Incluir um município já atendido por outra praça é **409**, nomeando-a: "Rio Verde (GO) já é atendido pela praça Jataí."
+- Incluir um município já atendido por outra praça é **409**, nomeando-a: "Rio Verde — GO já é atendido pela praça Jataí."
 - **Praça inativa mantém os seus municípios** — continuam reservados a ela — mas não é sugerida a nenhuma fazenda. Para passar um município a outra praça, tira-se da antiga primeiro.
 - A **sugestão** de praça pelo município é uma leitura deste módulo; a regra de quando sugerir e de nunca reatribuir fazenda salva é de `fase-1-fazendas`.
 

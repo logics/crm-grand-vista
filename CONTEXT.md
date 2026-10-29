@@ -67,6 +67,12 @@ O sentido fixo, de uma lista fechada definida pelo sistema, a que cada entrada d
 Os ajustes de comportamento que valem para a empresa inteira — tipo de alqueire padrão, unidade de exibição de área, limiares de inércia, comissão padrão. Um por empresa, sem lista.
 _Avoid_: "configurações" para esta coisa específica — Configurações é o módulo, que contém parâmetros e cadastros auxiliares
 
+### Território
+
+**Município**:
+Município brasileiro como o IBGE o define, identificado pelo código IBGE de 7 dígitos. É dado de referência público, o mesmo para todas as empresas, e nenhuma empresa o cadastra nem o edita. Nunca é excluído: o que o IBGE extingue fica inativo, some das opções de cadastro novo e continua aparecendo nos registros que já o usam. Exibido sempre com a UF ("Rio Verde — GO"), porque há nomes repetidos entre estados.
+_Avoid_: "cidade" — sede municipal e município não são a mesma coisa, e o IBGE fala em município
+
 ### Fazenda
 
 **Fazenda**:
