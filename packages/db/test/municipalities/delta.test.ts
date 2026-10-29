@@ -40,6 +40,10 @@ describe('delta de municípios', () => {
     expect(buildMunicipalitiesDelta([rioVerde], [moved])!).toContain(`"uf" = 'MT'`);
   });
 
+  it('região alterada vira UPDATE', () => {
+    expect(buildMunicipalitiesDelta([rioVerde], [{ ...rioVerde, region: 'Sul' }])!).toContain(`"region" = 'Sul'`);
+  });
+
   it('município que sumiu da lista fica inativo, nunca é apagado', () => {
     const sql = buildMunicipalitiesDelta([rioVerde, bomJesus], [rioVerde])!;
 

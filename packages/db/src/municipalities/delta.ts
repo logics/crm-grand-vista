@@ -22,7 +22,7 @@ export function buildMunicipalitiesDelta(
   const added = next.filter((m) => !before.has(m.ibgeCode));
   const changed = next.filter((m) => {
     const old = before.get(m.ibgeCode);
-    return old && (old.name !== m.name || old.uf !== m.uf);
+    return old && (old.name !== m.name || old.uf !== m.uf || old.region !== m.region);
   });
   const removed = previous.filter((m) => !after.has(m.ibgeCode));
 
