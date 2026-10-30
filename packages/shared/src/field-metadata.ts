@@ -28,12 +28,23 @@ export type ScalarField =
   | (LabeledField & { type: 'enum'; options: Readonly<Record<string, string>> });
 
 /**
+ * Rótulo composto de uma referência: as colunas que a função lê e a função que
+ * as junta ("Rio Verde — GO"). Vale no lugar da coluna de nome.
+ */
+export interface ReferenceLabel {
+  columns: readonly string[];
+  format: (row: Readonly<Record<string, string>>) => string;
+}
+
+/**
  * Referência a outro registro, exibida pelo nome atual dele. Aqui só se declara
- * de onde vem o nome; resolvê-lo é do histórico, que lê o banco.
+ * de onde vem o nome; resolvê-lo é do histórico, que lê o banco. Com `label`, o
+ * nome exibido é o da função, que lê as colunas dela; `nameColumn` fica como o
+ * nome simples. A chave do registro referenciado é `id`, salvo `keyColumn`.
  */
 export interface ReferenceField extends LabeledField {
   type: 'reference';
-  references: { table: string; nameColumn: string };
+  references: { table: string; nameColumn: string; keyColumn?: string; label?: ReferenceLabel };
 }
 
 /** Uma alteração de chave de um jsonb expandido, já rotulada e formatada. */
