@@ -67,7 +67,15 @@ export const DELETED_REFERENCE = '(registro excluído)';
 type Reference = ReferenceField['references'];
 
 /** A chave de `ReferenceNames`: a tabela e a coluna de nome. */
-export const referenceKey = ({ table, nameColumn }: Reference) => `${table}.${nameColumn}`;
+export const referenceKey = ({ table, nameColumn, keyColumn = 'id', label }: Reference) =>
+  `${table}[${keyColumn}].${label ? label.columns.join('+') : nameColumn}`;
+
+/** As colunas que a consulta lê para nomear o registro: as do rótulo, se declarado, ou a de nome. */
+export const referenceColumns = ({ nameColumn, label }: Reference): readonly string[] => label?.columns ?? [nameColumn];
+
+/** O nome exibido do registro referenciado, a partir das colunas lidas: pelo rótulo, se declarado. */
+export const referenceName = ({ nameColumn, label }: Reference, row: Readonly<Record<string, string>>): string =>
+  label ? label.format(row) : (row[nameColumn] ?? '');
 
 /** O registro cujo histórico se monta, e onde estão os metadados dele e dos filhos. */
 export interface HistorySubject {

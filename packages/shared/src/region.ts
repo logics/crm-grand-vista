@@ -2,6 +2,7 @@
 // uma UF inteira — a forma de `buyer_regions` e `opportunity_regions`, em que
 // "interessado em Goiás" não obriga a listar 246 municípios.
 import { z } from 'zod';
+import type { ReferenceField } from './field-metadata.js';
 
 export const UF_NAMES = {
   AC: 'Acre',
@@ -67,7 +68,22 @@ export const isMunicipality = (region: RegionOption): region is MunicipalityOpti
 export const regionKey = (region: RegionOption) => (isMunicipality(region) ? region.ibgeCode : region.uf);
 
 /** "Rio Verde — GO". */
-export const municipalityLabel = (municipality: MunicipalityOption) => `${municipality.name} — ${municipality.uf}`;
+export const municipalityLabel = (municipality: Pick<MunicipalityOption, 'name' | 'uf'>) =>
+  `${municipality.name} — ${municipality.uf}`;
+
+/**
+ * Como uma coluna que referencia `municipalities` declara a referência no
+ * registro de metadados: o histórico mostra "Bom Jesus — GO", nunca só o nome.
+ */
+export const municipalityReference = {
+  table: 'municipalities',
+  nameColumn: 'name',
+  keyColumn: 'ibge_code',
+  label: {
+    columns: ['name', 'uf'],
+    format: ({ name = '', uf = '' }) => municipalityLabel({ name, uf: uf as MunicipalityOption['uf'] }),
+  },
+} as const satisfies ReferenceField['references'];
 
 /** "Rio Verde — GO" ou "Goiás (UF)". */
 export const regionLabel = (region: RegionOption) =>
