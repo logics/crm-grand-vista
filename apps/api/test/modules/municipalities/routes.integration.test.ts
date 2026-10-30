@@ -23,6 +23,15 @@ interface Page {
   nextCursor?: string;
 }
 
+interface UfItem {
+  uf: string;
+}
+
+interface PageWithUfs {
+  items: Array<Item | UfItem>;
+  nextCursor?: string;
+}
+
 describe('rota de busca de municípios', () => {
   const pool = createPool(env.DATABASE_URL);
   const db = createDatabase(pool);
@@ -38,6 +47,12 @@ describe('rota de busca de municípios', () => {
     const response = await get(query);
     expect(response.status).toBe(200);
     return (await response.json()) as Page;
+  };
+
+  const searchWithUfs = async (query: string): Promise<PageWithUfs> => {
+    const response = await get(query);
+    expect(response.status).toBe(200);
+    return (await response.json()) as PageWithUfs;
   };
 
   /** Todas as páginas da busca, na ordem. */
@@ -197,6 +212,41 @@ describe('rota de busca de municípios', () => {
       expect(pages).toBeGreaterThan(1);
       expect(new Set(seen).size).toBe(seen.length);
       expect(seen.length).toBe(count);
+    });
+  });
+
+  describe('UFs incluídas', () => {
+    it('"goias" antecipa Goiás na primeira página', async () => {
+      const { items } = await searchWithUfs('?q=goias&includeUf=true');
+
+      expect(items[0]).toEqual({ uf: 'GO' });
+    });
+
+    it('a sigla encontra a UF, mas sem includeUf a resposta só traz municípios', async () => {
+      expect((await searchWithUfs('?q=go&includeUf=true')).items[0]).toEqual({ uf: 'GO' });
+      expect((await searchWithUfs('?q=go')).items.every((item) => 'ibgeCode' in item)).toBe(true);
+    });
+
+    it('com filtro de UF, só a UF filtrada pode vir no topo', async () => {
+      expect((await searchWithUfs('?q=goias&uf=SP&includeUf=true')).items).toEqual([]);
+      expect((await searchWithUfs('?q=goias&uf=GO&includeUf=true')).items[0]).toEqual({ uf: 'GO' });
+    });
+
+    it('UF só vem na primeira página e não altera a paginação dos municípios', async () => {
+      const included: Item[] = [];
+      let cursor: string | undefined;
+      let firstPage = true;
+      let page: PageWithUfs;
+
+      do {
+        page = await searchWithUfs(`?q=go&includeUf=true${cursor ? `&cursor=${cursor}` : ''}`);
+        if (!firstPage) expect(page.items.every((item) => 'ibgeCode' in item)).toBe(true);
+        included.push(...page.items.filter((item): item is Item => 'ibgeCode' in item));
+        cursor = page.nextCursor;
+        firstPage = false;
+      } while (cursor);
+
+      expect(included).toEqual(await searchAll('?q=go'));
     });
   });
 

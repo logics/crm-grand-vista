@@ -12,6 +12,10 @@ const ibgeCodeSchema = z.string().regex(/^\d{7}$/, 'Código IBGE deve ter sete d
 const searchQuerySchema = z.object({
   q: z.string().optional(),
   uf: ufSchema.optional(),
+  includeUf: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((includeUf) => includeUf === 'true'),
   // "3550308,5208707": hidratação por código, sem busca nem paginação.
   ids: z
     .string()
@@ -30,11 +34,11 @@ const searchQuerySchema = z.object({
 
 export function createMunicipalitiesRoutes() {
   return new Hono<TenantEnv>().get('/', noPermissionRequired, zValidator('query', searchQuerySchema), async (c) => {
-    const { q, uf, ids, cursor } = c.req.valid('query');
+    const { q, uf, ids, cursor, includeUf } = c.req.valid('query');
 
-    const page = await c.var.withTenant((tx) =>
-      ids ? findMunicipalitiesByCodes(tx, ids) : searchMunicipalities(tx, { q, uf, offset: cursor }),
-    );
+    const page = ids
+      ? await c.var.withTenant((tx) => findMunicipalitiesByCodes(tx, ids))
+      : await c.var.withTenant((tx) => searchMunicipalities(tx, { q, uf, includeUf, offset: cursor }));
     return c.json(page, 200);
   });
 }
