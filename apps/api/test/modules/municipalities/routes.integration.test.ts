@@ -227,6 +227,11 @@ describe('rota de busca de municípios', () => {
       expect((await searchWithUfs('?q=go')).items.every((item) => 'ibgeCode' in item)).toBe(true);
     });
 
+    it('com filtro de UF, só a UF filtrada pode vir no topo', async () => {
+      expect((await searchWithUfs('?q=goias&uf=SP&includeUf=true')).items).toEqual([]);
+      expect((await searchWithUfs('?q=goias&uf=GO&includeUf=true')).items[0]).toEqual({ uf: 'GO' });
+    });
+
     it('UF só vem na primeira página e não altera a paginação dos municípios', async () => {
       const included: Item[] = [];
       let cursor: string | undefined;

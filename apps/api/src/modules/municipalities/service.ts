@@ -126,7 +126,9 @@ export async function searchMunicipalities(tx: Transaction, search: Municipality
     : { items };
 
   if (search.includeUf && search.offset === undefined) {
-    return { ...page, items: [...findMatchingUfs(term), ...page.items] };
+    // Com filtro de UF, só ela pode aparecer no topo: as demais contradiriam o filtro.
+    const ufs = findMatchingUfs(term).filter((option) => !uf || option.uf === uf);
+    return { ...page, items: [...ufs, ...page.items] };
   }
 
   return page;
