@@ -50,6 +50,7 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   }),
   'POST /auth/logout': () => ({ path: '/auth/logout' }),
   'GET /auth/session': () => ({ path: '/auth/session' }),
+  'GET /e/:tenant/municipalities': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/municipalities?q=rio` }),
   'GET /e/:tenant/permissions': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/permissions` }),
   'GET /e/:tenant/permissions/effective': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/permissions/effective` }),
   'GET /e/:tenant/users': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/users` }),

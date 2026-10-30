@@ -13,6 +13,13 @@ Issues e specs deste repositório vivem como issues do GitHub. Use a CLI `gh` pa
 
 O repositório é inferido a partir de `git remote -v`; o `gh` faz isso automaticamente quando executado dentro de um clone (`logics/crm-grand-vista`).
 
+## Vínculo entre issue e PR
+
+- **Toda PR que implementa uma issue a vincula com uma palavra-chave do GitHub na descrição**, em linha própria: `Closes #<n>` (ou `Fixes`/`Resolves`). Sem isso, a issue não fecha sozinha ao mergear.
+- Palavras em português ("Fecha #98") **não** vinculam. Escreva em inglês, mesmo com o resto da descrição em pt-BR.
+- Depois de abrir a PR, confira o vínculo: `gh pr view <n> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'` deve listar a issue.
+- Uma palavra-chave por issue (`Closes #1, closes #2` vincula só a primeira).
+
 ## Pull requests como superfície de triagem
 
 **PRs como superfície de solicitação: não.** _(Ajuste para `sim` se este repositório tratar PRs externos como pedidos de funcionalidade; o `/triage` lê essa flag.)_
