@@ -1,7 +1,7 @@
 // Busca de municípios: dado de referência fora do RLS, lido na transação da
 // empresa ativa só para que a rota viva sob `/e/:tenant`.
 import { municipalities, type Transaction } from '@crm/db';
-import { UFS, type Uf } from '@crm/shared';
+import { UF_NAMES, UFS, type Uf, type UfOption } from '@crm/shared';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { escapeLike } from '../../listing/query.js';
 
@@ -63,9 +63,31 @@ export async function findMunicipalitiesByCodes(tx: Transaction, codes: readonly
 export interface MunicipalitySearch {
   q?: string;
   uf?: Uf;
+  includeUf?: boolean;
   /** Já decodificado; ausente na primeira página. */
   offset?: number;
 }
+
+const normalizeSearchText = (value: string) =>
+  value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('pt-BR');
+
+const findMatchingUfs = (term: string): UfOption[] => {
+  const normalizedTerm = normalizeSearchText(term);
+  if (!normalizedTerm) return [];
+
+  const matchRank = (uf: Uf) => {
+    const acronym = normalizeSearchText(uf);
+    const name = normalizeSearchText(UF_NAMES[uf]);
+    if (acronym === normalizedTerm) return 0;
+    if (name.startsWith(normalizedTerm)) return 1;
+    if (acronym.includes(normalizedTerm)) return 2;
+    return name.includes(normalizedTerm) ? 3 : 4;
+  };
+
+  return UFS.filter((uf) => matchRank(uf) < 4)
+    .sort((left, right) => matchRank(left) - matchRank(right) || UF_NAMES[left].localeCompare(UF_NAMES[right], 'pt-BR'))
+    .map((uf) => ({ uf }));
+};
 
 /**
  * Uma página da busca: só ativos; o termo casa em qualquer parte do nome, sem
@@ -99,7 +121,13 @@ export async function searchMunicipalities(tx: Transaction, search: Municipality
     .offset(search.offset ?? 0);
 
   const items = rows.slice(0, MUNICIPALITY_PAGE_SIZE) as MunicipalityItem[];
-  return rows.length > MUNICIPALITY_PAGE_SIZE
+  const page = rows.length > MUNICIPALITY_PAGE_SIZE
     ? { items, nextCursor: encodeCursor((search.offset ?? 0) + MUNICIPALITY_PAGE_SIZE) }
     : { items };
+
+  if (search.includeUf && search.offset === undefined) {
+    return { ...page, items: [...findMatchingUfs(term), ...page.items] };
+  }
+
+  return page;
 }
