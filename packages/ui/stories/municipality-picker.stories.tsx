@@ -22,9 +22,12 @@ const municipalities: MunicipalityOption[] = [
 /** As UFs antes dos municípios: "goi" acha a UF inteira primeiro. */
 const regions: RegionOption[] = [...UFS.map((uf) => ({ uf })), ...municipalities];
 
+/** Saiu da lista do IBGE: a busca não o oferece, mas a hidratação o devolve (ficha antiga). */
+const inactive: MunicipalityOption = { ibgeCode: '1100015', name: 'Alta Floresta D\'Oeste', uf: 'RO' };
+
 const searchMunicipalities = simulatedSearch(municipalities, regionLabel);
 const searchRegions = simulatedSearch(regions, regionLabel);
-const resolveMunicipalities = simulatedResolve(municipalities, regionKey);
+const resolveMunicipalities = simulatedResolve([...municipalities, inactive], regionKey);
 const resolveRegions = simulatedResolve(regions, regionKey);
 
 type SingleArgs = {
@@ -92,6 +95,11 @@ export const Unico: Story = { name: 'Único', args: { initial: municipalities[0]
 export const Aberto: Story = { args: { defaultOpen: true } };
 
 export const ValorPorCodigo: Story = { name: 'Valor por código IBGE', args: { initial: '5107925' } };
+
+export const InativoHidratado: Story = {
+  name: 'Município inativo hidratado',
+  args: { initial: inactive.ibgeCode },
+};
 
 export const Multiplos: Story = {
   name: 'Múltiplos municípios',
