@@ -9,6 +9,8 @@ import { z } from 'zod';
 import type { EffectiveAccess } from '../authorization/effective-access.js';
 import {
   assembleHistory,
+  referenceColumns,
+  referenceName,
   referencesToResolve,
   visibleChildren,
   type AuditRow,
@@ -66,16 +68,19 @@ export const uuidSchema = z.uuid();
  */
 async function readReferenceNames(tx: Transaction, rows: readonly AuditRow[], query: HistoryQuery): Promise<ReferenceNames> {
   const names = new Map<string, Map<string, string>>();
-  for (const [key, { table, nameColumn, ids }] of referencesToResolve(rows, query)) {
-    const valid = [...ids].filter((id) => uuidSchema.safeParse(id).success);
+  for (const [key, { ids, ...reference }] of referencesToResolve(rows, query)) {
+    const { table, keyColumn = 'id' } = reference;
+    // Só `id` é uuid; outra chave (o código IBGE) não passa por esse filtro.
+    const valid = [...ids].filter((id) => keyColumn !== 'id' || uuidSchema.safeParse(id).success);
     if (valid.length === 0) continue;
-    const { rows: found } = await tx.execute<{ id: string; name: string }>(
-      sql`select id::text as id, ${sql.identifier(nameColumn)} as name from ${sql.identifier(table)} where id in (${sql.join(
+    const columns = sql.join(referenceColumns(reference).map((column) => sql.identifier(column)), sql`, `);
+    const { rows: found } = await tx.execute<Record<string, string>>(
+      sql`select ${sql.identifier(keyColumn)}::text as "__key", ${columns} from ${sql.identifier(table)} where ${sql.identifier(keyColumn)}::text in (${sql.join(
         valid.map((id) => sql`${id}`),
         sql`, `,
       )})`,
     );
-    names.set(key, new Map(found.map(({ id, name }) => [id, name])));
+    names.set(key, new Map(found.map((found) => [found['__key'] ?? '', referenceName(reference, found)])));
   }
   return names;
 }

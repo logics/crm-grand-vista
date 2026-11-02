@@ -71,6 +71,7 @@ export {
   UF_NAMES,
   isMunicipality,
   municipalityLabel,
+  municipalityReference,
   municipalityOptionSchema,
   regionKey,
   regionLabel,
@@ -120,6 +121,7 @@ export type {
   GrammaticalGender,
   HiddenField,
   ReferenceField,
+  ReferenceLabel,
   ScalarField,
 } from './field-metadata.js';
 export { FIELD_REGISTRY, entityFields, metaFields } from './field-registry.js';

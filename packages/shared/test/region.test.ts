@@ -4,6 +4,7 @@ import {
   UF_NAMES,
   isMunicipality,
   municipalityLabel,
+  municipalityReference,
   municipalityOptionSchema,
   regionKey,
   regionLabel,
@@ -61,5 +62,11 @@ describe('região', () => {
     expect(municipalityLabel(rioVerde)).toBe('Rio Verde — GO');
     expect(regionLabel(rioVerde)).toBe('Rio Verde — GO');
     expect(regionLabel({ uf: 'GO' })).toBe('Goiás (UF)');
+  });
+});
+
+describe('municipalityReference', () => {
+  it('o rótulo do histórico é o mesmo do seletor', () => {
+    expect(municipalityReference.label.format({ name: 'Rio Verde', uf: 'GO' })).toBe('Rio Verde — GO');
   });
 });

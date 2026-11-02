@@ -1,10 +1,12 @@
-import { HIDDEN, RECORD_COLUMNS, type EntityMeta, type ExpandedChange } from '@crm/shared';
+import { HIDDEN, RECORD_COLUMNS, municipalityReference, type EntityMeta, type ExpandedChange } from '@crm/shared';
 import { describe, expect, it } from 'vitest';
 import type { EffectiveAccess } from '../../src/authorization/effective-access.js';
 import {
   DELETED_REFERENCE,
   assembleHistory,
+  referenceColumns,
   referenceKey,
+  referenceName,
   referencesToResolve,
   type AssembleOptions,
   type AuditRow,
@@ -454,5 +456,55 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
         [referenceKey({ table: 'users', nameColumn: 'name' }), { table: 'users', nameColumn: 'name', ids: new Set([COLLEAGUE_ID, AUTHOR_ID]) }],
       ]),
     );
+  });
+});
+
+describe('referência a município', () => {
+  const registry = {
+    farms: {
+      label: 'Fazenda',
+      gender: 'f',
+      fields: {
+        ...RECORD_COLUMNS,
+        municipality_id: { type: 'reference', label: 'Município', references: municipalityReference },
+      },
+    },
+  } satisfies Record<string, EntityMeta>;
+  const FARM_ID = '0190a000-0000-7000-8000-00000000f001';
+  const IBGE_OLD = '5218805';
+  const IBGE_NEW = '5203203';
+
+  it('o resolvedor lê nome e UF e devolve o rótulo com UF', () => {
+    expect(referenceColumns(municipalityReference)).toEqual(['name', 'uf']);
+    expect(referenceName(municipalityReference, { name: 'Bom Jesus', uf: 'GO' })).toBe('Bom Jesus — GO');
+  });
+
+  it('referência só com a coluna de nome segue pelo nome', () => {
+    const users = { table: 'users', nameColumn: 'name' };
+    expect(referenceColumns(users)).toEqual(['name']);
+    expect(referenceName(users, { name: 'Ana' })).toBe('Ana');
+  });
+
+  it('o histórico exibe "Município: Bom Jesus — GO", nunca o nome sozinho', () => {
+    const [entry] = assembleHistory(
+      [row('c1', 'municipality_id', IBGE_OLD, IBGE_NEW, { entity: 'farms', entityId: FARM_ID })],
+      {
+        entity: 'farms',
+        entityId: FARM_ID,
+        registry,
+        authors: new Map(),
+        references: new Map([
+          [
+            referenceKey(municipalityReference),
+            new Map([
+              [IBGE_OLD, referenceName(municipalityReference, { name: 'Rio Verde', uf: 'GO' })],
+              [IBGE_NEW, referenceName(municipalityReference, { name: 'Bom Jesus', uf: 'GO' })],
+            ]),
+          ],
+        ]),
+        reader: {} as EffectiveAccess,
+      },
+    );
+    expect(entry?.changes).toEqual([{ field: 'Município', from: 'Rio Verde — GO', to: 'Bom Jesus — GO' }]);
   });
 });
