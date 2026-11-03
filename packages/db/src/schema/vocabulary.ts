@@ -35,4 +35,7 @@ export type VocabularyTable = PgTable & {
   tenantId: AnyPgColumn;
   name: AnyPgColumn<{ columnType: 'PgText' }>;
   active: AnyPgColumn;
+  displayOrder: AnyPgColumn;
+  /** Só nos cadastros com significado de sistema. */
+  systemMeaning?: AnyPgColumn;
 };

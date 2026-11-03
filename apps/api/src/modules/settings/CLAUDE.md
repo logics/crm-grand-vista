@@ -3,7 +3,7 @@
 Configurações da empresa. Por ora, o motor de cadastros auxiliares, provado com Culturas.
 
 - **Spec:** `docs/specs/fase-1-configuracoes.md`; issue #102
-- **Tabelas que possui:** `crops` (a forma comum de `packages/db/src/schema/vocabulary.ts`)
+- **Tabelas que possui:** os cadastros do registro (a forma comum de `packages/db/src/schema/vocabulary.ts`); `commercial_statuses` soma `system_meaning` com CHECK
 - **Depende de:** `@crm/db`, `@crm/shared` (registro `VOCABULARIES`)
 
 ## Convenções locais
@@ -14,4 +14,7 @@ Configurações da empresa. Por ora, o motor de cadastros auxiliares, provado co
 - A ordem alfabética usa `collate "pt-BR-x-icu"` na ordenação da lista (`sortable` aceita expressão SQL).
 - Escritas passam por `auditedWrites`.
 - `GET /:vocabulary/options` (`?q&cursor&limit&includeInactive&ids`) não exige permissão (`noPermissionRequired`): basta o vínculo. Ordem: ativas, depois inativas, cada grupo pt-BR; cursor é o deslocamento, com desempate por `id`. `ids` hidrata o valor gravado, ativo ou não, e ignora busca e `includeInactive`. O seletor do front é o `VocabularyPicker` (`packages/ui`).
-- Fora desta issue, ainda por fazer: ordem manual, significado de sistema, campos extras, `/defaults`, parâmetros, semente.
+- **Ordem manual** (`orderMode: 'manual'`, ex.: status comercial): lista, opções e `/defaults` ordenam por `display_order` e depois nome; a listagem não pagina. Entrada nova entra no fim (`max + 1`) e `maxEntries` do registro limita o cadastro (409); criação e limite serializam por `pg_advisory_xact_lock` por empresa e cadastro.
+- **Significado de sistema** (`systemMeaning` no registro): obrigatório no `POST` (de lista fechada) e proibido em cadastro que não o tem; `PATCH` com `systemMeaning` é 400 (`z.never`). Desativar ou excluir a última ativa de um significado é 409 (`guardLastActiveMeaning`, que trava as ativas do significado).
+- `GET /:vocabulary/defaults` (`noPermissionRequired`): `{ [significado]: { id, name } | null }`, a primeira ativa na ordem do cadastro; `{}` em cadastro sem significado.
+- Fora do que existe, ainda por fazer: reordenação (`PUT /order`), campos extras, parâmetros, semente.

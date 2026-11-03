@@ -46,6 +46,7 @@ describe('varredura de schema', () => {
       'access_profiles',
       'aptitudes',
       'audit_log',
+      'commercial_statuses',
       'contact_classifications',
       'crops',
       'document_categories',

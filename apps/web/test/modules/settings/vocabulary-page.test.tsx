@@ -93,3 +93,40 @@ describe('cadastro auxiliar de culturas', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
+
+describe('cadastro auxiliar de status comercial', () => {
+  const STATUS_PATH = '/e/grand-vista/settings/vocabularies/commercial-statuses';
+
+  it('mostra a coluna Significado e o significado sem edição no diálogo de renomear', async () => {
+    stubFakeApi({
+      session: session(),
+      permissions: ['configuracoes.gerenciar'],
+      records: {
+        [STATUS_PATH]: page([{ id: '1', name: 'À venda', active: true, systemMeaning: 'available' } as never]),
+      },
+    });
+    renderApp(STATUS_PATH);
+
+    expect(await screen.findByRole('columnheader', { name: 'Significado' })).toBeInTheDocument();
+    expect(await screen.findByText('Disponível')).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Renomear À venda' }));
+    expect(await screen.findByDisplayValue('Disponível')).toHaveAttribute('readonly');
+  });
+
+  it('exige o significado ao criar', async () => {
+    stubFakeApi({
+      session: session(),
+      permissions: ['configuracoes.gerenciar'],
+      records: { [STATUS_PATH]: page([]) },
+    });
+    renderApp(STATUS_PATH);
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Novo status comercial' }));
+    await user.type(await screen.findByLabelText(/Nome/), 'Reservada');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(await screen.findByText('Escolha o significado.')).toBeInTheDocument();
+  });
+});

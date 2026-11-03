@@ -4,6 +4,8 @@
 import {
   createVocabularyEntrySchema,
   findVocabulary,
+  vocabularyMeaningRequiredMessage,
+  vocabularyMeaningUnexpectedMessage,
   updateVocabularyEntrySchema,
   VOCABULARY_IN_USE_MESSAGE,
   VOCABULARY_NAME_TAKEN_MESSAGE,
@@ -18,13 +20,14 @@ import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
 import type { TenantEnv } from '../../tenant-context.js';
-import { createEntry, deleteEntry, listEntries, listOptions, updateEntry } from './service.js';
+import { createEntry, defaultEntries, deleteEntry, listEntries, listOptions, updateEntry } from './service.js';
 
 interface VocabularyEnv extends TenantEnv {
   Variables: TenantEnv['Variables'] & { vocabulary: VocabularyKey };
 }
 
 const notFound = (message: string) => ({ error: { code: 'not_found', message } });
+const validationError = (message: string) => ({ error: { code: 'validation_error', message } });
 const conflict = (message: string) => ({ error: { code: 'conflict', message } });
 
 /** Código SQLSTATE do erro do driver, que o Drizzle embrulha em `cause`. */
@@ -84,7 +87,7 @@ export function createSettingsRoutes() {
         key: vocabulary.key,
         label: vocabulary.label.plural,
         orderMode: vocabulary.orderMode,
-        hasSystemMeaning: false,
+        hasSystemMeaning: vocabulary.systemMeaning !== undefined,
       }));
       return c.json(menu, 200);
     })
@@ -111,6 +114,16 @@ export function createSettingsRoutes() {
         return c.json(await c.var.withTenant((tx) => listOptions(tx, key, query)), 200);
       },
     )
+    .get(
+      '/vocabularies/:vocabulary/defaults',
+      // leitura de apoio: basta o vínculo com a empresa
+      noPermissionRequired,
+      resolveVocabulary,
+      async (c) => {
+        const key = c.var.vocabulary;
+        return c.json(await c.var.withTenant((tx) => defaultEntries(tx, key)), 200);
+      },
+    )
     .post(
       '/vocabularies/:vocabulary',
       manage(),
@@ -119,6 +132,15 @@ export function createSettingsRoutes() {
       async (c) => {
         const { tenant, userId, vocabulary: key, withTenant } = c.var;
         const input = c.req.valid('json');
+
+        // O significado vale só em cadastro que o tem, e de lista fechada.
+        const meanings = findVocabulary(key)?.systemMeaning?.options;
+        if (meanings && (input.systemMeaning === undefined || !Object.hasOwn(meanings, input.systemMeaning))) {
+          return c.json(validationError(vocabularyMeaningRequiredMessage), 400);
+        }
+        if (!meanings && input.systemMeaning !== undefined) {
+          return c.json(validationError(vocabularyMeaningUnexpectedMessage), 400);
+        }
 
         try {
           const result = await withTenant((tx) => createEntry(tx, { tenantId: tenant.id, userId }, key, input));
@@ -162,6 +184,7 @@ export function createSettingsRoutes() {
 
       try {
         const removed = await withTenant((tx) => deleteEntry(tx, { tenantId: tenant.id, userId }, key, id));
+        if (typeof removed === 'object') return c.json(conflict(removed.refused), 409);
         return removed ? c.body(null, 204) : c.json(notFound(ENTRY_NOT_FOUND), 404);
       } catch (error) {
         const refusal = databaseRefusal(error);
