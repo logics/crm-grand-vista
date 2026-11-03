@@ -89,6 +89,9 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
 /** A flag em qualquer grafia: `is_super_admin`, `isSuperAdmin`, `super-admin`. */
 const SUPER_ADMIN_TRACE = /super/i;
 
+/** Folga da varredura: o tempo cresce com o número de rotas registradas. */
+const SWEEP_TIMEOUT_MS = 30_000;
+
 describe('varredura das respostas da API', () => {
   const pool = createPool(env.DATABASE_URL);
   const db = createDatabase(pool);
@@ -182,5 +185,6 @@ describe('varredura das respostas da API', () => {
     expect(leaks).toEqual([]);
     // Amostra que só colhe 4xx não prova nada: toda rota respondeu 2xx a alguém logado.
     expect(routes.filter((route) => !answered.has(route))).toEqual([]);
-  });
+    // A varredura é sequencial (rotas × atores) e cresce a cada rota nova: os 5 s padrão não bastam.
+  }, SWEEP_TIMEOUT_MS);
 });
