@@ -154,6 +154,11 @@ export {
   vocabularyListQuerySchema,
   vocabularyMenuItemSchema,
   vocabularyNameSchema,
+  vocabularyOptionSchema,
+  vocabularyOptionsPageSchema,
+  vocabularyOptionsQuerySchema,
+  VOCABULARY_OPTIONS_MAX_PAGE_SIZE,
+  VOCABULARY_OPTIONS_PAGE_SIZE,
 } from './vocabulary.js';
 export type {
   CreateVocabularyEntryInput,
@@ -163,6 +168,9 @@ export type {
   VocabularyKey,
   VocabularyListQuery,
   VocabularyMenuItem,
+  VocabularyOption,
+  VocabularyOptionsPage,
+  VocabularyOptionsQuery,
   VocabularyOrderMode,
   VocabularyStatus,
 } from './vocabulary.js';

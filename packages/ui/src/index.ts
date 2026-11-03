@@ -57,4 +57,5 @@ export * from './components/tag.js';
 export * from './components/top-bar.js';
 export * from './components/upload-status.js';
 export * from './components/user-picker.js';
+export * from './components/vocabulary-picker.js';
 export * from './components/wordmark.js';
