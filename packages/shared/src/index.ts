@@ -136,3 +136,33 @@ export {
   historyPageSchema,
 } from './history.js';
 export type { HistoryChange, HistoryChild, HistoryEntry, HistoryKind, HistoryPage } from './history.js';
+export {
+  VOCABULARIES,
+  VOCABULARY_IN_USE_MESSAGE,
+  VOCABULARY_KEYS,
+  VOCABULARY_NAME_MAX_LENGTH,
+  VOCABULARY_NAME_TAKEN_INACTIVE_MESSAGE,
+  VOCABULARY_NAME_TAKEN_MESSAGE,
+  VOCABULARY_STATUSES,
+  createVocabularyEntrySchema,
+  findVocabulary,
+  serializeVocabularyEntry,
+  updateVocabularyEntrySchema,
+  vocabulariesByLabel,
+  vocabularyEntryPageSchema,
+  vocabularyEntrySchema,
+  vocabularyListQuerySchema,
+  vocabularyMenuItemSchema,
+  vocabularyNameSchema,
+} from './vocabulary.js';
+export type {
+  CreateVocabularyEntryInput,
+  UpdateVocabularyEntryInput,
+  VocabularyDefinition,
+  VocabularyEntry,
+  VocabularyKey,
+  VocabularyListQuery,
+  VocabularyMenuItem,
+  VocabularyOrderMode,
+  VocabularyStatus,
+} from './vocabulary.js';

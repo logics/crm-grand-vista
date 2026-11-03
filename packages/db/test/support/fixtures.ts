@@ -6,6 +6,7 @@ import type { Database } from '../../src/database.js';
 import {
   accessProfiles,
   auditLog,
+  crops,
   profileDataScopes,
   profilePermissions,
   tenants,
@@ -84,6 +85,7 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(profilePermissions).values({ tenantId, profileId, permissionCode: TEST_PERMISSION });
     await tx.insert(profileDataScopes).values({ tenantId, profileId, module: 'testes', scope: 'own' });
     await tx.insert(userProfiles).values({ tenantId, userId, profileId });
+    await tx.insert(crops).values({ tenantId, name: 'Soja' });
     await tx
       .insert(auditLog)
       .values({ tenantId, entity: 'access_profiles', entityId: profileId, field: 'name', newValue: name, userId });

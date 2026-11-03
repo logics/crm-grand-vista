@@ -17,7 +17,10 @@ export type NavigationEntry = {
   permission?: PermissionCode;
 };
 
-export const NAVIGATION: NavigationEntry[] = [{ id: 'home', label: 'Início', icon: 'house', path: '' }];
+export const NAVIGATION: NavigationEntry[] = [
+  { id: 'home', label: 'Início', icon: 'house', path: '' },
+  { id: 'settings', label: 'Configurações', icon: 'sliders-horizontal', path: 'settings', permission: 'configuracoes.gerenciar' },
+];
 
 /** Os itens que o usuário pode abrir, com o rótulo de grupo antes do primeiro visível de cada grupo. */
 export function visibleNavigation(

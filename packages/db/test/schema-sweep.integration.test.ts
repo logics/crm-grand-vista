@@ -45,6 +45,7 @@ describe('varredura de schema', () => {
     expect(await listBusinessTables(owner)).toEqual([
       'access_profiles',
       'audit_log',
+      'crops',
       'profile_data_scopes',
       'profile_permissions',
       'user_profiles',

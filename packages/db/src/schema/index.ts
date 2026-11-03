@@ -8,3 +8,4 @@ export { permissions, userPlatformPermissions } from './permissions.js';
 export { accessProfiles, profileDataScopes, profilePermissions, userProfiles } from './access-profiles.js';
 export { auditLog } from './audit-log.js';
 export { municipalities } from './municipalities.js';
+export { crops } from './crops.js';
