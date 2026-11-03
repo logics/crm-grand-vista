@@ -9,3 +9,9 @@ export { accessProfiles, profileDataScopes, profilePermissions, userProfiles } f
 export { auditLog } from './audit-log.js';
 export { municipalities } from './municipalities.js';
 export { crops } from './crops.js';
+export { aptitudes } from './aptitudes.js';
+export { contactClassifications } from './contact-classifications.js';
+export { documentCategories } from './document-categories.js';
+export { leadSources } from './lead-sources.js';
+export { paymentMethods } from './payment-methods.js';
+export { purchaseProfiles } from './purchase-profiles.js';

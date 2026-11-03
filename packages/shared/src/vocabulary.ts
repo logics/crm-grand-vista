@@ -20,9 +20,57 @@ export interface VocabularyDefinition {
   /** Gênero do rótulo, para a concordância dos textos ("Nova cultura", "Novo status"). */
   gender: GrammaticalGender;
   orderMode: VocabularyOrderMode;
+  /**
+   * Tabelas de campo extra do próprio cadastro (ex.: `trading_post_municipalities`
+   * de `trading_posts`): a única exceção à regra de que toda FK para um cadastro
+   * é `ON DELETE RESTRICT`. A exceção mora aqui, nunca numa lista solta no teste.
+   */
+  extraFieldTables?: readonly string[];
 }
 
 export const VOCABULARIES = {
+  aptitudes: {
+    key: 'aptitudes',
+    table: 'aptitudes',
+    label: { singular: 'Aptidão', plural: 'Aptidões' },
+    gender: 'f',
+    orderMode: 'alphabetical',
+  },
+  'contact-classifications': {
+    key: 'contact-classifications',
+    table: 'contact_classifications',
+    label: { singular: 'Classificação do cliente', plural: 'Classificações do cliente' },
+    gender: 'f',
+    orderMode: 'alphabetical',
+  },
+  'document-categories': {
+    key: 'document-categories',
+    table: 'document_categories',
+    label: { singular: 'Categoria de documento', plural: 'Categorias de documento' },
+    gender: 'f',
+    orderMode: 'alphabetical',
+  },
+  'lead-sources': {
+    key: 'lead-sources',
+    table: 'lead_sources',
+    label: { singular: 'Origem do lead', plural: 'Origens do lead' },
+    gender: 'f',
+    orderMode: 'alphabetical',
+  },
+  'payment-methods': {
+    key: 'payment-methods',
+    table: 'payment_methods',
+    label: { singular: 'Forma de pagamento', plural: 'Formas de pagamento' },
+    gender: 'f',
+    orderMode: 'alphabetical',
+  },
+  'purchase-profiles': {
+    key: 'purchase-profiles',
+    table: 'purchase_profiles',
+    label: { singular: 'Perfil de compra', plural: 'Perfis de compra' },
+    gender: 'm',
+    orderMode: 'alphabetical',
+  },
   crops: {
     key: 'crops',
     table: 'crops',

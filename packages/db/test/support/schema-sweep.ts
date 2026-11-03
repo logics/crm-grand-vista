@@ -154,3 +154,30 @@ export async function findIsolationViolations(client: Queryable): Promise<string
     .filter((table) => !isOutsideRls(table))
     .flatMap((table) => violationsOf(table).map((violation) => `${table.schema}.${table.name}: ${violation}`));
 }
+
+/**
+ * FKs para cadastro auxiliar que não são `ON DELETE RESTRICT`. A regra vale
+ * para as specs consumidoras: é o banco que diz "em uso". A única exceção são
+ * as tabelas de campo extra do próprio cadastro, declaradas no registro
+ * (`extraFieldTables`) — daí recebê-las por parâmetro, nunca como lista solta.
+ */
+export async function findVocabularyFkViolations(
+  db: Queryable,
+  vocabularyTables: readonly string[],
+  extraFieldTables: readonly string[],
+): Promise<string[]> {
+  const { rows } = await db.query<{ description: string }>(
+    `select format('%s.%s -> %s (ON DELETE %s)', c.conrelid::regclass, c.conname, c.confrelid::regclass,
+                   case c.confdeltype when 'a' then 'NO ACTION' when 'c' then 'CASCADE'
+                                      when 'n' then 'SET NULL' when 'd' then 'SET DEFAULT' end) as description
+       from pg_constraint c
+      where c.contype = 'f'
+        and c.connamespace = 'public'::regnamespace
+        and c.confrelid::regclass::text = any($1)
+        and c.confdeltype <> 'r'
+        and c.conrelid::regclass::text <> all($2)
+      order by 1`,
+    [vocabularyTables, extraFieldTables],
+  );
+  return rows.map((row) => row.description);
+}

@@ -5,7 +5,29 @@
 //
 // A flag de super admin não entra: este pacote não a nomeia, e o teste de
 // cobertura ignora as colunas que o wrapper de auditoria já trata como só de plataforma.
-import { type EntityMeta, type FieldMeta, HIDDEN, RECORD_COLUMNS, columnToProperty } from './field-metadata.js';
+import {
+  type EntityMeta,
+  type FieldMeta,
+  type GrammaticalGender,
+  HIDDEN, RECORD_COLUMNS,
+  columnToProperty,
+} from './field-metadata.js';
+
+/** A forma comum dos cadastros auxiliares: o que muda de um para outro é o rótulo e o gênero. */
+function vocabularyEntity<const G extends GrammaticalGender>(label: string, gender: G) {
+  return {
+    label,
+    gender,
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      name: { type: 'text', label: 'Nome' },
+      // Só existe para a ordem manual; no cadastro alfabético fica em 0 e ninguém o vê.
+      display_order: HIDDEN,
+      active: { type: 'boolean', label: gender === 'f' ? 'Ativa' : 'Ativo', gender },
+    },
+  } as const satisfies EntityMeta;
+}
 
 export const FIELD_REGISTRY = {
   tenants: {
@@ -54,18 +76,13 @@ export const FIELD_REGISTRY = {
       is_seeded: { type: 'boolean', label: 'Perfil do sistema' },
     },
   },
-  crops: {
-    label: 'Cultura',
-    gender: 'f',
-    fields: {
-      ...RECORD_COLUMNS,
-      tenant_id: HIDDEN,
-      name: { type: 'text', label: 'Nome' },
-      // Só existe para a ordem manual; no cadastro alfabético fica em 0 e ninguém o vê.
-      display_order: HIDDEN,
-      active: { type: 'boolean', label: 'Ativa', gender: 'f' },
-    },
-  },
+  aptitudes: vocabularyEntity('Aptidão', 'f'),
+  contact_classifications: vocabularyEntity('Classificação do cliente', 'f'),
+  crops: vocabularyEntity('Cultura', 'f'),
+  document_categories: vocabularyEntity('Categoria de documento', 'f'),
+  lead_sources: vocabularyEntity('Origem do lead', 'f'),
+  payment_methods: vocabularyEntity('Forma de pagamento', 'f'),
+  purchase_profiles: vocabularyEntity('Perfil de compra', 'm'),
 } as const satisfies Record<string, EntityMeta>;
 
 export type RegisteredTable = keyof typeof FIELD_REGISTRY;

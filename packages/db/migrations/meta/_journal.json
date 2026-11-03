@@ -78,6 +78,13 @@
       "when": 1793713419615,
       "tag": "0010_crops",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793735066928,
+      "tag": "0011_vocabularies",
+      "breakpoints": true
     }
   ]
 }

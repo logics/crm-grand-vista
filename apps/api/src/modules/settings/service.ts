@@ -2,7 +2,13 @@
 // registro de `@crm/shared`. Recebe a transação já aberta pela rota.
 import {
   auditedWrites,
+  aptitudes,
+  contactClassifications,
   crops,
+  documentCategories,
+  leadSources,
+  paymentMethods,
+  purchaseProfiles,
   normalizedVocabularyName,
   type AuditActor,
   type Transaction,
@@ -27,7 +33,15 @@ import { withoutDataScope } from '../../authorization/data-scope.js';
  * A tabela de cada cadastro do registro. O tipo exige uma entrada por chave:
  * cadastro novo no registro sem tabela aqui é erro de compilação.
  */
-const TABLES: Record<VocabularyKey, VocabularyTable> = { crops };
+const TABLES: Record<VocabularyKey, VocabularyTable> = {
+  aptitudes,
+  'contact-classifications': contactClassifications,
+  crops,
+  'document-categories': documentCategories,
+  'lead-sources': leadSources,
+  'payment-methods': paymentMethods,
+  'purchase-profiles': purchaseProfiles,
+};
 
 type Table = VocabularyTable;
 
