@@ -154,7 +154,6 @@ export {
   vocabularyListQuerySchema,
   vocabularyMenuItemSchema,
   vocabularyNameSchema,
-  vocabularyOptionSchema,
   vocabularyOptionsPageSchema,
   vocabularyOptionsQuerySchema,
   VOCABULARY_OPTIONS_MAX_PAGE_SIZE,

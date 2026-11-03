@@ -28,7 +28,7 @@ import {
   type VocabularyOptionsQuery,
 } from '@crm/shared';
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
-import { defineList, paginatedQuery } from '../../listing/query.js';
+import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
 /**
@@ -115,9 +115,6 @@ export async function listOptions(
   const items = rows.slice(0, query.limit).map((row) => serializeVocabularyEntry(row as VocabularyEntry));
   return rows.length > query.limit ? { items, nextCursor: String(offset + query.limit) } : { items };
 }
-
-/** Escapa `%`, `_` e `\` para que a busca trate o termo como texto. */
-const escapeLike = (term: string) => term.replace(/[\\%_]/g, (char) => `\\${char}`);
 
 /** A entrada de mesmo nome (sem caixa nem acento), se houver, para nomear a recusa. */
 async function findNameConflict(tx: Transaction, table: Table, name: string, exceptId?: string) {

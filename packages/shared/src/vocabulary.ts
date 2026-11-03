@@ -174,12 +174,10 @@ export const vocabularyOptionsQuerySchema = z.object({
 export type VocabularyOptionsQuery = z.output<typeof vocabularyOptionsQuerySchema>;
 
 /** Uma opção do seletor: o que basta para escolher e exibir uma entrada. */
-export const vocabularyOptionSchema = vocabularyEntrySchema;
-
 export type VocabularyOption = VocabularyEntry;
 
 export const vocabularyOptionsPageSchema = z.object({
-  items: z.array(vocabularyOptionSchema),
+  items: z.array(vocabularyEntrySchema),
   nextCursor: z.string().optional(),
 });
 

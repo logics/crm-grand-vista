@@ -1,5 +1,10 @@
 import type { VocabularyOption } from '@crm/shared';
-import { AsyncCombobox, type AsyncComboboxPickerProps, type AsyncComboboxSearch } from './async-combobox.js';
+import {
+  AsyncCombobox,
+  AsyncComboboxOption,
+  type AsyncComboboxPickerProps,
+  type AsyncComboboxSearch,
+} from './async-combobox.js';
 import { Badge } from './badge.js';
 
 // Seletor de entrada de um cadastro auxiliar (cultura, praça, origem do lead…)
@@ -23,14 +28,7 @@ const optionKey = (option: VocabularyOption) => option.id;
 const optionName = (option: VocabularyOption) => option.name;
 
 const renderOption = (option: VocabularyOption) => (
-  <span className="flex min-w-0 items-center gap-3">
-    <span className="truncate">{option.name}</span>
-    {!option.active && (
-      <Badge size="sm" tone="neutral">
-        inativa
-      </Badge>
-    )}
-  </span>
+  <AsyncComboboxOption title={option.name} badge={option.active ? undefined : <Badge size="sm">inativa</Badge>} />
 );
 
 const onlyActive =
