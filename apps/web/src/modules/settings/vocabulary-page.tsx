@@ -1,5 +1,6 @@
 import {
   findVocabulary,
+  type CreateVocabularyEntryInput,
   VOCABULARY_STATUSES,
   vocabularyListQuerySchema,
   type VocabularyDefinition,
@@ -23,6 +24,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { ListPage } from '../../listing/list-page.js';
+import { ErrorMessage } from '../../shell/error-message.js';
+import { PageHeader } from '../../shell/page-header.js';
 import { tenantQueryKey, useTenantSlug } from '../../shell/tenant-query.js';
 import { createEntry, deleteEntry, fetchEntries, updateEntry } from './vocabulary-api.js';
 import { VocabularyEntryDialog } from './vocabulary-entry-dialog.js';
@@ -63,12 +66,14 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
     onError: (error) => setActionError(error.message),
   });
 
-  const save = async (name: string) => {
-    if (editing?.kind === 'rename') await updateEntry(slug, key, editing.entry.id, { name });
-    else await createEntry(slug, key, { name });
+  const save = async (input: CreateVocabularyEntryInput) => {
+    if (editing?.kind === 'rename') await updateEntry(slug, key, editing.entry.id, input);
+    else await createEntry(slug, key, input);
     setEditing(undefined);
     await refresh();
   };
+
+  const newLabel = `${byGender(vocabulary, 'Nova', 'Novo')} ${label.singular.toLowerCase()}`;
 
   const situation = (entry: VocabularyEntry) =>
     entry.active ? <Badge tone="success">Ativa</Badge> : <Badge>Inativa</Badge>;
@@ -85,17 +90,15 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
 
   return (
     <div className="flex flex-col gap-gap-shell">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-lg font-semibold">{label.plural}</h1>
-        <Button icon="plus" onClick={() => setEditing({ kind: 'create' })}>
-          {byGender(vocabulary, 'Nova', 'Novo')} {label.singular.toLowerCase()}
-        </Button>
-      </div>
-      {actionError && (
-        <p role="alert" className="text-sm text-status-danger-fg">
-          {actionError}
-        </p>
-      )}
+      <PageHeader
+        title={label.plural}
+        action={
+          <Button icon="plus" onClick={() => setEditing({ kind: 'create' })}>
+            {newLabel}
+          </Button>
+        }
+      />
+      {actionError && <ErrorMessage>{actionError}</ErrorMessage>}
       <ListPage
         schema={vocabularyListQuerySchema}
         queryKey={['settings', 'vocabularies', key]}
@@ -133,11 +136,7 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
       {editing && (
         <VocabularyEntryDialog
           entry={editing.kind === 'rename' ? editing.entry : undefined}
-          title={
-            editing.kind === 'rename'
-              ? `Renomear ${label.singular.toLowerCase()}`
-              : `${byGender(vocabulary, 'Nova', 'Novo')} ${label.singular.toLowerCase()}`
-          }
+          title={editing.kind === 'rename' ? `Renomear ${label.singular.toLowerCase()}` : newLabel}
           onClose={() => setEditing(undefined)}
           onSubmit={save}
         />

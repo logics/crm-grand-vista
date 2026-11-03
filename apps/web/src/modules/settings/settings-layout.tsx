@@ -5,10 +5,11 @@ import { Outlet, useNavigate, useParams } from 'react-router';
 const GROUP = 'Cadastros auxiliares';
 
 // O menu vem do registro de cadastros auxiliares: cadastro novo aparece aqui
-// sem tocar este arquivo.
+// sem tocar este arquivo. O registro é estático, então a lista se monta uma vez.
+const vocabularies = vocabulariesByLabel();
 const items: SidebarNavItem[] = [
   { section: GROUP },
-  ...vocabulariesByLabel().map(({ key, label }) => ({ id: key, label: label.plural, icon: 'sliders-horizontal' as const })),
+  ...vocabularies.map(({ key, label }) => ({ id: key, label: label.plural, icon: 'sliders-horizontal' as const })),
 ];
 
 /** Configurações: navegação entre os cadastros e a página do cadastro aberto. */
@@ -26,7 +27,7 @@ export function SettingsLayout() {
             <SelectValue placeholder={GROUP} />
           </SelectTrigger>
           <SelectContent>
-            {vocabulariesByLabel().map(({ key, label }) => (
+            {vocabularies.map(({ key, label }) => (
               <SelectItem key={key} value={key}>
                 {label.plural}
               </SelectItem>

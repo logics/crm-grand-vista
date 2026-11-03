@@ -20,7 +20,6 @@ import {
   type VocabularyListQuery,
 } from '@crm/shared';
 import { and, eq, ne, sql } from 'drizzle-orm';
-import type { PgColumn } from 'drizzle-orm/pg-core';
 import { defineList, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
@@ -28,9 +27,9 @@ import { withoutDataScope } from '../../authorization/data-scope.js';
  * A tabela de cada cadastro do registro. O tipo exige uma entrada por chave:
  * cadastro novo no registro sem tabela aqui é erro de compilação.
  */
-const TABLES = { crops } as const satisfies Record<VocabularyKey, VocabularyTable>;
+const TABLES: Record<VocabularyKey, VocabularyTable> = { crops };
 
-type Table = (typeof TABLES)[VocabularyKey];
+type Table = VocabularyTable;
 
 export const tableOf = (key: VocabularyKey): Table => TABLES[key];
 
@@ -57,7 +56,7 @@ export async function listEntries(
 ): Promise<ListPage<VocabularyEntry>> {
   const table = tableOf(key);
   const status =
-    query.status === 'all' ? undefined : eq(table.active as PgColumn, query.status === 'active');
+    query.status === 'all' ? undefined : eq(table.active, query.status === 'active');
   const page = await paginatedQuery(tx, listFor(table), query, { scope: withoutDataScope, filters: [status] });
   return { ...page, items: page.items.map((entry) => serializeVocabularyEntry(entry as VocabularyEntry)) };
 }
@@ -66,7 +65,7 @@ export async function listEntries(
 async function findNameConflict(tx: Transaction, table: Table, name: string, exceptId?: string) {
   const [existing] = await tx
     .select(ENTRY_COLUMNS(table))
-    .from(table as VocabularyTable)
+    .from(table)
     .where(
       and(
         sql`${normalizedVocabularyName(table.name)} = ${normalizedVocabularyName(name)}`,
@@ -92,7 +91,7 @@ export async function createEntry(
   const conflict = await findNameConflict(tx, table, input.name);
   if (conflict) return nameTaken(conflict);
 
-  const created = await auditedWrites(tx, actor).insert(table as VocabularyTable, {
+  const created = await auditedWrites(tx, actor).insert(table, {
     tenantId: actor.tenantId,
     name: input.name,
   });
@@ -119,8 +118,8 @@ export async function updateEntry(
   // Corpo sem campo editável não é escrita: nem `updated_at` muda.
   const [entry] =
     Object.keys(changes).length === 0
-      ? await tx.select().from(table as VocabularyTable).where(eq(table.id, id))
-      : await auditedWrites(tx, actor).update(table as VocabularyTable, changes, eq(table.id, id));
+      ? await tx.select().from(table).where(eq(table.id, id))
+      : await auditedWrites(tx, actor).update(table, changes, eq(table.id, id));
 
   return entry ? { ok: true, entry: serializeVocabularyEntry(entry as VocabularyEntry) } : { ok: false, reason: 'not_found' };
 }
@@ -136,6 +135,6 @@ export async function deleteEntry(
   id: string,
 ): Promise<boolean> {
   const table = tableOf(key);
-  const removed = await auditedWrites(tx, actor).delete(table as VocabularyTable, eq(table.id, id));
+  const removed = await auditedWrites(tx, actor).delete(table, eq(table.id, id));
   return removed.length > 0;
 }

@@ -1,6 +1,7 @@
-import { vocabularyNameSchema, type VocabularyEntry } from '@crm/shared';
+import { createVocabularyEntrySchema, type CreateVocabularyEntryInput, type VocabularyEntry } from '@crm/shared';
 import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, Input } from '@crm/ui';
-import { useState, type FormEvent } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 
 // Diálogo de entrada de cadastro auxiliar: criar ou renomear. A recusa do
 // servidor (nome repetido, entrada inativa homônima) aparece no campo e o
@@ -12,30 +13,29 @@ interface VocabularyEntryDialogProps {
   title: string;
   onClose: () => void;
   /** Rejeitar com `Error` mostra a mensagem no campo. */
-  onSubmit: (name: string) => Promise<void>;
+  onSubmit: (input: CreateVocabularyEntryInput) => Promise<void>;
 }
 
 export function VocabularyEntryDialog({ entry, title, onClose, onSubmit }: VocabularyEntryDialogProps) {
-  const [name, setName] = useState(entry?.name ?? '');
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateVocabularyEntryInput>({
+    resolver: zodResolver(createVocabularyEntrySchema),
+    defaultValues: { name: entry?.name ?? '' },
+  });
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const parsed = vocabularyNameSchema.safeParse(name);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message);
-      return;
-    }
-    setSubmitting(true);
+  const submit = handleSubmit(async (input) => {
     try {
-      await onSubmit(parsed.data);
+      await onSubmit(input);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Não foi possível salvar. Tente de novo.');
-    } finally {
-      setSubmitting(false);
+      setError('name', {
+        message: failure instanceof Error ? failure.message : 'Não foi possível salvar. Tente de novo.',
+      });
     }
-  }
+  });
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -46,22 +46,15 @@ export function VocabularyEntryDialog({ entry, title, onClose, onSubmit }: Vocab
             <DialogDescription className="sr-only">Informe o nome da entrada.</DialogDescription>
           </DialogHeader>
           <DialogBody>
-            <Field label="Nome" required error={error}>
-              <Input
-                autoFocus
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setError(undefined);
-                }}
-              />
+            <Field label="Nome" required error={errors.name?.message}>
+              <Input autoFocus {...register('name')} />
             </Field>
           </DialogBody>
           <DialogFooter>
             <Button variant="ghost" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={isSubmitting}>
               Salvar
             </Button>
           </DialogFooter>

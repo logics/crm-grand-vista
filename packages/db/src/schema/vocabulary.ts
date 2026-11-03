@@ -33,6 +33,6 @@ export const uniqueVocabularyName = (tableName: string, table: { tenantId: AnyPg
 export type VocabularyTable = PgTable & {
   id: AnyPgColumn;
   tenantId: AnyPgColumn;
-  name: AnyPgColumn;
+  name: AnyPgColumn<{ columnType: 'PgText' }>;
   active: AnyPgColumn;
 };
