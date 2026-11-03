@@ -9,5 +9,6 @@ Configurações: navegação lateral e a página de cada cadastro auxiliar.
 
 - O menu lateral (`settings-layout.tsx`) e a página (`vocabulary-page.tsx`) leem o registro de `@crm/shared`: cadastro novo não muda a tela. No mobile o menu vira um `Select`.
 - A página é a `ListPage` da fundação; o estado da lista vive na URL. Escrita pelas mutations de `vocabulary-api.ts`, que invalidam a lista do cadastro. A recusa da API (409) vira `VocabularyRequestError`, mostrada no diálogo sem fechá-lo.
+- `VocabularyField` (`vocabulary-field.tsx`) é o `VocabularyPicker` ligado à API da empresa ativa, pelo adaptador `vocabulary-source.ts` (`/options`; `ids` hidrata o valor gravado, `includeInactive` só no modo filtro). Contatos e fazendas o usam; nenhum módulo escreve a sua busca. Sem tela própria que o consuma ainda.
 - O item "Configurações" do menu principal exige `configuracoes.gerenciar`.
 - Falta: item "Parâmetros" (depende de `tenant_settings`), reordenação e coluna de significado (cadastro manual).
