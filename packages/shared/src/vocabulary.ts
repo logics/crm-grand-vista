@@ -148,6 +148,41 @@ export const vocabularyMenuItemSchema = z.object({
 
 export type VocabularyMenuItem = z.infer<typeof vocabularyMenuItemSchema>;
 
+/** Tamanho padrão e máximo da página de opções do seletor. */
+export const VOCABULARY_OPTIONS_PAGE_SIZE = 30;
+export const VOCABULARY_OPTIONS_MAX_PAGE_SIZE = 100;
+
+/**
+ * Parâmetros de `/options`: busca, paginação por cursor opaco, inativas e
+ * hidratação por ids. `ids` chega como lista separada por vírgula.
+ */
+export const vocabularyOptionsQuerySchema = z.object({
+  q: z.string().trim().max(VOCABULARY_NAME_MAX_LENGTH).optional(),
+  cursor: z.string().regex(/^\d{1,9}$/, 'Cursor inválido.').optional(),
+  limit: z.coerce.number().int().min(1).max(VOCABULARY_OPTIONS_MAX_PAGE_SIZE).default(VOCABULARY_OPTIONS_PAGE_SIZE),
+  includeInactive: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  ids: z
+    .string()
+    .optional()
+    .transform((value) => (value ? value.split(',').filter((id) => id !== '') : []))
+    .pipe(z.array(z.uuid()).max(VOCABULARY_OPTIONS_MAX_PAGE_SIZE)),
+});
+
+export type VocabularyOptionsQuery = z.output<typeof vocabularyOptionsQuerySchema>;
+
+/** Uma opção do seletor: o que basta para escolher e exibir uma entrada. */
+export type VocabularyOption = VocabularyEntry;
+
+export const vocabularyOptionsPageSchema = z.object({
+  items: z.array(vocabularyEntrySchema),
+  nextCursor: z.string().optional(),
+});
+
+export type VocabularyOptionsPage = z.infer<typeof vocabularyOptionsPageSchema>;
+
 /** Só o que sai pela borda HTTP: nenhuma coluna a mais da tabela atravessa. */
 export function serializeVocabularyEntry(entry: { id: string; name: string; active: boolean }): VocabularyEntry {
   return vocabularyEntrySchema.parse({ id: entry.id, name: entry.name, active: entry.active });

@@ -24,9 +24,11 @@ import {
   type VocabularyEntry,
   type VocabularyKey,
   type VocabularyListQuery,
+  type VocabularyOptionsPage,
+  type VocabularyOptionsQuery,
 } from '@crm/shared';
-import { and, eq, ne, sql } from 'drizzle-orm';
-import { defineList, paginatedQuery } from '../../listing/query.js';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
 /**
@@ -73,6 +75,45 @@ export async function listEntries(
     query.status === 'all' ? undefined : eq(table.active, query.status === 'active');
   const page = await paginatedQuery(tx, listFor(table), query, { scope: withoutDataScope, filters: [status] });
   return { ...page, items: page.items.map((entry) => serializeVocabularyEntry(entry as VocabularyEntry)) };
+}
+
+/**
+ * Opções para o seletor: as ativas em ordem alfabética e, com `includeInactive`,
+ * as inativas depois delas. `ids` hidrata o valor gravado, ativo ou não, e ignora
+ * a busca e as demais regras. A paginação é por posição (cursor = deslocamento),
+ * com desempate pelo `id`: a ordem é total, então nada repete nem se perde.
+ */
+export async function listOptions(
+  tx: Transaction,
+  key: VocabularyKey,
+  query: VocabularyOptionsQuery,
+): Promise<VocabularyOptionsPage> {
+  const table = tableOf(key);
+  const ordering = [desc(table.active), asc(sql`${table.name} collate "pt-BR-x-icu"`), asc(table.id)];
+
+  if (query.ids.length > 0) {
+    const rows = await tx.select(ENTRY_COLUMNS(table)).from(table).where(inArray(table.id, query.ids)).orderBy(...ordering);
+    return { items: rows.map((row) => serializeVocabularyEntry(row as VocabularyEntry)) };
+  }
+
+  const offset = query.cursor === undefined ? 0 : Number(query.cursor);
+  const rows = await tx
+    .select(ENTRY_COLUMNS(table))
+    .from(table)
+    .where(
+      and(
+        query.includeInactive ? undefined : eq(table.active, true),
+        query.q
+          ? sql`${normalizedVocabularyName(table.name)} like '%' || ${normalizedVocabularyName(escapeLike(query.q))} || '%'`
+          : undefined,
+      ),
+    )
+    .orderBy(...ordering)
+    .limit(query.limit + 1)
+    .offset(offset);
+
+  const items = rows.slice(0, query.limit).map((row) => serializeVocabularyEntry(row as VocabularyEntry));
+  return rows.length > query.limit ? { items, nextCursor: String(offset + query.limit) } : { items };
 }
 
 /** A entrada de mesmo nome (sem caixa nem acento), se houver, para nomear a recusa. */

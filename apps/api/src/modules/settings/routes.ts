@@ -9,15 +9,16 @@ import {
   VOCABULARY_NAME_TAKEN_MESSAGE,
   vocabulariesByLabel,
   vocabularyListQuerySchema,
+  vocabularyOptionsQuerySchema,
   type VocabularyKey,
   type VocabularyMenuItem,
 } from '@crm/shared';
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { requirePermission } from '../../authorization/route-access.js';
+import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
 import type { TenantEnv } from '../../tenant-context.js';
-import { createEntry, deleteEntry, listEntries, updateEntry } from './service.js';
+import { createEntry, deleteEntry, listEntries, listOptions, updateEntry } from './service.js';
 
 interface VocabularyEnv extends TenantEnv {
   Variables: TenantEnv['Variables'] & { vocabulary: VocabularyKey };
@@ -96,6 +97,18 @@ export function createSettingsRoutes() {
         const key = c.var.vocabulary;
         const query = c.req.valid('query');
         return c.json(await c.var.withTenant((tx) => listEntries(tx, key, query)), 200);
+      },
+    )
+    .get(
+      '/vocabularies/:vocabulary/options',
+      // leitura de apoio: basta o vínculo com a empresa, que o roteador do tenant já exige
+      noPermissionRequired,
+      resolveVocabulary,
+      zValidator('query', vocabularyOptionsQuerySchema),
+      async (c) => {
+        const key = c.var.vocabulary;
+        const query = c.req.valid('query');
+        return c.json(await c.var.withTenant((tx) => listOptions(tx, key, query)), 200);
       },
     )
     .post(
