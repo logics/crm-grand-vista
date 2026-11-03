@@ -2,7 +2,7 @@
 // de usuário, e nenhuma resposta pode trazer a flag de super admin — nem no
 // corpo, nem nos cabeçalhos. A lista de rotas vem do próprio app, não deste
 // arquivo: rota nova sem amostra aqui falha a suíte.
-import { createDatabase, createPool } from '@crm/db';
+import { createDatabase, createPool, crops } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
@@ -30,6 +30,9 @@ interface Sample {
   body?: unknown;
 }
 
+/** Entradas de cultura que as amostras de `PATCH` e `DELETE` apontam; criadas no `beforeAll`. */
+const sweepCrops = { patch: '', delete: '' };
+
 /** Quem tenta descobrir a flag manda a flag: a resposta não pode ecoá-la. */
 const FLAG_PROBE = { is_super_admin: true, isSuperAdmin: true };
 
@@ -53,6 +56,21 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'GET /e/:tenant/municipalities': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/municipalities?q=rio` }),
   'GET /e/:tenant/permissions': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/permissions` }),
   'GET /e/:tenant/permissions/effective': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/permissions/effective` }),
+  'GET /e/:tenant/settings/vocabularies': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/settings/vocabularies` }),
+  'GET /e/:tenant/settings/vocabularies/:vocabulary': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/settings/vocabularies/crops`,
+  }),
+  'POST /e/:tenant/settings/vocabularies/:vocabulary': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/settings/vocabularies/crops`,
+    body: { name: `Cultura ${crypto.randomUUID()}`, ...FLAG_PROBE },
+  }),
+  'PATCH /e/:tenant/settings/vocabularies/:vocabulary/:id': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/settings/vocabularies/crops/${sweepCrops.patch}`,
+    body: { name: 'Qualquer', ...FLAG_PROBE },
+  }),
+  'DELETE /e/:tenant/settings/vocabularies/:vocabulary/:id': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/settings/vocabularies/crops/${sweepCrops.delete}`,
+  }),
   'GET /e/:tenant/users': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/users` }),
   'PATCH /e/:tenant/users/:id': ({ credentials }, tenantSlug) => ({
     // Cada um altera o próprio usuário; o anônimo aponta para um id qualquer.
@@ -88,6 +106,18 @@ describe('varredura das respostas da API', () => {
     const commonUser = await createUserWithPassword(db, 'Bruno Corretor');
     const superAdmin = await createUserWithPassword(db, 'Ana Gestora', { isSuperAdmin: true });
     const bareSuperAdmin = await createUserWithPassword(db, 'Carla Sem Vínculo', { isSuperAdmin: true });
+
+    await db.withTenant(tenant.id, async (tx) => {
+      const rows = await tx
+        .insert(crops)
+        .values([
+          { tenantId: tenant.id, name: 'Varredura A' },
+          { tenantId: tenant.id, name: 'Varredura B' },
+        ])
+        .returning({ id: crops.id });
+      sweepCrops.patch = rows[0]!.id;
+      sweepCrops.delete = rows[1]!.id;
+    });
 
     for (const user of [commonUser, superAdmin]) {
       await createMembership(db, user.id, tenant.id, { isDefault: true });

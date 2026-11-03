@@ -54,6 +54,18 @@ export const FIELD_REGISTRY = {
       is_seeded: { type: 'boolean', label: 'Perfil do sistema' },
     },
   },
+  crops: {
+    label: 'Cultura',
+    gender: 'f',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      name: { type: 'text', label: 'Nome' },
+      // Só existe para a ordem manual; no cadastro alfabético fica em 0 e ninguém o vê.
+      display_order: HIDDEN,
+      active: { type: 'boolean', label: 'Ativa', gender: 'f' },
+    },
+  },
 } as const satisfies Record<string, EntityMeta>;
 
 export type RegisteredTable = keyof typeof FIELD_REGISTRY;

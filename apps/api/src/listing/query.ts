@@ -19,7 +19,8 @@ type TextColumn = AnyPgColumn<{ columnType: 'PgText' | 'PgVarchar' | 'PgChar' }>
  */
 export interface ListDefinition<TTable extends ListTable, TSortField extends string> {
   table: TTable;
-  sortable: Record<TSortField, Column>;
+  /** Coluna, ou expressão quando a ordem pede collation (`name collate "pt-BR-x-icu"`). */
+  sortable: Record<TSortField, Column | SQL>;
   defaultSort?: SortParam<NoInfer<TSortField>>;
   searchable: readonly TextColumn[];
 }

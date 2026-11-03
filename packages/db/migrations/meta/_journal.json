@@ -71,6 +71,13 @@
       "when": 1793300937383,
       "tag": "0009_municipalities_load",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793713419615,
+      "tag": "0010_crops",
+      "breakpoints": true
     }
   ]
 }
