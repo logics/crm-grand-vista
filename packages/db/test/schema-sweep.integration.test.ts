@@ -44,10 +44,16 @@ describe('varredura de schema', () => {
   it('as tabelas de negócio da Fase 0 estão sob a varredura', async () => {
     expect(await listBusinessTables(owner)).toEqual([
       'access_profiles',
+      'aptitudes',
       'audit_log',
+      'contact_classifications',
       'crops',
+      'document_categories',
+      'lead_sources',
+      'payment_methods',
       'profile_data_scopes',
       'profile_permissions',
+      'purchase_profiles',
       'user_profiles',
     ]);
   });

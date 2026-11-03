@@ -116,13 +116,34 @@ describe('cadastros auxiliares — Culturas', () => {
       expect((await send('DELETE', '/inexistente/x')).status).toBe(404);
     });
 
-    it('o menu lista os cadastros do registro', async () => {
+    it('o menu lista os cadastros do registro em ordem alfabética', async () => {
       const response = await send('GET', '');
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual([
-        { key: 'crops', label: 'Culturas', orderMode: 'alphabetical', hasSystemMeaning: false },
+      const menu = (await response.json()) as { key: string; label: string }[];
+      expect(menu.map(({ label }) => label)).toEqual([
+        'Aptidões',
+        'Categorias de documento',
+        'Classificações do cliente',
+        'Culturas',
+        'Formas de pagamento',
+        'Origens do lead',
+        'Perfis de compra',
       ]);
+      expect(menu.map(({ key }) => key)).toContain('lead-sources');
     });
+
+    it.each(['aptitudes', 'lead-sources', 'document-categories', 'payment-methods', 'contact-classifications', 'purchase-profiles'])(
+      'o cadastro %s responde às mesmas rotas do motor',
+      async (key) => {
+        const created = await send('POST', `/${key}`, { name: 'Entrada nova' });
+        expect(created.status).toBe(201);
+        const { id } = (await created.json()) as { id: string };
+
+        expect((await send('GET', `/${key}`)).status).toBe(200);
+        expect((await send('PATCH', `/${key}/${id}`, { active: false })).status).toBe(200);
+        expect((await send('DELETE', `/${key}/${id}`)).status).toBe(204);
+      },
+    );
   });
 
   describe('unicidade do nome', () => {

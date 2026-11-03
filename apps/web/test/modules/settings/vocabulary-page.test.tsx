@@ -48,7 +48,11 @@ describe('cadastro auxiliar de culturas', () => {
     });
     renderApp('/e/grand-vista');
 
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'Configurações' }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Configurações' }));
+    // O menu abre no primeiro cadastro em ordem alfabética; as Culturas estão a um clique.
+    expect(await screen.findByRole('heading', { name: 'Aptidões' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Culturas' }));
 
     expect(await screen.findByRole('heading', { name: 'Culturas' })).toBeInTheDocument();
     expect(await screen.findByText('Soja')).toBeInTheDocument();

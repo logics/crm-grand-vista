@@ -20,7 +20,20 @@ const RLS_VIOLATION = '42501';
  * `createTenantWithBusinessData`. O primeiro teste compara esta lista com a
  * introspecção do banco: tabela de negócio nova falha aqui até entrar nos dois.
  */
-const BUSINESS_TABLES = ['access_profiles', 'audit_log', 'crops', 'profile_data_scopes', 'profile_permissions', 'user_profiles'];
+const BUSINESS_TABLES = [
+  'access_profiles',
+  'aptitudes',
+  'audit_log',
+  'contact_classifications',
+  'crops',
+  'document_categories',
+  'lead_sources',
+  'payment_methods',
+  'profile_data_scopes',
+  'profile_permissions',
+  'purchase_profiles',
+  'user_profiles',
+];
 
 describe('isolamento entre empresas em todas as tabelas de negócio', () => {
   const { DATABASE_URL } = loadApiEnv();
