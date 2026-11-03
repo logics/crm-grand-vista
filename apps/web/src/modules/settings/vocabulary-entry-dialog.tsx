@@ -3,6 +3,7 @@ import {
   type CreateVocabularyEntryInput,
   type VocabularyDefinition,
   type VocabularyEntry,
+  vocabularyMeaningRequiredMessage,
 } from '@crm/shared';
 import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@crm/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -39,7 +40,7 @@ export function VocabularyEntryDialog({ entry, vocabulary, title, onClose, onSub
 
   const submit = handleSubmit(async (input) => {
     if (meanings && !entry && !input.systemMeaning) {
-      setError('systemMeaning', { message: 'Escolha o significado.' });
+      setError('systemMeaning', { message: vocabularyMeaningRequiredMessage });
       return;
     }
     try {

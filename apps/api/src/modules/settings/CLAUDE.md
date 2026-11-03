@@ -1,6 +1,6 @@
 # settings
 
-Configurações da empresa. Por ora, o motor de cadastros auxiliares, provado com Culturas.
+Configurações da empresa. O motor de cadastros auxiliares (alfabéticos e de ordem manual, com ou sem significado de sistema).
 
 - **Spec:** `docs/specs/fase-1-configuracoes.md`; issue #102
 - **Tabelas que possui:** os cadastros do registro (a forma comum de `packages/db/src/schema/vocabulary.ts`); `commercial_statuses` soma `system_meaning` com CHECK
