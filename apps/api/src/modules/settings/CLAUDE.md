@@ -17,4 +17,5 @@ Configurações da empresa. O motor de cadastros auxiliares (alfabéticos e de o
 - **Ordem manual** (`orderMode: 'manual'`, ex.: status comercial): lista, opções e `/defaults` ordenam por `display_order` e depois nome; a listagem não pagina. Entrada nova entra no fim (`max + 1`) e `maxEntries` do registro limita o cadastro (409); criação e limite serializam por `pg_advisory_xact_lock` por empresa e cadastro.
 - **Significado de sistema** (`systemMeaning` no registro): obrigatório no `POST` (de lista fechada) e proibido em cadastro que não o tem; `PATCH` com `systemMeaning` é 400 (`z.never`). Desativar ou excluir a última ativa de um significado é 409 (`guardLastActiveMeaning`, que trava as ativas do significado).
 - `GET /:vocabulary/defaults` (`noPermissionRequired`): `{ [significado]: { id, name } | null }`, a primeira ativa na ordem do cadastro; `{}` em cadastro sem significado.
-- Fora do que existe, ainda por fazer: reordenação (`PUT /order`), campos extras, parâmetros, semente.
+- `PUT /:vocabulary/order` (`{ ids }`, 204): só cadastro manual (alfabético é 400). A lista tem de ser exatamente a das entradas, cada uma uma vez, senão 400 sem gravar. Regrava, sob o lock do cadastro e num só `auditedWrites` (um `change_id`), o `display_order` só das linhas que mudaram.
+- Fora do que existe, ainda por fazer: campos extras, parâmetros, semente.

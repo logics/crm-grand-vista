@@ -75,3 +75,11 @@ export async function deleteEntry(slug: string, key: VocabularyKey, id: string) 
   });
   if (response.status !== 204) throw await failure(response);
 }
+
+export async function reorderEntries(slug: string, key: VocabularyKey, ids: string[]) {
+  const response = await api.e[':tenant'].settings.vocabularies[':vocabulary'].order.$put({
+    param: { tenant: slug, vocabulary: key },
+    json: { ids },
+  });
+  if (response.status !== 204) throw await failure(response);
+}

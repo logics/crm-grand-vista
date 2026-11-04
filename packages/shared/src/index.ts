@@ -143,6 +143,9 @@ export {
   VOCABULARY_KEYS,
   VOCABULARY_NAME_MAX_LENGTH,
   VOCABULARY_NAME_TAKEN_INACTIVE_MESSAGE,
+  VOCABULARY_NOT_MANUAL_MESSAGE,
+  VOCABULARY_REORDER_MISMATCH_MESSAGE,
+  reorderVocabularySchema,
   VOCABULARY_NAME_TAKEN_MESSAGE,
   VOCABULARY_STATUSES,
   createVocabularyEntrySchema,
@@ -168,6 +171,7 @@ export {
 export type {
   AnyVocabulary,
   CreateVocabularyEntryInput,
+  ReorderVocabularyInput,
   UpdateVocabularyEntryInput,
   VocabularyDefaults,
   VocabularyDefinition,

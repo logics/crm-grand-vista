@@ -22,6 +22,8 @@ import {
   vocabularyMaxEntriesMessage,
   VOCABULARY_NAME_TAKEN_INACTIVE_MESSAGE,
   VOCABULARY_NAME_TAKEN_MESSAGE,
+  VOCABULARY_NOT_MANUAL_MESSAGE,
+  VOCABULARY_REORDER_MISMATCH_MESSAGE,
   type CreateVocabularyEntryInput,
   type VocabularyDefaults,
   type ListPage,
@@ -306,4 +308,32 @@ export async function defaultEntries(tx: Transaction, key: VocabularyKey): Promi
     if (result[meaning] === null) result[meaning] = { id: String(row.id), name: String(row.name) };
   }
   return result;
+}
+
+/**
+ * Regrava a posição das entradas na ordem recebida, só das que mudaram, num
+ * único `auditedWrites` (um `change_id` para a reordenação inteira). A lista
+ * precisa ser exatamente a das entradas do cadastro; senão, nada é gravado.
+ */
+export async function reorderEntries(
+  tx: Transaction,
+  actor: AuditActor & { tenantId: string },
+  key: VocabularyKey,
+  ids: string[],
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (definitionOf(key).orderMode !== 'manual') return { ok: false, message: VOCABULARY_NOT_MANUAL_MESSAGE };
+  const table = tableOf(key);
+  await lockVocabulary(tx, actor.tenantId, key);
+
+  const rows = await tx.select({ id: table.id, displayOrder: table.displayOrder }).from(table);
+  const current = new Map(rows.map((row) => [String(row.id), row.displayOrder]));
+  if (ids.length !== current.size || new Set(ids).size !== ids.length || !ids.every((id) => current.has(id))) {
+    return { ok: false, message: VOCABULARY_REORDER_MISMATCH_MESSAGE };
+  }
+
+  const writes = auditedWrites(tx, actor);
+  for (const [position, id] of ids.entries()) {
+    if (current.get(id) !== position) await writes.update(table, { displayOrder: position }, eq(table.id, id));
+  }
+  return { ok: true };
 }

@@ -77,6 +77,11 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'DELETE /e/:tenant/settings/vocabularies/:vocabulary/:id': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/settings/vocabularies/crops/${sweepCrops.delete}`,
   }),
+  'PUT /e/:tenant/settings/vocabularies/:vocabulary/order': (_actor, tenantSlug) => ({
+    // A empresa da varredura não tem status comercial: a lista vazia é a completa.
+    path: `/e/${tenantSlug}/settings/vocabularies/commercial-statuses/order`,
+    body: { ids: [], ...FLAG_PROBE },
+  }),
   'GET /e/:tenant/users': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/users` }),
   'PATCH /e/:tenant/users/:id': ({ credentials }, tenantSlug) => ({
     // Cada um altera o próprio usuário; o anônimo aponta para um id qualquer.

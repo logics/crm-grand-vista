@@ -97,7 +97,7 @@ describe('cadastro auxiliar de culturas', () => {
 describe('cadastro auxiliar de status comercial', () => {
   const STATUS_PATH = '/e/grand-vista/settings/vocabularies/commercial-statuses';
 
-  it('mostra a coluna Significado e o significado sem edição no diálogo de renomear', async () => {
+  it('mostra o significado na linha e o significado sem edição no diálogo de renomear', async () => {
     stubFakeApi({
       session: session(),
       permissions: ['configuracoes.gerenciar'],
@@ -107,12 +107,35 @@ describe('cadastro auxiliar de status comercial', () => {
     });
     renderApp(STATUS_PATH);
 
-    expect(await screen.findByRole('columnheader', { name: 'Significado' })).toBeInTheDocument();
     expect(await screen.findByText('Disponível')).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Renomear À venda' }));
     expect(await screen.findByDisplayValue('Disponível')).toHaveAttribute('readonly');
+  });
+
+  it('oferece a reordenação por botões e a grava com PUT /order', async () => {
+    const calls = stubFakeApi({
+      session: session(),
+      permissions: ['configuracoes.gerenciar'],
+      records: {
+        [STATUS_PATH]: page([
+          { id: '11111111-1111-4111-8111-111111111111', name: 'À venda', active: true, systemMeaning: 'available' } as never,
+          { id: '22222222-2222-4222-8222-222222222222', name: 'Vendida', active: true, systemMeaning: 'sold' } as never,
+        ]),
+      },
+    });
+    renderApp(STATUS_PATH);
+
+    const user = userEvent.setup();
+    expect(await screen.findByRole('button', { name: 'Mover À venda para cima' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Mover À venda para baixo' }));
+    await waitFor(() => expect(calls.requests.some((request) => request.method === 'PUT')).toBe(true));
+    const put = calls.requests.find((request) => request.method === 'PUT');
+    expect(put?.path).toBe(`${STATUS_PATH}/order`);
+    expect(JSON.parse(String(put?.init?.body))).toEqual({
+      ids: ['22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111'],
+    });
   });
 
   it('exige o significado ao criar', async () => {
