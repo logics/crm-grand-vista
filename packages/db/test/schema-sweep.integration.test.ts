@@ -55,6 +55,8 @@ describe('varredura de schema', () => {
       'profile_data_scopes',
       'profile_permissions',
       'purchase_profiles',
+      'trading_post_municipalities',
+      'trading_posts',
       'user_profiles',
     ]);
   });

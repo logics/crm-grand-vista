@@ -5,9 +5,11 @@ import {
   type VocabularyEntry,
   vocabularyMeaningRequiredMessage,
 } from '@crm/shared';
-import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@crm/ui';
+import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Field, Input, MunicipalityPicker, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@crm/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, type Control } from 'react-hook-form';
+import { useTenantSlug } from '../../shell/tenant-query.js';
+import { resolveMunicipalityItems, searchMunicipalities } from '../municipalities/municipality-source.js';
 
 // Diálogo de entrada de cadastro auxiliar: criar ou renomear. A recusa do
 // servidor (nome repetido, entrada inativa homônima) aparece no campo e o
@@ -24,6 +26,30 @@ interface VocabularyEntryDialogProps {
   onSubmit: (input: CreateVocabularyEntryInput) => Promise<void>;
 }
 
+/** Campo extra da praça: os municípios que ela atende, guardados como códigos IBGE. */
+function ServedMunicipalitiesField({ control, error }: { control: Control<CreateVocabularyEntryInput>; error?: string }) {
+  const slug = useTenantSlug();
+  return (
+    <Field label="Municípios atendidos" hint="Um município pertence a uma única praça." error={error}>
+      <Controller
+        control={control}
+        name="municipalities"
+        render={({ field }) => (
+          <MunicipalityPicker
+            multiple
+            aria-label="Municípios atendidos"
+            search={searchMunicipalities(slug)}
+            resolve={resolveMunicipalityItems(slug)}
+            value={field.value ?? []}
+            onChange={(items) => field.onChange(items.map((item) => item.ibgeCode))}
+            onBlur={field.onBlur}
+          />
+        )}
+      />
+    </Field>
+  );
+}
+
 export function VocabularyEntryDialog({ entry, vocabulary, title, onClose, onSubmit }: VocabularyEntryDialogProps) {
   const {
     register,
@@ -33,7 +59,13 @@ export function VocabularyEntryDialog({ entry, vocabulary, title, onClose, onSub
     formState: { errors, isSubmitting },
   } = useForm<CreateVocabularyEntryInput>({
     resolver: zodResolver(createVocabularyEntrySchema),
-    defaultValues: { name: entry?.name ?? '', systemMeaning: entry?.systemMeaning },
+    defaultValues: {
+      name: entry?.name ?? '',
+      systemMeaning: entry?.systemMeaning,
+      ...(vocabulary.servedMunicipalities
+        ? { municipalities: entry?.municipalities?.map((municipality) => municipality.ibgeCode) ?? [] }
+        : {}),
+    },
   });
 
   const meanings = vocabulary.systemMeaning?.options;
@@ -45,7 +77,7 @@ export function VocabularyEntryDialog({ entry, vocabulary, title, onClose, onSub
     }
     try {
       // O significado só vai na criação: no PATCH ele é recusado.
-      await onSubmit(entry ? { name: input.name } : input);
+      await onSubmit(entry ? { name: input.name, municipalities: input.municipalities } : input);
     } catch (failure) {
       setError('name', {
         message: failure instanceof Error ? failure.message : 'Não foi possível salvar. Tente de novo.',
@@ -95,6 +127,9 @@ export function VocabularyEntryDialog({ entry, vocabulary, title, onClose, onSub
                   />
                 )}
               </Field>
+            )}
+            {vocabulary.servedMunicipalities && (
+              <ServedMunicipalitiesField control={control} error={errors.municipalities?.message} />
             )}
           </DialogBody>
           <DialogFooter>

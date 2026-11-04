@@ -69,7 +69,9 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
   });
 
   const save = async (input: CreateVocabularyEntryInput) => {
-    if (editing?.kind === 'rename') await updateEntry(slug, key, editing.entry.id, { name: input.name });
+    if (editing?.kind === 'rename') {
+      await updateEntry(slug, key, editing.entry.id, { name: input.name, municipalities: input.municipalities });
+    }
     else await createEntry(slug, key, input);
     setEditing(undefined);
     await refresh();
@@ -127,6 +129,15 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
             { key: 'name', label: 'Nome', strong: true, sortable: true },
             ...(meanings
               ? [{ key: 'systemMeaning', label: 'Significado', render: (entry: VocabularyEntry) => meanings[entry.systemMeaning ?? ''] }]
+              : []),
+            ...(vocabulary.servedMunicipalities
+              ? [
+                  {
+                    key: 'municipalities',
+                    label: 'Municípios atendidos',
+                    render: (entry: VocabularyEntry) => entry.municipalities?.length ?? 0,
+                  },
+                ]
               : []),
             { key: 'active', label: 'Situação', render: situation },
             { key: 'actions', label: <span className="sr-only">Ações</span>, align: 'right', render: actions },

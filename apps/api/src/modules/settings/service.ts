@@ -10,6 +10,7 @@ import {
   leadSources,
   paymentMethods,
   purchaseProfiles,
+  tradingPosts,
   normalizedVocabularyName,
   type AuditActor,
   type Transaction,
@@ -37,6 +38,12 @@ import {
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { defineList, escapeLike, paginatedQuery, searchClause } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
+import {
+  checkServedMunicipalities,
+  loadServedMunicipalities,
+  removeServedMunicipalities,
+  replaceServedMunicipalities,
+} from './trading-post-municipalities.js';
 
 /**
  * A tabela de cada cadastro do registro. O tipo exige uma entrada por chave:
@@ -50,6 +57,7 @@ const TABLES: Record<VocabularyKey, VocabularyTable> = {
   'lead-sources': leadSources,
   'payment-methods': paymentMethods,
   'purchase-profiles': purchaseProfiles,
+  'trading-posts': tradingPosts,
   'commercial-statuses': commercialStatuses,
 };
 
@@ -60,7 +68,7 @@ export const tableOf = (key: VocabularyKey): Table => TABLES[key];
 /** Resultado de uma escrita que a regra pode recusar. */
 export type WriteResult =
   | { ok: true; entry: VocabularyEntry }
-  | { ok: false; reason: 'not_found' | 'name_taken' | 'refused'; message?: string };
+  | { ok: false; reason: 'not_found' | 'name_taken' | 'refused' | 'invalid'; message?: string };
 
 const ENTRY_COLUMNS = (table: Table) => ({
   id: table.id,
@@ -73,6 +81,24 @@ const ENTRY_COLUMNS = (table: Table) => ({
 const asEntry = (row: unknown) => serializeVocabularyEntry(row as VocabularyEntry);
 
 const definitionOf = (key: VocabularyKey) => findVocabulary(key)!;
+
+/** Junta os municípios atendidos às entradas dos cadastros que têm esse campo; os demais passam como vieram. */
+async function withServedMunicipalities(
+  tx: Transaction,
+  key: VocabularyKey,
+  entries: VocabularyEntry[],
+): Promise<VocabularyEntry[]> {
+  if (!definitionOf(key).servedMunicipalities) return entries;
+  const byPost = await loadServedMunicipalities(tx, entries.map((entry) => entry.id));
+  return entries.map((entry) => ({ ...entry, municipalities: byPost.get(entry.id) ?? [] }));
+}
+
+/** A recusa dos municípios atendidos na forma do resultado de escrita: código desconhecido é inválido; já atendido, conflito. */
+const municipalitiesRefusal = (refusal: { kind: 'unknown' | 'taken'; message: string }): WriteResult => ({
+  ok: false,
+  reason: refusal.kind === 'unknown' ? 'invalid' : 'refused',
+  message: refusal.message,
+});
 
 /** A ordem do cadastro: manual pela posição e depois pelo nome; alfabética só pelo nome. */
 const registryOrder = (key: VocabularyKey, table: Table) => [
@@ -104,11 +130,11 @@ export async function listEntries(
   if (definitionOf(key).orderMode === 'manual') {
     const where = and(searchClause(list, query.q), status);
     const rows = await tx.select(ENTRY_COLUMNS(table)).from(table).where(where).orderBy(...registryOrder(key, table));
-    return { items: rows.map(asEntry), total: rows.length, page: 1, pageSize: 100 };
+    return { items: await withServedMunicipalities(tx, key, rows.map(asEntry)), total: rows.length, page: 1, pageSize: 100 };
   }
 
   const page = await paginatedQuery(tx, list, query, { scope: withoutDataScope, filters: [status] });
-  return { ...page, items: page.items.map(asEntry) };
+  return { ...page, items: await withServedMunicipalities(tx, key, page.items.map(asEntry)) };
 }
 
 /**
@@ -187,6 +213,9 @@ export async function createEntry(
   const vocabulary = definitionOf(key);
   const conflict = await findNameConflict(tx, table, input.name);
   if (conflict) return nameTaken(conflict);
+  // Antes de gravar a entrada: a recusa devolve resultado, não exceção, e a transação seguiria para o commit.
+  const municipalityRefusal = await checkServedMunicipalities(tx, input.municipalities ?? []);
+  if (municipalityRefusal) return municipalitiesRefusal(municipalityRefusal);
 
   const values: Record<string, unknown> = { tenantId: actor.tenantId, name: input.name };
   if (vocabulary.systemMeaning) values.systemMeaning = input.systemMeaning;
@@ -204,8 +233,13 @@ export async function createEntry(
     values.displayOrder = (totals?.last ?? -1) + 1;
   }
 
-  const created = await auditedWrites(tx, actor).insert(table, values as never);
-  return { ok: true, entry: asEntry(created) };
+  const writes = auditedWrites(tx, actor);
+  const created = await writes.insert(table, values as never);
+  if (vocabulary.servedMunicipalities) {
+    await replaceServedMunicipalities(tx, writes, actor, String(created.id), input.municipalities ?? []);
+  }
+  const [entry] = await withServedMunicipalities(tx, key, [asEntry(created)]);
+  return { ok: true, entry: entry! };
 }
 
 /**
@@ -260,13 +294,23 @@ export async function updateEntry(
     if (blocked) return refused(blocked);
   }
 
+  const municipalityCodes = input.municipalities;
+  if (municipalityCodes !== undefined) {
+    const refusal = await checkServedMunicipalities(tx, municipalityCodes, id);
+    if (refusal) return municipalitiesRefusal(refusal);
+  }
+
   // Corpo sem campo editável não é escrita: nem `updated_at` muda.
+  const writes = auditedWrites(tx, actor);
   const [entry] =
     Object.keys(changes).length === 0
       ? await tx.select().from(table).where(eq(table.id, id))
-      : await auditedWrites(tx, actor).update(table, changes, eq(table.id, id));
+      : await writes.update(table, changes, eq(table.id, id));
+  if (!entry) return { ok: false, reason: 'not_found' };
 
-  return entry ? { ok: true, entry: asEntry(entry) } : { ok: false, reason: 'not_found' };
+  if (municipalityCodes !== undefined) await replaceServedMunicipalities(tx, writes, actor, id, municipalityCodes);
+  const [result] = await withServedMunicipalities(tx, key, [asEntry(entry)]);
+  return { ok: true, entry: result! };
 }
 
 /**
@@ -283,7 +327,10 @@ export async function deleteEntry(
   const table = tableOf(key);
   const blocked = await guardLastActiveMeaning(tx, key, table, id);
   if (blocked) return { refused: blocked };
-  const removed = await auditedWrites(tx, actor).delete(table, eq(table.id, id));
+  const writes = auditedWrites(tx, actor);
+  // O CASCADE do banco removeria os municípios sem deixar rastro: remove-os pelo wrapper antes.
+  if (definitionOf(key).servedMunicipalities) await removeServedMunicipalities(writes, id);
+  const removed = await writes.delete(table, eq(table.id, id));
   return removed.length > 0;
 }
 

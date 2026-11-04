@@ -16,3 +16,4 @@ export { leadSources } from './lead-sources.js';
 export { paymentMethods } from './payment-methods.js';
 export { purchaseProfiles } from './purchase-profiles.js';
 export { commercialStatuses } from './commercial-statuses.js';
+export { tradingPosts, tradingPostMunicipalities } from './trading-posts.js';

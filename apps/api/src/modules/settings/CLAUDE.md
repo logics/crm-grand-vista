@@ -3,7 +3,7 @@
 Configurações da empresa. O motor de cadastros auxiliares (alfabéticos e de ordem manual, com ou sem significado de sistema).
 
 - **Spec:** `docs/specs/fase-1-configuracoes.md`; issue #102
-- **Tabelas que possui:** os cadastros do registro (a forma comum de `packages/db/src/schema/vocabulary.ts`); `commercial_statuses` soma `system_meaning` com CHECK
+- **Tabelas que possui:** os cadastros do registro (a forma comum de `packages/db/src/schema/vocabulary.ts`), mais `trading_post_municipalities` (campo extra da praça, FK `CASCADE`); `commercial_statuses` soma `system_meaning` com CHECK
 - **Depende de:** `@crm/db`, `@crm/shared` (registro `VOCABULARIES`)
 
 ## Convenções locais
@@ -18,4 +18,6 @@ Configurações da empresa. O motor de cadastros auxiliares (alfabéticos e de o
 - **Significado de sistema** (`systemMeaning` no registro): obrigatório no `POST` (de lista fechada) e proibido em cadastro que não o tem; `PATCH` com `systemMeaning` é 400 (`z.never`). Desativar ou excluir a última ativa de um significado é 409 (`guardLastActiveMeaning`, que trava as ativas do significado).
 - `GET /:vocabulary/defaults` (`noPermissionRequired`): `{ [significado]: { id, name } | null }`, a primeira ativa na ordem do cadastro; `{}` em cadastro sem significado.
 - `PUT /:vocabulary/order` (`{ ids }`, 204): só cadastro manual (alfabético é 400). A lista tem de ser exatamente a das entradas, cada uma uma vez, senão 400 sem gravar. Regrava, sob o lock do cadastro e num só `auditedWrites` (um `change_id`), o `display_order` só das linhas que mudaram.
-- Fora do que existe, ainda por fazer: campos extras, parâmetros, semente.
+- **Praça e municípios atendidos** (`servedMunicipalities` no registro; `trading-post-municipalities.ts`): `POST`/`PATCH` aceitam `municipalities` (códigos IBGE; ausente no PATCH preserva, lista substitui) e gravam com o nome num save só, pelo mesmo `auditedWrites`. A checagem (código inexistente é 400; município de outra praça é 409 nomeando-a) roda **antes** de gravar a entrada, porque a recusa é resultado e não exceção; a corrida cai no UNIQUE (409). Praça inativa mantém os municípios. Excluir a praça remove os municípios pelo wrapper antes do CASCADE, para auditar. Respostas de lista, `POST` e `PATCH` trazem `municipalities`; `/options` não.
+- `GET /trading-posts/suggestion?municipality=<ibge>` (`noPermissionRequired`): a praça ativa que atende o município, ou `null`.
+- Fora do que existe, ainda por fazer: parâmetros, semente.

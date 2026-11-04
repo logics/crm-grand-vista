@@ -5,6 +5,7 @@
 //
 // A flag de super admin não entra: este pacote não a nomeia, e o teste de
 // cobertura ignora as colunas que o wrapper de auditoria já trata como só de plataforma.
+import { municipalityReference } from './region.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import {
   type EntityMeta,
@@ -89,6 +90,22 @@ export const FIELD_REGISTRY = {
   lead_sources: vocabularyEntity('Origem do lead', 'f'),
   payment_methods: vocabularyEntity('Forma de pagamento', 'f'),
   purchase_profiles: vocabularyEntity('Perfil de compra', 'm'),
+  trading_posts: vocabularyEntity('Praça', 'f'),
+  trading_post_municipalities: {
+    label: 'Município atendido',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      trading_post_id: {
+        type: 'reference',
+        label: 'Praça',
+        gender: 'f',
+        references: { table: 'trading_posts', nameColumn: 'name' },
+      },
+      municipality_ibge_code: { type: 'reference', label: 'Município', references: municipalityReference },
+    },
+  },
   commercial_statuses: vocabularyEntity('Status comercial', 'm', {
     system_meaning: { type: 'enum', label: 'Significado', options: COMMERCIAL_STATUS_MEANINGS },
   }),

@@ -1,4 +1,4 @@
-import { type MunicipalityOption, municipalityOptionSchema, ufOptionSchema, type UfOption, ufSchema } from '@crm/shared';
+import { isMunicipality, type MunicipalityOption, municipalityOptionSchema, ufOptionSchema, type UfOption, ufSchema } from '@crm/shared';
 import { z } from 'zod';
 import { api } from '../../lib/api.js';
 
@@ -60,4 +60,10 @@ export function resolveMunicipalities(slug: string) {
     });
     return [...ufs, ...(await readPage(response)).items];
   };
+}
+
+/** A hidratação de seletor que só aceita município (sem `allowUf`): os códigos IBGE viram itens. */
+export function resolveMunicipalityItems(slug: string) {
+  const resolve = resolveMunicipalities(slug);
+  return async (codes: string[]): Promise<MunicipalityOption[]> => (await resolve(codes)).filter(isMunicipality);
 }

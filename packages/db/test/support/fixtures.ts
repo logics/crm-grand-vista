@@ -17,6 +17,8 @@ import {
   profileDataScopes,
   profilePermissions,
   tenants,
+  tradingPostMunicipalities,
+  tradingPosts,
   userProfiles,
   users,
 } from '../../src/schema/index.js';
@@ -94,6 +96,10 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(userProfiles).values({ tenantId, userId, profileId });
     await tx.insert(crops).values({ tenantId, name: 'Soja' });
     await tx.insert(commercialStatuses).values({ tenantId, name: 'Exemplo', systemMeaning: 'available' });
+    const [post] = await tx.insert(tradingPosts).values({ tenantId, name: 'Exemplo' }).returning();
+    await tx
+      .insert(tradingPostMunicipalities)
+      .values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
     for (const table of [
       aptitudes,
       contactClassifications,
