@@ -1,5 +1,5 @@
 import {
-  ALQUEIRE_LABELS,
+  ALQUEIRE_TYPE_NAMES,
   ALQUEIRE_TYPES,
   AREA_DISPLAY_UNITS,
   AREA_DISPLAY_UNIT_LABELS,
@@ -59,7 +59,7 @@ function ParametersForm({ settings }: { settings: TenantSettings }) {
           <SelectContent>
             {ALQUEIRE_TYPES.map((type) => (
               <SelectItem key={type} value={type}>
-                {ALQUEIRE_LABELS[type]}
+                {ALQUEIRE_TYPE_NAMES[type]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -100,4 +100,3 @@ export function ParametersPage() {
     </div>
   );
 }
-

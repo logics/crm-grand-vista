@@ -102,6 +102,7 @@ export type {
   CommissionSplit,
 } from './commission.js';
 export {
+  ALQUEIRE_TYPE_NAMES,
   AREA_DISPLAY_UNITS,
   AREA_DISPLAY_UNIT_LABELS,
   DEFAULT_TENANT_SETTINGS,

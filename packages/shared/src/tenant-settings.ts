@@ -24,8 +24,11 @@ export type UpdateTenantSettingsInput = z.infer<typeof updateTenantSettingsSchem
 /** Sem a linha de parâmetros (empresa ainda sem semente), valem os defaults do banco. */
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = { defaultAlqueireType: 'goiano', areaDisplayUnit: 'hectare' };
 
-/** Rótulos das opções da tela de parâmetros. */
+/** Rótulos das opções de unidade, na tela de parâmetros e no histórico. */
 export const AREA_DISPLAY_UNIT_LABELS: Record<AreaDisplayUnit, string> = { hectare: 'Hectare', alqueire: 'Alqueire' };
+
+/** Rótulos das opções de tipo de alqueire (`ALQUEIRE_LABELS` é o sufixo de valor, "alq. goiano"). */
+export const ALQUEIRE_TYPE_NAMES: Record<AlqueireType, string> = { goiano: 'Goiano', paulista: 'Paulista', norte: 'Norte' };
 
 /** Os parâmetros da empresa como contexto de exibição da formatação de área. */
 export function toDisplayContext(settings: TenantSettings | undefined): DisplayContext {

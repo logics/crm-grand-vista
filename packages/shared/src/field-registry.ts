@@ -6,6 +6,7 @@
 // A flag de super admin não entra: este pacote não a nomeia, e o teste de
 // cobertura ignora as colunas que o wrapper de auditoria já trata como só de plataforma.
 import { municipalityReference } from './region.js';
+import { ALQUEIRE_TYPE_NAMES, AREA_DISPLAY_UNIT_LABELS } from './tenant-settings.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import {
   type EntityMeta,
@@ -100,12 +101,12 @@ export const FIELD_REGISTRY = {
       default_alqueire_type: {
         type: 'enum',
         label: 'Tipo de alqueire padrão',
-        options: { goiano: 'Goiano', paulista: 'Paulista', norte: 'Norte' },
+        options: ALQUEIRE_TYPE_NAMES,
       },
       area_display_unit: {
         type: 'enum',
         label: 'Unidade de exibição de área',
-        options: { hectare: 'Hectare', alqueire: 'Alqueire' },
+        options: AREA_DISPLAY_UNIT_LABELS,
       },
     },
   },
