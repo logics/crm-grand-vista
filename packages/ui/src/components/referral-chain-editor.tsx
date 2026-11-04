@@ -15,6 +15,7 @@ import {
 } from '@crm/shared';
 import { type ComponentProps, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
+import { reorderableRow } from '../lib/styles.js';
 import { FieldControlContext, type FieldControlProps, useFieldControl } from '../lib/field-control.js';
 import { PartyPicker, type PartySearches } from '../lib/party-picker.js';
 import { useReorder } from '../lib/reorder.js';
@@ -165,8 +166,7 @@ export function ReferralChainEditor({
                     key={row.id}
                     aria-label={`${position}. ${referrer.name}`}
                     data-moving={reorder.movingId === row.id || undefined}
-                    // linha com filete, como as do `DocumentManager`; a que se move ganha o fundo de pedra
-                    className="flex flex-col gap-3 border-b border-border-subtle py-4 transition-control last:border-b-0 data-moving:bg-surface-sunken"
+                    className={cn('flex flex-col gap-3', reorderableRow)}
                     {...(editable ? reorder.itemProps(row) : {})}
                   >
                     <div className="flex items-center gap-4">

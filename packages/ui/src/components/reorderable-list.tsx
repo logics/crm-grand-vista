@@ -1,5 +1,6 @@
 import { type ComponentProps, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
+import { reorderableRow } from '../lib/styles.js';
 import { useReorder } from '../lib/reorder.js';
 import { ReorderStatus } from '../lib/reorder-status.js';
 import { IconButton } from './icon-button.js';
@@ -10,7 +11,7 @@ import { IconButton } from './icon-button.js';
 // cima / para baixo". A ordem é de quem usa: `onReorder` recebe os ids na
 // nova ordem e a lista volta a mostrar `items`, que quem usa atualiza.
 
-export type ReorderableListProps<I> = Omit<ComponentProps<'ol'>, 'children' | 'onReset'> & {
+export type ReorderableListProps<I> = Omit<ComponentProps<'ol'>, 'children'> & {
   items: I[];
   getId: (item: I) => string;
   /** Nome do item nos rótulos e anúncios: "Em negociação". */
@@ -93,8 +94,7 @@ export function ReorderableList<I>({
           <li
             key={getId(item)}
             data-moving={reorder.movingId === getId(item) || undefined}
-            // linha com filete, como as do `DocumentManager`; a que se move ganha o fundo de pedra
-            className="flex items-center gap-4 border-b border-border-subtle py-4 transition-control last:border-b-0 data-moving:bg-surface-sunken"
+            className={cn('flex items-center gap-4', reorderableRow)}
             {...reorder.itemProps(item)}
           >
             {editable && (

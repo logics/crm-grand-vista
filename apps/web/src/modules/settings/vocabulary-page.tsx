@@ -14,7 +14,6 @@ import {
   Card,
   ConfirmDialog,
   IconButton,
-  ReorderableList,
   Select,
   SelectContent,
   SelectItem,
@@ -24,12 +23,12 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';
-import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { ListPage } from '../../listing/list-page.js';
 import { ErrorMessage } from '../../shell/error-message.js';
 import { PageHeader } from '../../shell/page-header.js';
-import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
-import { createEntry, deleteEntry, fetchEntries, reorderEntries, updateEntry } from './vocabulary-api.js';
+import { tenantQueryKey, useTenantSlug } from '../../shell/tenant-query.js';
+import { createEntry, deleteEntry, fetchEntries, updateEntry } from './vocabulary-api.js';
+import { ManualEntries } from './manual-entries.js';
 import { VocabularyEntryDialog } from './vocabulary-entry-dialog.js';
 
 const STATUS_LABELS: Record<VocabularyStatus, string> = { all: 'Todas', active: 'Ativas', inactive: 'Inativas' };
@@ -69,28 +68,6 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
     onError: (error) => setActionError(error.message),
   });
 
-  const manual = vocabulary.orderMode === 'manual';
-  const ordered = useTenantQuery(['settings', 'vocabularies', key, 'ordered'], (tenantSlug) =>
-    manual
-      ? fetchEntries(tenantSlug, key, vocabularyListQuerySchema.parse({}))
-      : Promise.resolve({ items: [] as VocabularyEntry[], total: 0, page: 1, pageSize: 100 }),
-  );
-  const orderedKey = tenantQueryKey(slug, 'settings', 'vocabularies', key, 'ordered');
-  const reorder = useMutation({
-    mutationFn: (ids: string[]) => reorderEntries(slug, key, ids),
-    // a lista já mostra a nova ordem; se a API recusar, volta à do servidor
-    onMutate: (ids) => {
-      setActionError(undefined);
-      queryClient.setQueryData<typeof ordered.data>(orderedKey, (current) => {
-        if (!current) return current;
-        const byId = new Map(current.items.map((entry) => [entry.id, entry]));
-        return { ...current, items: ids.map((id) => byId.get(id)!) };
-      });
-    },
-    onError: (error) => setActionError(error.message),
-    onSettled: refresh,
-  });
-
   const save = async (input: CreateVocabularyEntryInput) => {
     if (editing?.kind === 'rename') await updateEntry(slug, key, editing.entry.id, { name: input.name });
     else await createEntry(slug, key, input);
@@ -124,71 +101,60 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
         }
       />
       {actionError && <ErrorMessage>{actionError}</ErrorMessage>}
-      {manual ? (
-        ordered.isPending ? (
-          <LoadingState />
-        ) : ordered.isError ? (
-          <LoadFailedState inline title="Não foi possível carregar a lista" onRetry={() => ordered.refetch()} />
-        ) : (
-          <Card>
-            <ReorderableList
-              aria-label={label.plural}
-              items={ordered.data.items}
-              getId={(entry) => entry.id}
-              getLabel={(entry) => entry.name}
-              onReorder={(ids) => reorder.mutate(ids)}
-              disabled={reorder.isPending}
-              renderItem={(entry) => (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="flex items-center gap-3 text-sm font-medium text-text-body">
-                    {entry.name}
-                    {meanings && <Badge size="sm">{meanings[entry.systemMeaning ?? '']}</Badge>}
-                    {situation(entry)}
-                  </span>
-                  {actions(entry)}
-                </div>
-              )}
-            />
-          </Card>
-        )
+      {vocabulary.orderMode === 'manual' ? (
+        <ManualEntries
+          vocabulary={vocabulary}
+          refresh={refresh}
+          onError={setActionError}
+          renderRow={(entry) => (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="flex items-center gap-3 text-sm font-medium text-text-body">
+                {entry.name}
+                {meanings && <Badge size="sm">{meanings[entry.systemMeaning ?? '']}</Badge>}
+                {situation(entry)}
+              </span>
+              {actions(entry)}
+            </div>
+          )}
+        />
       ) : (
-      <ListPage
-        schema={vocabularyListQuerySchema}
-        queryKey={['settings', 'vocabularies', key]}
-        fetchPage={(tenantSlug, query) => fetchEntries(tenantSlug, key, query)}
-        searchPlaceholder={`Buscar ${label.singular.toLowerCase()}`}
-        columns={[
-          { key: 'name', label: 'Nome', strong: true, sortable: true },
-          ...(meanings
-            ? [{ key: 'systemMeaning', label: 'Significado', render: (entry: VocabularyEntry) => meanings[entry.systemMeaning ?? ''] }]
-            : []),
-          { key: 'active', label: 'Situação', render: situation },
-          { key: 'actions', label: <span className="sr-only">Ações</span>, align: 'right', render: actions },
-        ]}
-        renderCard={(entry) => (
-          <Card title={entry.name} subtitle={situation(entry)} action={actions(entry)} />
-        )}
-        empty={{
-          icon: 'inbox',
-          title: `${byGender(vocabulary, 'Nenhuma', 'Nenhum')} ${label.singular.toLowerCase()} ${byGender(vocabulary, 'cadastrada', 'cadastrado')}`,
-          description: `As entradas de ${label.plural.toLowerCase()} aparecem nos cadastros que as usam.`,
-        }}
-      >
-        {({ query, update }) => (
-          <Select value={query.status} onValueChange={(status) => update({ status: status as VocabularyStatus })}>
-            <SelectTrigger size="sm" aria-label="Situação">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {VOCABULARY_STATUSES.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </ListPage>
+        <ListPage
+          schema={vocabularyListQuerySchema}
+          queryKey={['settings', 'vocabularies', key]}
+          fetchPage={(tenantSlug, query) => fetchEntries(tenantSlug, key, query)}
+          searchPlaceholder={`Buscar ${label.singular.toLowerCase()}`}
+          columns={[
+            { key: 'name', label: 'Nome', strong: true, sortable: true },
+            ...(meanings
+              ? [{ key: 'systemMeaning', label: 'Significado', render: (entry: VocabularyEntry) => meanings[entry.systemMeaning ?? ''] }]
+              : []),
+            { key: 'active', label: 'Situação', render: situation },
+            { key: 'actions', label: <span className="sr-only">Ações</span>, align: 'right', render: actions },
+          ]}
+          renderCard={(entry) => (
+            <Card title={entry.name} subtitle={situation(entry)} action={actions(entry)} />
+          )}
+          empty={{
+            icon: 'inbox',
+            title: `${byGender(vocabulary, 'Nenhuma', 'Nenhum')} ${label.singular.toLowerCase()} ${byGender(vocabulary, 'cadastrada', 'cadastrado')}`,
+            description: `As entradas de ${label.plural.toLowerCase()} aparecem nos cadastros que as usam.`,
+          }}
+        >
+          {({ query, update }) => (
+            <Select value={query.status} onValueChange={(status) => update({ status: status as VocabularyStatus })}>
+              <SelectTrigger size="sm" aria-label="Situação">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOCABULARY_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {STATUS_LABELS[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </ListPage>
       )}
       {editing && (
         <VocabularyEntryDialog
