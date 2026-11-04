@@ -3,9 +3,17 @@
 // empresa ativa — o RLS de `audit_log` e das tabelas referenciadas já recorta
 // as linhas dela.
 import { auditLog, users, type Transaction } from '@crm/db';
-import { HISTORY_PAGE_SIZE, type DisplayContext, type HistoryPage, type RegisteredTable } from '@crm/shared';
+import {
+  HISTORY_PAGE_SIZE,
+  toDisplayContext,
+  type DisplayContext,
+  type EntityMeta,
+  type HistoryPage,
+  type RegisteredTable,
+} from '@crm/shared';
 import { and, desc, eq, inArray, lt, max, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
+import { readTenantSettings } from '../modules/settings/parameters.js';
 import type { EffectiveAccess } from '../authorization/effective-access.js';
 import {
   assembleHistory,
@@ -40,7 +48,10 @@ export interface HistoryQuery {
   reader: EffectiveAccess;
   /** Já decodificado; ausente na primeira página. */
   cursor?: number;
+  /** Sem ele, o contexto vem dos parâmetros da empresa ativa. */
   context?: DisplayContext;
+  /** Os metadados de campo; o registro de `@crm/shared` por padrão. */
+  registry?: Readonly<Record<string, EntityMeta>>;
 }
 
 /**
@@ -155,6 +166,7 @@ export async function readHistory(tx: Transaction, query: HistoryQuery): Promise
     ...query,
     authors: new Map(authors.map((author) => [author.id, author.name])),
     references: await readReferenceNames(tx, rows, query),
+    context: query.context ?? toDisplayContext(await readTenantSettings(tx)),
   }).filter((entry) => pageIds.has(entry.changeId));
 
   return saves.length > HISTORY_PAGE_SIZE && last.newest !== null

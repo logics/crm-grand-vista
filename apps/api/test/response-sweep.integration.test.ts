@@ -69,6 +69,11 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'GET /e/:tenant/settings/trading-posts/suggestion': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/settings/trading-posts/suggestion?municipality=5218805`,
   }),
+  'GET /e/:tenant/settings': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/settings` }),
+  'PATCH /e/:tenant/settings': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/settings`,
+    body: { areaDisplayUnit: 'hectare', ...FLAG_PROBE },
+  }),
   'POST /e/:tenant/settings/vocabularies/:vocabulary': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/settings/vocabularies/crops`,
     body: { name: `Cultura ${crypto.randomUUID()}`, ...FLAG_PROBE },

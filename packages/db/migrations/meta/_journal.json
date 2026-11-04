@@ -99,6 +99,13 @@
       "when": 1793818323775,
       "tag": "0013_trading_posts",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793821335771,
+      "tag": "0014_tenant_settings",
+      "breakpoints": true
     }
   ]
 }

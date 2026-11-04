@@ -91,6 +91,24 @@ export const FIELD_REGISTRY = {
   payment_methods: vocabularyEntity('Forma de pagamento', 'f'),
   purchase_profiles: vocabularyEntity('Perfil de compra', 'm'),
   trading_posts: vocabularyEntity('Praça', 'f'),
+  tenant_settings: {
+    label: 'Parâmetros da empresa',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      default_alqueire_type: {
+        type: 'enum',
+        label: 'Tipo de alqueire padrão',
+        options: { goiano: 'Goiano', paulista: 'Paulista', norte: 'Norte' },
+      },
+      area_display_unit: {
+        type: 'enum',
+        label: 'Unidade de exibição de área',
+        options: { hectare: 'Hectare', alqueire: 'Alqueire' },
+      },
+    },
+  },
   trading_post_municipalities: {
     label: 'Município atendido',
     gender: 'm',
