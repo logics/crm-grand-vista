@@ -1,5 +1,6 @@
 // Provisionamento de empresa: a empresa, os perfis de acesso semeados, o
-// primeiro administrador e o vínculo padrão entre eles — tudo numa transação
+// primeiro administrador, o vínculo padrão entre eles e a semente de cadastros
+// auxiliares e parâmetros — tudo numa transação
 // só, pelo caminho nominal do CLI. Ou nasce inteira, ou não nasce.
 import {
   accounts,
@@ -17,6 +18,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { emailSchema, generatePassword } from './credentials.js';
 import { ADMIN_ACCESS_PROFILE, seedAccessProfiles } from './seeded-access-profiles.js';
+import { seedTenantDefaults } from './tenant-seed.js';
 
 export const provisionTenantSchema = z.object({
   slug: tenantSlugSchema,
@@ -79,6 +81,7 @@ export async function provisionTenant(db: Database, input: ProvisionTenantInput)
     const adminProfileId = profiles.get(ADMIN_ACCESS_PROFILE);
     if (!adminProfileId) throw new Error(`O perfil de acesso ${ADMIN_ACCESS_PROFILE} não foi semeado.`);
     await tx.insert(userProfiles).values({ tenantId, userId: user.id, profileId: adminProfileId });
+    await seedTenantDefaults(writes, tenantId);
 
     return {
       tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
