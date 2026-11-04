@@ -3,7 +3,7 @@
 Configurações da empresa. O motor de cadastros auxiliares (alfabéticos e de ordem manual, com ou sem significado de sistema).
 
 - **Spec:** `docs/specs/fase-1-configuracoes.md`; issue #102
-- **Tabelas que possui:** os cadastros do registro (a forma comum de `packages/db/src/schema/vocabulary.ts`); `commercial_statuses` soma `system_meaning` com CHECK
+- **Tabelas que possui:** os cadastros do registro (a forma comum de `packages/db/src/schema/vocabulary.ts`), mais `trading_post_municipalities` (campo extra da praça, FK `CASCADE`); `commercial_statuses` soma `system_meaning` com CHECK
 - **Depende de:** `@crm/db`, `@crm/shared` (registro `VOCABULARIES`)
 
 ## Convenções locais
