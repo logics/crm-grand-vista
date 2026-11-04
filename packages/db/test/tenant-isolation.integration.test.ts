@@ -24,6 +24,7 @@ const BUSINESS_TABLES = [
   'access_profiles',
   'aptitudes',
   'audit_log',
+  'commercial_statuses',
   'contact_classifications',
   'crops',
   'document_categories',

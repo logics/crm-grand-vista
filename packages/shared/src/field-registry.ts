@@ -5,6 +5,7 @@
 //
 // A flag de super admin não entra: este pacote não a nomeia, e o teste de
 // cobertura ignora as colunas que o wrapper de auditoria já trata como só de plataforma.
+import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import {
   type EntityMeta,
   type FieldMeta,
@@ -14,7 +15,11 @@ import {
 } from './field-metadata.js';
 
 /** A forma comum dos cadastros auxiliares: o que muda de um para outro é o rótulo e o gênero. */
-function vocabularyEntity<const G extends GrammaticalGender>(label: string, gender: G) {
+function vocabularyEntity<const G extends GrammaticalGender, const E extends Record<string, FieldMeta> = {}>(
+  label: string,
+  gender: G,
+  extra?: E,
+) {
   return {
     label,
     gender,
@@ -25,6 +30,7 @@ function vocabularyEntity<const G extends GrammaticalGender>(label: string, gend
       // Só existe para a ordem manual; no cadastro alfabético fica em 0 e ninguém o vê.
       display_order: HIDDEN,
       active: { type: 'boolean', label: gender === 'f' ? 'Ativa' : 'Ativo', gender },
+      ...(extra as E),
     },
   } as const satisfies EntityMeta;
 }
@@ -83,6 +89,9 @@ export const FIELD_REGISTRY = {
   lead_sources: vocabularyEntity('Origem do lead', 'f'),
   payment_methods: vocabularyEntity('Forma de pagamento', 'f'),
   purchase_profiles: vocabularyEntity('Perfil de compra', 'm'),
+  commercial_statuses: vocabularyEntity('Status comercial', 'm', {
+    system_meaning: { type: 'enum', label: 'Significado', options: COMMERCIAL_STATUS_MEANINGS },
+  }),
 } as const satisfies Record<string, EntityMeta>;
 
 export type RegisteredTable = keyof typeof FIELD_REGISTRY;

@@ -8,6 +8,7 @@ import {
   auditLog,
   aptitudes,
   contactClassifications,
+  commercialStatuses,
   crops,
   documentCategories,
   leadSources,
@@ -92,6 +93,7 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(profileDataScopes).values({ tenantId, profileId, module: 'testes', scope: 'own' });
     await tx.insert(userProfiles).values({ tenantId, userId, profileId });
     await tx.insert(crops).values({ tenantId, name: 'Soja' });
+    await tx.insert(commercialStatuses).values({ tenantId, name: 'Exemplo', systemMeaning: 'available' });
     for (const table of [
       aptitudes,
       contactClassifications,

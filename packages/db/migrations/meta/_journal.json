@@ -85,6 +85,13 @@
       "when": 1793735066928,
       "tag": "0011_vocabularies",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793745698746,
+      "tag": "0012_commercial_statuses",
+      "breakpoints": true
     }
   ]
 }

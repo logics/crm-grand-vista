@@ -128,6 +128,7 @@ describe('cadastros auxiliares — Culturas', () => {
         'Formas de pagamento',
         'Origens do lead',
         'Perfis de compra',
+        'Status comercial',
       ]);
       expect(menu.map(({ key }) => key)).toContain('lead-sources');
     });

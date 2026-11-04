@@ -137,6 +137,7 @@ export {
 } from './history.js';
 export type { HistoryChange, HistoryChild, HistoryEntry, HistoryKind, HistoryPage } from './history.js';
 export {
+  COMMERCIAL_STATUS_MEANINGS,
   VOCABULARIES,
   VOCABULARY_IN_USE_MESSAGE,
   VOCABULARY_KEYS,
@@ -146,10 +147,15 @@ export {
   VOCABULARY_STATUSES,
   createVocabularyEntrySchema,
   findVocabulary,
+  lastActiveMeaningMessage,
   serializeVocabularyEntry,
   updateVocabularyEntrySchema,
   vocabulariesByLabel,
+  vocabularyDefaultsSchema,
   vocabularyEntryPageSchema,
+  vocabularyMaxEntriesMessage,
+  vocabularyMeaningRequiredMessage,
+  vocabularyMeaningUnexpectedMessage,
   vocabularyEntrySchema,
   vocabularyListQuerySchema,
   vocabularyMenuItemSchema,
@@ -160,8 +166,10 @@ export {
   VOCABULARY_OPTIONS_PAGE_SIZE,
 } from './vocabulary.js';
 export type {
+  AnyVocabulary,
   CreateVocabularyEntryInput,
   UpdateVocabularyEntryInput,
+  VocabularyDefaults,
   VocabularyDefinition,
   VocabularyEntry,
   VocabularyKey,

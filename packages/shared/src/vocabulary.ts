@@ -20,6 +20,14 @@ export interface VocabularyDefinition {
   /** Gênero do rótulo, para a concordância dos textos ("Nova cultura", "Novo status"). */
   gender: GrammaticalGender;
   orderMode: VocabularyOrderMode;
+  /** Máximo de entradas do cadastro; sem limite quando ausente. Ordem de fluxo é curta. */
+  maxEntries?: number;
+  /**
+   * Significado de sistema: a entrada carrega um valor de lista fechada que o
+   * código lê (`sold`), enquanto o nome é livre. `noun` completa as mensagens
+   * ("ao menos um **status** ativo").
+   */
+  systemMeaning?: { noun: string; options: Readonly<Record<string, string>> };
   /**
    * Tabelas de campo extra do próprio cadastro (ex.: `trading_post_municipalities`
    * de `trading_posts`): a única exceção à regra de que toda FK para um cadastro
@@ -27,6 +35,14 @@ export interface VocabularyDefinition {
    */
   extraFieldTables?: readonly string[];
 }
+
+/** Significados de sistema do status comercial e o rótulo de exibição de cada um. */
+export const COMMERCIAL_STATUS_MEANINGS = {
+  available: 'Disponível',
+  negotiating: 'Em negociação',
+  sold: 'Vendida',
+  suspended: 'Suspensa',
+} as const;
 
 export const VOCABULARIES = {
   aptitudes: {
@@ -78,20 +94,32 @@ export const VOCABULARIES = {
     gender: 'f',
     orderMode: 'alphabetical',
   },
+  'commercial-statuses': {
+    key: 'commercial-statuses',
+    table: 'commercial_statuses',
+    label: { singular: 'Status comercial', plural: 'Status comercial' },
+    gender: 'm',
+    orderMode: 'manual',
+    maxEntries: 50,
+    systemMeaning: { noun: 'status', options: COMMERCIAL_STATUS_MEANINGS },
+  },
 } as const satisfies Record<string, VocabularyDefinition>;
 
 export type VocabularyKey = keyof typeof VOCABULARIES;
 
 export const VOCABULARY_KEYS = Object.keys(VOCABULARIES) as VocabularyKey[];
 
+/** Cadastro do registro, em forma mais larga que a literal, para ler campos opcionais. */
+export type AnyVocabulary = VocabularyDefinition & { key: VocabularyKey };
+
 /** O cadastro da chave da URL, ou nulo se ela está fora do registro (404). */
-export function findVocabulary(key: string): (typeof VOCABULARIES)[VocabularyKey] | null {
+export function findVocabulary(key: string): AnyVocabulary | null {
   return Object.hasOwn(VOCABULARIES, key) ? VOCABULARIES[key as VocabularyKey] : null;
 }
 
 /** Os cadastros do registro em ordem alfabética do rótulo: a ordem do menu. */
-export function vocabulariesByLabel(): (typeof VOCABULARIES)[VocabularyKey][] {
-  return Object.values(VOCABULARIES).sort((left, right) =>
+export function vocabulariesByLabel(): AnyVocabulary[] {
+  return (Object.values(VOCABULARIES) as AnyVocabulary[]).sort((left, right) =>
     left.label.plural.localeCompare(right.label.plural, 'pt-BR'),
   );
 }
@@ -105,13 +133,22 @@ export const vocabularyNameSchema = z
   .min(1, 'Informe o nome.')
   .max(VOCABULARY_NAME_MAX_LENGTH, `O nome aceita até ${VOCABULARY_NAME_MAX_LENGTH} caracteres.`);
 
-export const createVocabularyEntrySchema = z.object({ name: vocabularyNameSchema });
+/** Corpo do `POST`. O significado só vale em cadastro que o tem: a rota confere contra o registro. */
+export const createVocabularyEntrySchema = z.object({
+  name: vocabularyNameSchema,
+  systemMeaning: z.string().optional(),
+});
 
 export type CreateVocabularyEntryInput = z.infer<typeof createVocabularyEntrySchema>;
 
 /** Corpo do `PATCH`: renomear e/ou desativar e reativar. Chave não declarada é descartada. */
 export const updateVocabularyEntrySchema = z
-  .object({ name: vocabularyNameSchema, active: z.boolean() })
+  .object({
+    name: vocabularyNameSchema,
+    active: z.boolean(),
+    // O significado é escolhido só na criação: qualquer valor aqui é 400.
+    systemMeaning: z.never('O significado não pode ser alterado depois de criado.'),
+  })
   .partial();
 
 export type UpdateVocabularyEntryInput = z.infer<typeof updateVocabularyEntrySchema>;
@@ -132,6 +169,8 @@ export const vocabularyEntrySchema = z.object({
   id: z.uuid(),
   name: z.string(),
   active: z.boolean(),
+  /** Só nos cadastros com significado de sistema. */
+  systemMeaning: z.string().optional(),
 });
 
 export type VocabularyEntry = z.infer<typeof vocabularyEntrySchema>;
@@ -184,8 +223,37 @@ export const vocabularyOptionsPageSchema = z.object({
 export type VocabularyOptionsPage = z.infer<typeof vocabularyOptionsPageSchema>;
 
 /** Só o que sai pela borda HTTP: nenhuma coluna a mais da tabela atravessa. */
-export function serializeVocabularyEntry(entry: { id: string; name: string; active: boolean }): VocabularyEntry {
-  return vocabularyEntrySchema.parse({ id: entry.id, name: entry.name, active: entry.active });
+export function serializeVocabularyEntry(entry: {
+  id: string;
+  name: string;
+  active: boolean;
+  systemMeaning?: string | null;
+}): VocabularyEntry {
+  return vocabularyEntrySchema.parse({
+    id: entry.id,
+    name: entry.name,
+    active: entry.active,
+    ...(entry.systemMeaning ? { systemMeaning: entry.systemMeaning } : {}),
+  });
+}
+
+/** Resposta de `/defaults`: a primeira entrada ativa de cada significado, ou nulo se não há. */
+export const vocabularyDefaultsSchema = z.record(z.string(), z.object({ id: z.uuid(), name: z.string() }).nullable());
+
+export type VocabularyDefaults = z.infer<typeof vocabularyDefaultsSchema>;
+
+export const vocabularyMaxEntriesMessage = (vocabulary: VocabularyDefinition) =>
+  `O limite é de ${vocabulary.maxEntries} entradas em ${vocabulary.label.plural.toLowerCase()}.`;
+
+export const vocabularyMeaningRequiredMessage = 'Escolha o significado.';
+export const vocabularyMeaningUnexpectedMessage = 'Este cadastro não tem significado.';
+
+/** "Precisa haver ao menos um status ativo com o significado Vendida." */
+export function lastActiveMeaningMessage(vocabulary: VocabularyDefinition, meaning: string): string {
+  const { noun, options } = vocabulary.systemMeaning ?? { noun: 'entrada', options: {} };
+  const article = vocabulary.gender === 'f' ? 'uma' : 'um';
+  const active = vocabulary.gender === 'f' ? 'ativa' : 'ativo';
+  return `Precisa haver ao menos ${article} ${noun} ${active} com o significado ${options[meaning] ?? meaning}.`;
 }
 
 export const VOCABULARY_NAME_TAKEN_MESSAGE = 'Já existe uma entrada com esse nome.';

@@ -48,6 +48,7 @@ export function VocabularyPage() {
 
 function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { key: VocabularyKey } }) {
   const { key, label } = vocabulary;
+  const meanings = vocabulary.systemMeaning?.options;
   const slug = useTenantSlug();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Editing>();
@@ -67,7 +68,7 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
   });
 
   const save = async (input: CreateVocabularyEntryInput) => {
-    if (editing?.kind === 'rename') await updateEntry(slug, key, editing.entry.id, input);
+    if (editing?.kind === 'rename') await updateEntry(slug, key, editing.entry.id, { name: input.name });
     else await createEntry(slug, key, input);
     setEditing(undefined);
     await refresh();
@@ -106,6 +107,9 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
         searchPlaceholder={`Buscar ${label.singular.toLowerCase()}`}
         columns={[
           { key: 'name', label: 'Nome', strong: true, sortable: true },
+          ...(meanings
+            ? [{ key: 'systemMeaning', label: 'Significado', render: (entry: VocabularyEntry) => meanings[entry.systemMeaning ?? ''] }]
+            : []),
           { key: 'active', label: 'Situação', render: situation },
           { key: 'actions', label: <span className="sr-only">Ações</span>, align: 'right', render: actions },
         ]}
@@ -136,6 +140,7 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
       {editing && (
         <VocabularyEntryDialog
           entry={editing.kind === 'rename' ? editing.entry : undefined}
+          vocabulary={vocabulary}
           title={editing.kind === 'rename' ? `Renomear ${label.singular.toLowerCase()}` : newLabel}
           onClose={() => setEditing(undefined)}
           onSubmit={save}

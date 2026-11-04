@@ -63,6 +63,9 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'GET /e/:tenant/settings/vocabularies/:vocabulary/options': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/settings/vocabularies/crops/options`,
   }),
+  'GET /e/:tenant/settings/vocabularies/:vocabulary/defaults': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/settings/vocabularies/commercial-statuses/defaults`,
+  }),
   'POST /e/:tenant/settings/vocabularies/:vocabulary': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/settings/vocabularies/crops`,
     body: { name: `Cultura ${crypto.randomUUID()}`, ...FLAG_PROBE },
