@@ -10,6 +10,7 @@ import {
   tradingPostSuggestionQuerySchema,
   VOCABULARY_MUNICIPALITIES_UNEXPECTED_MESSAGE,
   VOCABULARY_MUNICIPALITY_TAKEN_MESSAGE,
+  updateTenantSettingsSchema,
   updateVocabularyEntrySchema,
   VOCABULARY_IN_USE_MESSAGE,
   VOCABULARY_NAME_TAKEN_MESSAGE,
@@ -23,6 +24,7 @@ import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
+import { readTenantSettings, updateTenantSettings } from './parameters.js';
 import { suggestTradingPost } from './trading-post-municipalities.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import { createEntry, defaultEntries, deleteEntry, listEntries, listOptions, reorderEntries, updateEntry } from './service.js';
@@ -110,6 +112,13 @@ const manage = () => requirePermission('configuracoes.gerenciar');
 
 export function createSettingsRoutes() {
   return new Hono<VocabularyEnv>()
+    // leitura de apoio: basta o vínculo com a empresa
+    .get('/', noPermissionRequired, async (c) => c.json(await c.var.withTenant(readTenantSettings), 200))
+    .patch('/', manage(), zValidator('json', updateTenantSettingsSchema), async (c) => {
+      const { tenant, userId, withTenant } = c.var;
+      const input = c.req.valid('json');
+      return c.json(await withTenant((tx) => updateTenantSettings(tx, { tenantId: tenant.id, userId }, input)), 200);
+    })
     .get('/vocabularies', manage(), (c) => {
       const menu: VocabularyMenuItem[] = vocabulariesByLabel().map((vocabulary) => ({
         key: vocabulary.key,

@@ -16,6 +16,7 @@ import {
   purchaseProfiles,
   profileDataScopes,
   profilePermissions,
+  tenantSettings,
   tenants,
   tradingPostMunicipalities,
   tradingPosts,
@@ -95,6 +96,7 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(profileDataScopes).values({ tenantId, profileId, module: 'testes', scope: 'own' });
     await tx.insert(userProfiles).values({ tenantId, userId, profileId });
     await tx.insert(crops).values({ tenantId, name: 'Soja' });
+    await tx.insert(tenantSettings).values({ tenantId });
     await tx.insert(commercialStatuses).values({ tenantId, name: 'Exemplo', systemMeaning: 'available' });
     const [post] = await tx.insert(tradingPosts).values({ tenantId, name: 'Exemplo' }).returning();
     await tx

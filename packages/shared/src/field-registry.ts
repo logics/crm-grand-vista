@@ -6,6 +6,7 @@
 // A flag de super admin não entra: este pacote não a nomeia, e o teste de
 // cobertura ignora as colunas que o wrapper de auditoria já trata como só de plataforma.
 import { municipalityReference } from './region.js';
+import { ALQUEIRE_TYPE_NAMES, AREA_DISPLAY_UNIT_LABELS } from './tenant-settings.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import {
   type EntityMeta,
@@ -91,6 +92,24 @@ export const FIELD_REGISTRY = {
   payment_methods: vocabularyEntity('Forma de pagamento', 'f'),
   purchase_profiles: vocabularyEntity('Perfil de compra', 'm'),
   trading_posts: vocabularyEntity('Praça', 'f'),
+  tenant_settings: {
+    label: 'Parâmetros da empresa',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      default_alqueire_type: {
+        type: 'enum',
+        label: 'Tipo de alqueire padrão',
+        options: ALQUEIRE_TYPE_NAMES,
+      },
+      area_display_unit: {
+        type: 'enum',
+        label: 'Unidade de exibição de área',
+        options: AREA_DISPLAY_UNIT_LABELS,
+      },
+    },
+  },
   trading_post_municipalities: {
     label: 'Município atendido',
     gender: 'm',

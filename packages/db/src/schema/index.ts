@@ -17,3 +17,4 @@ export { paymentMethods } from './payment-methods.js';
 export { purchaseProfiles } from './purchase-profiles.js';
 export { commercialStatuses } from './commercial-statuses.js';
 export { tradingPosts, tradingPostMunicipalities } from './trading-posts.js';
+export { tenantSettings } from './tenant-settings.js';
