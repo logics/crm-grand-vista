@@ -11,4 +11,5 @@ Configurações: navegação lateral e a página de cada cadastro auxiliar.
 - A página é a `ListPage` da fundação; o estado da lista vive na URL. Escrita pelas mutations de `vocabulary-api.ts`, que invalidam a lista do cadastro. A recusa da API (409) vira `VocabularyRequestError`, mostrada no diálogo sem fechá-lo.
 - `VocabularyField` (`vocabulary-field.tsx`) é o `VocabularyPicker` ligado à API da empresa ativa, pelo adaptador `vocabulary-source.ts` (`/options`; `ids` hidrata o valor gravado, `includeInactive` só no modo filtro). Contatos e fazendas o usam; nenhum módulo escreve a sua busca. Sem tela própria que o consuma ainda.
 - O item "Configurações" do menu principal exige `configuracoes.gerenciar`.
-- Falta: item "Parâmetros" (depende de `tenant_settings`), reordenação e coluna de significado (cadastro manual).
+- Cadastro manual não usa a `ListPage`: `manual-entries.tsx` mostra o `ReorderableList` (`@crm/ui`: arrastar, alça de teclado e botões de mover) com a lista inteira, sem busca nem filtro (reordenar exige a lista completa). A nova ordem aparece de imediato (otimista) e `PUT /order` a grava; a recusa volta à ordem do servidor.
+- Falta: item "Parâmetros" (depende de `tenant_settings`).

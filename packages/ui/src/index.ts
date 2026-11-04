@@ -48,6 +48,7 @@ export * from './components/pagination.js';
 export * from './components/percent-input.js';
 export * from './components/progress-bar.js';
 export * from './components/referral-chain-editor.js';
+export * from './components/reorderable-list.js';
 export * from './components/search-bar.js';
 export * from './components/sidebar-nav.js';
 export * from './components/spec-list.js';

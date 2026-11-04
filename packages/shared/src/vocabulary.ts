@@ -153,6 +153,18 @@ export const updateVocabularyEntrySchema = z
 
 export type UpdateVocabularyEntryInput = z.infer<typeof updateVocabularyEntrySchema>;
 
+/** Corpo do `PUT /order`: a lista completa de ids na nova ordem. */
+export const reorderVocabularySchema = z.object({ ids: z.array(z.uuid()) });
+
+export type ReorderVocabularyInput = z.infer<typeof reorderVocabularySchema>;
+
+/** Recusa da reordenação cuja lista não é exatamente a das entradas do cadastro. */
+export const VOCABULARY_REORDER_MISMATCH_MESSAGE =
+  'A lista precisa ter todas as entradas do cadastro, cada uma uma só vez.';
+
+/** Recusa da reordenação de cadastro alfabético. */
+export const VOCABULARY_NOT_MANUAL_MESSAGE = 'Este cadastro é ordenado por nome e não pode ser reordenado.';
+
 export const VOCABULARY_STATUSES = ['active', 'inactive', 'all'] as const;
 
 export type VocabularyStatus = (typeof VOCABULARY_STATUSES)[number];

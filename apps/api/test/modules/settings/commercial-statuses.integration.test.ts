@@ -153,6 +153,84 @@ describe('cadastros auxiliares — Status comercial', () => {
     });
   });
 
+  describe('reordenação', () => {
+    const reorder = (ids: unknown, path = '/order') => send('PUT', path, { ids });
+    const orders = async () =>
+      new Map(
+        (await db.withTenant(tenant.id, (tx) => tx.select().from(commercialStatuses))).map((row) => [row.id, row.displayOrder]),
+      );
+    const orderChanges = () =>
+      db.withTenant(tenant.id, (tx) => tx.select().from(auditLog).where(eq(auditLog.field, 'display_order')));
+
+    it('regrava só as linhas que mudaram, com um change_id só', async () => {
+      await clear();
+      const a = await createOk('A', 'available');
+      const b = await createOk('B', 'negotiating');
+      const c = await createOk('C', 'sold');
+      const d = await createOk('D', 'suspended');
+      const before = await orderChanges();
+
+      // B e C trocam; A e D ficam
+      const response = await reorder([a.id, c.id, b.id, d.id]);
+      expect(response.status).toBe(204);
+
+      expect(await names()).toEqual(['A', 'C', 'B', 'D']);
+      const rows = await orders();
+      expect([a, c, b, d].map((entry) => rows.get(entry.id))).toEqual([0, 1, 2, 3]);
+
+      const added = (await orderChanges()).filter((row) => !before.some((old) => old.id === row.id));
+      expect(added.map((row) => row.entityId).sort()).toEqual([b.id, c.id].sort());
+      expect(new Set(added.map((row) => row.changeId)).size).toBe(1);
+    });
+
+    it('a mesma ordem não grava nada', async () => {
+      await clear();
+      const a = await createOk('A', 'available');
+      const b = await createOk('B', 'sold');
+      const before = await orderChanges();
+      expect((await reorder([a.id, b.id])).status).toBe(204);
+      expect(await orderChanges()).toHaveLength(before.length);
+    });
+
+    it('lista incompleta, repetida ou com id estranho é 400 e não muda nada', async () => {
+      await clear();
+      const a = await createOk('A', 'available');
+      const b = await createOk('B', 'sold');
+      const stranger = '00000000-0000-4000-8000-000000000000';
+
+      expect((await reorder([b.id])).status).toBe(400);
+      expect((await reorder([b.id, a.id, stranger])).status).toBe(400);
+      expect((await reorder([b.id, stranger])).status).toBe(400);
+      expect((await reorder([b.id, b.id])).status).toBe(400);
+      expect((await reorder(['nao-e-uuid', a.id])).status).toBe(400);
+      expect((await send('PUT', '/order', {})).status).toBe(400);
+      expect(await names()).toEqual(['A', 'B']);
+    });
+
+    it('/defaults muda quando a ordem muda', async () => {
+      await clear();
+      const first = await createOk('Vendida A', 'sold');
+      const second = await createOk('Vendida B', 'sold');
+      expect((await defaults()).sold?.id).toBe(first.id);
+      expect((await reorder([second.id, first.id])).status).toBe(204);
+      expect((await defaults()).sold?.id).toBe(second.id);
+    });
+
+    it('exige configuracoes.gerenciar', async () => {
+      await clear();
+      const a = await createOk('A', 'available');
+      expect((await send('PUT', '/order', { ids: [a.id] }, brokerCookie)).status).toBe(403);
+    });
+
+    it('cadastro alfabético é 400', async () => {
+      const response = await app.request(
+        `/e/${tenant.slug}/settings/vocabularies/crops/order`,
+        jsonRequest('PUT', { ids: [] }, managerCookie),
+      );
+      expect(response.status).toBe(400);
+    });
+  });
+
   describe('/defaults', () => {
     it('devolve a primeira ativa de cada significado na ordem manual, nulo para o que não tem', async () => {
       await clear();

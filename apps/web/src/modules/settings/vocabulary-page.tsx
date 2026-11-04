@@ -28,6 +28,7 @@ import { ErrorMessage } from '../../shell/error-message.js';
 import { PageHeader } from '../../shell/page-header.js';
 import { tenantQueryKey, useTenantSlug } from '../../shell/tenant-query.js';
 import { createEntry, deleteEntry, fetchEntries, updateEntry } from './vocabulary-api.js';
+import { ManualEntries } from './manual-entries.js';
 import { VocabularyEntryDialog } from './vocabulary-entry-dialog.js';
 
 const STATUS_LABELS: Record<VocabularyStatus, string> = { all: 'Todas', active: 'Ativas', inactive: 'Inativas' };
@@ -100,43 +101,61 @@ function VocabularyList({ vocabulary }: { vocabulary: VocabularyDefinition & { k
         }
       />
       {actionError && <ErrorMessage>{actionError}</ErrorMessage>}
-      <ListPage
-        schema={vocabularyListQuerySchema}
-        queryKey={['settings', 'vocabularies', key]}
-        fetchPage={(tenantSlug, query) => fetchEntries(tenantSlug, key, query)}
-        searchPlaceholder={`Buscar ${label.singular.toLowerCase()}`}
-        columns={[
-          { key: 'name', label: 'Nome', strong: true, sortable: true },
-          ...(meanings
-            ? [{ key: 'systemMeaning', label: 'Significado', render: (entry: VocabularyEntry) => meanings[entry.systemMeaning ?? ''] }]
-            : []),
-          { key: 'active', label: 'Situação', render: situation },
-          { key: 'actions', label: <span className="sr-only">Ações</span>, align: 'right', render: actions },
-        ]}
-        renderCard={(entry) => (
-          <Card title={entry.name} subtitle={situation(entry)} action={actions(entry)} />
-        )}
-        empty={{
-          icon: 'inbox',
-          title: `${byGender(vocabulary, 'Nenhuma', 'Nenhum')} ${label.singular.toLowerCase()} ${byGender(vocabulary, 'cadastrada', 'cadastrado')}`,
-          description: `As entradas de ${label.plural.toLowerCase()} aparecem nos cadastros que as usam.`,
-        }}
-      >
-        {({ query, update }) => (
-          <Select value={query.status} onValueChange={(status) => update({ status: status as VocabularyStatus })}>
-            <SelectTrigger size="sm" aria-label="Situação">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {VOCABULARY_STATUSES.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </ListPage>
+      {vocabulary.orderMode === 'manual' ? (
+        <ManualEntries
+          vocabulary={vocabulary}
+          refresh={refresh}
+          onError={setActionError}
+          renderRow={(entry) => (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="flex items-center gap-3 text-sm font-medium text-text-body">
+                {entry.name}
+                {meanings && <Badge size="sm">{meanings[entry.systemMeaning ?? '']}</Badge>}
+                {situation(entry)}
+              </span>
+              {actions(entry)}
+            </div>
+          )}
+        />
+      ) : (
+        <ListPage
+          schema={vocabularyListQuerySchema}
+          queryKey={['settings', 'vocabularies', key]}
+          fetchPage={(tenantSlug, query) => fetchEntries(tenantSlug, key, query)}
+          searchPlaceholder={`Buscar ${label.singular.toLowerCase()}`}
+          columns={[
+            { key: 'name', label: 'Nome', strong: true, sortable: true },
+            ...(meanings
+              ? [{ key: 'systemMeaning', label: 'Significado', render: (entry: VocabularyEntry) => meanings[entry.systemMeaning ?? ''] }]
+              : []),
+            { key: 'active', label: 'Situação', render: situation },
+            { key: 'actions', label: <span className="sr-only">Ações</span>, align: 'right', render: actions },
+          ]}
+          renderCard={(entry) => (
+            <Card title={entry.name} subtitle={situation(entry)} action={actions(entry)} />
+          )}
+          empty={{
+            icon: 'inbox',
+            title: `${byGender(vocabulary, 'Nenhuma', 'Nenhum')} ${label.singular.toLowerCase()} ${byGender(vocabulary, 'cadastrada', 'cadastrado')}`,
+            description: `As entradas de ${label.plural.toLowerCase()} aparecem nos cadastros que as usam.`,
+          }}
+        >
+          {({ query, update }) => (
+            <Select value={query.status} onValueChange={(status) => update({ status: status as VocabularyStatus })}>
+              <SelectTrigger size="sm" aria-label="Situação">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOCABULARY_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {STATUS_LABELS[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </ListPage>
+      )}
       {editing && (
         <VocabularyEntryDialog
           entry={editing.kind === 'rename' ? editing.entry : undefined}

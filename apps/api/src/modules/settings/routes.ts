@@ -3,6 +3,7 @@
 // de `@crm/shared`.
 import {
   createVocabularyEntrySchema,
+  reorderVocabularySchema,
   findVocabulary,
   vocabularyMeaningRequiredMessage,
   vocabularyMeaningUnexpectedMessage,
@@ -20,7 +21,7 @@ import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
 import type { TenantEnv } from '../../tenant-context.js';
-import { createEntry, defaultEntries, deleteEntry, listEntries, listOptions, updateEntry } from './service.js';
+import { createEntry, defaultEntries, deleteEntry, listEntries, listOptions, reorderEntries, updateEntry } from './service.js';
 
 interface VocabularyEnv extends TenantEnv {
   Variables: TenantEnv['Variables'] & { vocabulary: VocabularyKey };
@@ -151,6 +152,18 @@ export function createSettingsRoutes() {
           if (!refusal) throw error;
           return c.json(refusal.body, refusal.status);
         }
+      },
+    )
+    .put(
+      '/vocabularies/:vocabulary/order',
+      manage(),
+      resolveVocabulary,
+      zValidator('json', reorderVocabularySchema),
+      async (c) => {
+        const { tenant, userId, vocabulary: key, withTenant } = c.var;
+        const { ids } = c.req.valid('json');
+        const result = await withTenant((tx) => reorderEntries(tx, { tenantId: tenant.id, userId }, key, ids));
+        return result.ok ? c.body(null, 204) : c.json(validationError(result.message), 400);
       },
     )
     .patch(

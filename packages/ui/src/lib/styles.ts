@@ -123,3 +123,10 @@ export const mobileTouchTarget = {
   square: 'max-mobile:size-control-height-lg',
   bar: 'max-mobile:h-control-height-lg',
 } as const;
+
+/**
+ * Linha de lista reordenável: filete embaixo (sem ele na última) e fundo de
+ * pedra na que está sendo movida (`data-moving`). Layout interno é de cada lista.
+ */
+export const reorderableRow =
+  'border-b border-border-subtle py-4 transition-control last:border-b-0 data-moving:bg-surface-sunken';
