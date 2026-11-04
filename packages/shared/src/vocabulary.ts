@@ -34,6 +34,11 @@ export interface VocabularyDefinition {
    * é `ON DELETE RESTRICT`. A exceção mora aqui, nunca numa lista solta no teste.
    */
   extraFieldTables?: readonly string[];
+  /**
+   * Campo extra "Municípios atendidos" (`trading_post_municipalities`): a entrada
+   * traz os municípios e grava-os junto com o nome, num save só.
+   */
+  servedMunicipalities?: true;
 }
 
 /** Significados de sistema do status comercial e o rótulo de exibição de cada um. */
@@ -87,6 +92,15 @@ export const VOCABULARIES = {
     gender: 'm',
     orderMode: 'alphabetical',
   },
+  'trading-posts': {
+    key: 'trading-posts',
+    table: 'trading_posts',
+    label: { singular: 'Praça', plural: 'Praças' },
+    gender: 'f',
+    orderMode: 'alphabetical',
+    extraFieldTables: ['trading_post_municipalities'],
+    servedMunicipalities: true,
+  },
   crops: {
     key: 'crops',
     table: 'crops',
@@ -133,10 +147,20 @@ export const vocabularyNameSchema = z
   .min(1, 'Informe o nome.')
   .max(VOCABULARY_NAME_MAX_LENGTH, `O nome aceita até ${VOCABULARY_NAME_MAX_LENGTH} caracteres.`);
 
-/** Corpo do `POST`. O significado só vale em cadastro que o tem: a rota confere contra o registro. */
+/** Máximo de municípios atendidos por praça: folga larga sobre o que uma praça real abrange. */
+export const VOCABULARY_MUNICIPALITIES_MAX = 500;
+
+/** Códigos IBGE dos municípios atendidos; repetido conta uma vez. Só vale em cadastro que os tem (a rota confere). */
+export const servedMunicipalitiesSchema = z
+  .array(z.string().regex(/^\d{7}$/, 'Código de município inválido.'))
+  .max(VOCABULARY_MUNICIPALITIES_MAX, `Uma praça atende até ${VOCABULARY_MUNICIPALITIES_MAX} municípios.`)
+  .transform((codes) => [...new Set(codes)]);
+
+/** Corpo do `POST`. O significado e os municípios valem só em cadastro que os tem: a rota confere contra o registro. */
 export const createVocabularyEntrySchema = z.object({
   name: vocabularyNameSchema,
   systemMeaning: z.string().optional(),
+  municipalities: servedMunicipalitiesSchema.optional(),
 });
 
 export type CreateVocabularyEntryInput = z.infer<typeof createVocabularyEntrySchema>;
@@ -146,6 +170,8 @@ export const updateVocabularyEntrySchema = z
   .object({
     name: vocabularyNameSchema,
     active: z.boolean(),
+    // Ausente preserva os municípios; a lista (mesmo vazia) os substitui.
+    municipalities: servedMunicipalitiesSchema,
     // O significado é escolhido só na criação: qualquer valor aqui é 400.
     systemMeaning: z.never('O significado não pode ser alterado depois de criado.'),
   })
@@ -177,12 +203,19 @@ export const vocabularyListQuerySchema = listQuerySchema({
 
 export type VocabularyListQuery = z.output<typeof vocabularyListQuerySchema>;
 
+/** Município atendido, como a resposta da praça o traz. */
+export const servedMunicipalitySchema = z.object({ ibgeCode: z.string(), name: z.string(), uf: z.string() });
+
+export type ServedMunicipality = z.infer<typeof servedMunicipalitySchema>;
+
 export const vocabularyEntrySchema = z.object({
   id: z.uuid(),
   name: z.string(),
   active: z.boolean(),
   /** Só nos cadastros com significado de sistema. */
   systemMeaning: z.string().optional(),
+  /** Só nos cadastros com municípios atendidos (a praça), nas respostas de entrada. */
+  municipalities: z.array(servedMunicipalitySchema).optional(),
 });
 
 export type VocabularyEntry = z.infer<typeof vocabularyEntrySchema>;
@@ -240,12 +273,14 @@ export function serializeVocabularyEntry(entry: {
   name: string;
   active: boolean;
   systemMeaning?: string | null;
+  municipalities?: ServedMunicipality[];
 }): VocabularyEntry {
   return vocabularyEntrySchema.parse({
     id: entry.id,
     name: entry.name,
     active: entry.active,
     ...(entry.systemMeaning ? { systemMeaning: entry.systemMeaning } : {}),
+    ...(entry.municipalities ? { municipalities: entry.municipalities } : {}),
   });
 }
 
@@ -272,3 +307,23 @@ export const VOCABULARY_NAME_TAKEN_MESSAGE = 'Já existe uma entrada com esse no
 export const VOCABULARY_NAME_TAKEN_INACTIVE_MESSAGE = 'Já existe uma entrada inativa com esse nome; reative-a.';
 export const VOCABULARY_IN_USE_MESSAGE =
   'Esta entrada está em uso. Desative-a para que não apareça em novos cadastros.';
+
+export const VOCABULARY_MUNICIPALITIES_UNEXPECTED_MESSAGE = 'Este cadastro não tem municípios atendidos.';
+export const VOCABULARY_MUNICIPALITY_UNKNOWN_MESSAGE = 'Há município que não existe na lista do IBGE.';
+export const VOCABULARY_MUNICIPALITY_TAKEN_MESSAGE = 'Há município já atendido por outra praça.';
+
+/** "Rio Verde — GO já é atendido pela praça Jataí." */
+export const municipalityTakenMessage = (municipality: string, tradingPost: string) =>
+  `${municipality} já é atendido pela praça ${tradingPost}.`;
+
+/** Resposta de `GET /trading-posts/suggestion`. */
+export const tradingPostSuggestionSchema = z.object({
+  tradingPost: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+});
+
+export type TradingPostSuggestion = z.infer<typeof tradingPostSuggestionSchema>;
+
+/** Parâmetro da sugestão: o código IBGE do município. */
+export const tradingPostSuggestionQuerySchema = z.object({
+  municipality: z.string().regex(/^\d{7}$/, 'Informe o código IBGE do município.'),
+});
