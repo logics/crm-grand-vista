@@ -3,6 +3,10 @@
 import {
   accessProfiles,
   auditLog,
+  commercialStatuses,
+  crops,
+  documentCategories,
+  tenantSettings,
   createDatabase,
   createPool,
   memberships,
@@ -15,7 +19,7 @@ import {
   uuidv7,
   type Database,
 } from '@crm/db';
-import { PERMISSION_CATALOG } from '@crm/shared';
+import { PERMISSION_CATALOG, TENANT_SEED } from '@crm/shared';
 import { loadApiEnv, loadMigrationEnv } from '@crm/shared/env';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import pg from 'pg';
@@ -205,6 +209,25 @@ describe('provisionamento de empresa', () => {
     });
   });
 
+  it('semeia os cadastros auxiliares e a linha de parâmetros, e deixa os demais vazios', async () => {
+    const { tenant } = provisioned;
+
+    const seeded = await db.withTenant(tenant.id, async (tx) => ({
+      statuses: await tx
+        .select({ name: commercialStatuses.name, systemMeaning: commercialStatuses.systemMeaning })
+        .from(commercialStatuses)
+        .orderBy(asc(commercialStatuses.displayOrder)),
+      categories: await tx.select({ name: documentCategories.name }).from(documentCategories),
+      crops: await tx.select({ name: crops.name }).from(crops),
+      settings: await tx.select().from(tenantSettings),
+    }));
+
+    expect(seeded.statuses).toEqual(TENANT_SEED.commercialStatuses);
+    expect(seeded.categories.map((row) => row.name).sort()).toEqual([...TENANT_SEED.documentCategories].sort());
+    expect(seeded.crops.map((row) => row.name).sort()).toEqual([...TENANT_SEED.crops].sort());
+    expect(seeded.settings).toMatchObject([{ defaultAlqueireType: 'goiano', areaDisplayUnit: 'hectare' }]);
+  });
+
   it('registra a criação em audit_log, sob a empresa nova e com autor nulo', async () => {
     const { tenant, admin } = provisioned;
 
@@ -214,7 +237,18 @@ describe('provisionamento de empresa', () => {
 
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((row) => row.userId === null)).toBe(true);
-    expect(entities).toEqual(new Set(['tenants', 'users', 'memberships', 'access_profiles']));
+    expect(entities).toEqual(
+      new Set([
+        'tenants',
+        'users',
+        'memberships',
+        'access_profiles',
+        'tenant_settings',
+        'commercial_statuses',
+        'document_categories',
+        'crops',
+      ]),
+    );
     expect(adminFields).toContain('email');
     // O hash da senha não vai para o log, nem a flag de super admin para o histórico da empresa.
     expect(rows.some((row) => row.entity === 'accounts')).toBe(false);

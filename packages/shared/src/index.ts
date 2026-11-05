@@ -111,6 +111,8 @@ export {
   updateTenantSettingsSchema,
 } from './tenant-settings.js';
 export type { AreaDisplayUnit, TenantSettings, UpdateTenantSettingsInput } from './tenant-settings.js';
+export { TENANT_SEED } from './tenant-seed.js';
+export type { SeedCommercialStatus, TenantSeed } from './tenant-seed.js';
 export { DEFAULT_PAGE_SIZE, PAGE_SIZES, listPageSchema, listQuerySchema, parseSort } from './listing.js';
 export type { ListPage, ListQuery, PageSize, SortDirection, SortParam } from './listing.js';
 export {
