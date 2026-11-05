@@ -25,7 +25,15 @@ describe('migration da semente em empresa existente', () => {
     ]);
   });
 
-  afterAll(() => owner.end());
+  afterAll(async () => {
+    // Limpa a empresa de teste: a policy vale também para o dono, então com a empresa ativa.
+    await owner.query(`select set_config('app.tenant_id', $1, false)`, [tenantId]);
+    for (const table of ['crops', 'document_categories', 'commercial_statuses', 'tenant_settings']) {
+      await owner.query(`delete from ${table}`);
+    }
+    await owner.query(`delete from tenants where id = $1`, [tenantId]);
+    await owner.end();
+  });
 
   it('semeia a empresa existente ao aplicar, e reaplicar não duplica', async () => {
     await owner.query(seedSql);

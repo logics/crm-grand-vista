@@ -29,6 +29,12 @@ describe('migration da semente da empresa', () => {
     );
   });
 
+  it('semeia os status comerciais com a ordem de exibição da constante', () => {
+    const orders = [...sql.matchAll(/\('[^']*',\s*'(\w+)',\s*(\d+)\)/g)].map(([, meaning, order]) => [meaning, Number(order)]);
+
+    expect(orders).toEqual(TENANT_SEED.commercialStatuses.map(({ systemMeaning }, index) => [systemMeaning, index]));
+  });
+
   it('semeia as categorias de documento da constante', () => {
     expect(seededRows('document_categories')).toEqual(TENANT_SEED.documentCategories.map((name) => [name]));
   });
