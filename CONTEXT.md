@@ -112,6 +112,27 @@ _Rótulo na tela_: "opção" / "opções apresentadas", o termo que o funil já 
 Fazenda efetivamente vendida a um comprador dentro de uma oportunidade. Ao contrário da candidatura, é um fato fechado com peso contratual: tem valor, data e os termos de precificação congelados no fechamento. Uma oportunidade pode gerar várias vendas — o comprador que precisa de 1.000 ha pode fechar cinco fazendas de 200 ha para completar a área.
 _Avoid_: Fechamento (é a etapa 9 do funil, não a transação)
 
+### Contato
+
+**Contato**:
+Pessoa física ou jurídica com quem a corretora se relaciona, cadastrada uma única vez e com um ou mais papéis acumuláveis. A base de contatos é compartilhada pela empresa: não tem corretor responsável, e a posse comercial fica na oportunidade e na fazenda.
+_Avoid_: cliente, lead, pessoa (como nome de entidade)
+
+**Papel do contato**:
+A função que um contato exerce para a corretora — comprador, proprietário ou corretor externo. Todo contato tem ao menos um; os papéis se acumulam no mesmo cadastro.
+_Avoid_: tipo de contato; confundir com **perfil de acesso**
+
+**Comprador**:
+Contato com o papel de comprador. O escopo fala em "compradores e investidores"; investidor é um **perfil de compra** de comprador, não um papel à parte. "Cliente", no domínio, é o comprador.
+_Avoid_: investidor (como papel), lead
+
+**Proprietário**:
+Contato com o papel de proprietário: o dono de uma ou mais fazendas captadas.
+_Avoid_: vendedor
+
+**Documento do contato**:
+CPF para pessoa física, CNPJ (numérico ou alfanumérico) para pessoa jurídica. Opcional — muitos contatos ainda não o informaram, e o comprador estrangeiro não tem.
+
 ### Corretores
 
 Três conceitos distintos compartilham a palavra "corretor" — nunca usar a palavra sozinha em código ou texto de UI; usar sempre um dos termos abaixo.
@@ -124,7 +145,7 @@ _Avoid_: Corretor (sozinho, sem qualificação)
 O corretor interno dono de uma fazenda ou de uma oportunidade específica. É o nome de um papel/atribuição, não de uma entidade própria.
 
 **Corretor externo**:
-Parceiro sem acesso ao sistema que traz uma fazenda ou um comprador. É um contato com esse papel — não aparece em seletor de responsável, e pode acumular outros papéis (ex.: virar comprador depois).
+Parceiro sem acesso ao sistema que traz uma fazenda ou um comprador — corretor de profissão ou não: o fazendeiro vizinho que indicou alguém também é corretor externo. É um contato com esse papel — não aparece em seletor de responsável, e pode acumular outros papéis (ex.: virar comprador depois).
 
 **Perfil de acesso Corretor**:
 Um dos perfis de acesso (RBAC) semeados por tenant — apenas um pacote de permissões. Independente de responsabilidade: um Gestor pode ser corretor responsável por fazendas, e alguém com o perfil de acesso Corretor pode não responder por nenhuma.

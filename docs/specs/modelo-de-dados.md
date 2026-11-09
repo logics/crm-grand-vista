@@ -28,6 +28,8 @@ Aplicam-se a toda tabela, e não se repetem nas listagens abaixo.
 
 **Campos polimórficos:** duas colunas FK nulas + `CHECK` de que exatamente uma está preenchida (`num_nonnulls(a, b) = 1`).
 
+**Junções auditáveis:** tabela de junção de registro de negócio (papéis do contato, culturas e regiões de interesse, municípios atendidos…) tem `id` uuid como PK e a unicidade do par em `UNIQUE`, nunca PK composta: o wrapper de auditoria identifica cada linha pelo `id`, e é assim que a junção entra no histórico do registro pai como filho declarado. Exceção: as junções de configuração de acesso (`profile_permissions`, `profile_data_scopes`, `user_profiles`), que não aparecem em histórico de registro.
+
 ---
 
 ## 1. Autenticação e plataforma — **fora do RLS**
@@ -89,8 +91,8 @@ Forma comum: `name` text, `display_order` int NOT NULL DEFAULT 0, `active` boole
 
 | Tabela | Colunas distintivas |
 |---|---|
-| `contacts` | `person_type` CHECK `('pf','pj')`, `name`, `legal_name`, `tax_id`, `email`, `phone`, `whatsapp`, `classification_id` → `contact_classifications`, `lead_source_id` → `lead_sources` (origem do lead), `relationship_origin` text (origem do relacionamento — conceito distinto, texto livre), `strategic_notes` text, `custom_fields` jsonb |
-| `contact_roles` | `contact_id`, `role` CHECK `('buyer','owner','external_broker')`. PK `(contact_id, role)`. **Acumuláveis**: o parceiro que indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro |
+| `contacts` | `person_type` CHECK `('pf','pj')`, `name`, `legal_name`, `tax_id` (CPF ou CNPJ, inclusive o alfanumérico, gravado sem pontuação e em maiúsculas; índice único parcial em `(tenant_id, tax_id) WHERE tax_id IS NOT NULL`), `email`, `phone` e `whatsapp` (formato internacional, `+5564999990000`), `classification_id` → `contact_classifications`, `lead_source_id` → `lead_sources` (origem do lead), `relationship_origin` text (origem do relacionamento — conceito distinto, texto livre), `strategic_notes` text, `custom_fields jsonb NOT NULL DEFAULT '{}'`. **Sem corretor responsável**: a base de contatos é compartilhada na empresa, e o escopo de dados `own` não se aplica ao módulo |
+| `contact_roles` | `id` uuid PK, `contact_id`, `role` CHECK `('buyer','owner','external_broker')`, UNIQUE `(contact_id, role)` (junção auditável). Todo contato tem ao menos um papel. **Acumuláveis**: o parceiro que indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro |
 | `buyer_profiles` | `contact_id` PK (1:1 opcional). O **perfil de compra**: `purchase_profile_id` → `purchase_profiles` (investidor, produtor, especulador…), `avg_ticket`, `max_ticket`, `min_area_ha`, `max_area_ha`, `estimated_net_worth`, `investment_capacity`, `urgency` CHECK `('low','medium','high')`, `qualification_level` CHECK `('cold','warm','hot','qualified')` |
 | `buyer_regions` | `contact_id`, `municipality_ibge_code` nulo, `uf` char(2) nulo, `CHECK num_nonnulls(...) = 1`. Permite "interessado em Goiás" (UF) e "interessado em Rio Verde" (município); o matching testa a fazenda contra os dois |
 | `buyer_crops` | `contact_id`, `crop_id` |

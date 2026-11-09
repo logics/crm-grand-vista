@@ -461,7 +461,7 @@ Fase deliberadamente tardia: métricas só têm sentido sobre dados reais acumul
 
 ### Fase 5 — Produção (semanas 23–26)
 
-Onboarding de nova corretora, documentação da API pública (OpenAPI a partir dos schemas Zod), documentação técnica do Design System e dos módulos, **backups do servidor de banco** (estratégia própria, já que o mecanismo do aaPanel cobre só o servidor da aplicação), monitoramento de erros, endurecimento dos testes E2E, performance e acessibilidade.
+Onboarding de nova corretora, documentação da API pública (OpenAPI a partir dos schemas Zod), documentação técnica do Design System e dos módulos, **backups do servidor de banco** (estratégia própria, já que o mecanismo do aaPanel cobre só o servidor da aplicação), monitoramento de erros, endurecimento dos testes E2E, performance e acessibilidade. **Eliminação de dados pessoais a pedido do titular (LGPD)**: procedimento por CLI que anonimiza os valores pessoais da entidade no `audit_log`, porque a exclusão física comum preserva o rastro da auditoria de propósito.
 
 ---
 

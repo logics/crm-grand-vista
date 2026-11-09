@@ -60,7 +60,7 @@ Migration única para as empresas existentes (Postgres 18 tem `uuidv7()` nativo)
 - **Categorias de documento:** CAR, CCIR, Contratos, Georreferenciamento, Laudos, Licenças, Mapas, Matrículas
 - **Culturas:** Algodão, Café, Cana-de-açúcar, Milho, Pecuária, Soja
 - **Parâmetros:** a linha de `tenant_settings` com os defaults
-- Os demais cadastros nascem **vazios**
+- Os demais cadastros nascem **vazios** — exceto origens do lead e classificações do cliente, acrescentadas à semente por `fase-1-contatos`
 
 ## Regras de negócio
 
