@@ -8,6 +8,8 @@ import {
   auditLog,
   aptitudes,
   contactClassifications,
+  contactRoles,
+  contacts,
   commercialStatuses,
   crops,
   documentCategories,
@@ -102,6 +104,8 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx
       .insert(tradingPostMunicipalities)
       .values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
+    const [contact] = await tx.insert(contacts).values({ tenantId, personType: 'pf', name: 'Exemplo' }).returning();
+    await tx.insert(contactRoles).values({ tenantId, contactId: contact!.id, role: 'buyer' });
     for (const table of [
       aptitudes,
       contactClassifications,
