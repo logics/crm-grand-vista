@@ -12,6 +12,8 @@ import {
   type Contact,
   type ContactListQuery,
   type ContactRole,
+  type PersonType,
+  hasLegalName,
   type CreateContactInput,
   type ListPage,
   type UpdateContactInput,
@@ -35,7 +37,7 @@ const roleOrder = (roles: readonly string[]): ContactRole[] => CONTACT_ROLES.fil
 function serialize(row: ContactRow, roles: readonly string[]): Contact {
   return {
     id: row.id,
-    personType: row.personType as Contact['personType'],
+    personType: row.personType as PersonType,
     name: row.name,
     legalName: row.legalName,
     email: row.email,
@@ -77,8 +79,8 @@ export async function getContact(tx: Transaction, id: string): Promise<Contact |
 }
 
 /** Razão social só existe em PJ. */
-const legalNameFor = (personType: string, legalName: string | null | undefined) =>
-  personType === 'pj' ? (legalName ?? null) : null;
+const legalNameFor = (personType: PersonType, legalName: string | null | undefined) =>
+  hasLegalName(personType) ? (legalName ?? null) : null;
 
 export async function createContact(tx: Transaction, actor: AuditActor, input: CreateContactInput): Promise<Contact> {
   const writes = auditedWrites(tx, actor);
@@ -107,7 +109,7 @@ export async function updateContact(
   const personType = fields.personType ?? current.personType;
   const set: Partial<typeof contacts.$inferInsert> = { ...fields };
   // Passar para PF limpa a razão social; em PF ela não se grava.
-  if (personType === 'pf') set.legalName = null;
+  if (!hasLegalName(personType)) set.legalName = null;
 
   const [row] =
     Object.keys(set).length > 0

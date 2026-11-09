@@ -44,6 +44,15 @@ export function abbreviateTaxId(taxId: string | null): string | null {
   return taxId;
 }
 
+/** Rótulo do conjunto de papéis (não é coluna de `contacts`, então não está no registro de campos). */
+export const CONTACT_ROLES_LABEL = 'Papéis';
+
+/** Em PJ o nome é o nome fantasia. */
+export const contactNameLabel = (personType: PersonType): string => (personType === 'pj' ? 'Nome fantasia' : 'Nome');
+
+/** Razão social só existe em pessoa jurídica. */
+export const hasLegalName = (personType: PersonType): boolean => personType === 'pj';
+
 export const CONTACT_NAME_MAX_LENGTH = 200;
 export const CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH = 500;
 export const CONTACT_STRATEGIC_NOTES_MAX_LENGTH = 10_000;

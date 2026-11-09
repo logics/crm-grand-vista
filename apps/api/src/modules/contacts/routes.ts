@@ -20,11 +20,11 @@ const idSchema = z.uuid();
 /** Id malformado é contato que não existe (404), não requisição inválida. */
 const isId = (c: Context<TenantEnv>) => idSchema.safeParse(c.req.param('id')).success;
 
-const view = () => requirePermission('contatos.ver');
+const canView = () => requirePermission('contatos.ver');
 
 export function createContactsRoutes() {
   return new Hono<TenantEnv>()
-    .get('/', view(), zValidator('query', contactListQuerySchema), async (c) => {
+    .get('/', canView(), zValidator('query', contactListQuerySchema), async (c) => {
       const query = c.req.valid('query');
       return c.json(await c.var.withTenant((tx) => listContacts(tx, query)), 200);
     })
@@ -33,7 +33,7 @@ export function createContactsRoutes() {
       const input = c.req.valid('json');
       return c.json(await withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input)), 201);
     })
-    .get('/:id', view(), async (c) => {
+    .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
       const contact = await c.var.withTenant((tx) => getContact(tx, c.req.param('id')));
       return contact ? c.json(contact, 200) : c.json(notFound, 404);
@@ -51,7 +51,7 @@ export function createContactsRoutes() {
       '/',
       createHistoryRoutes({
         entity: 'contacts',
-        access: view(),
+        access: canView(),
         isVisible: (tx, _c, id) => contactExists(tx, id),
         children: [{ entity: 'contact_roles', parentColumn: 'contact_id', nameColumn: 'role' }],
       }),

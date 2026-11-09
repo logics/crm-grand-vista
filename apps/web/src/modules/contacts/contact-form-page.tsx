@@ -1,5 +1,9 @@
 import {
   CONTACT_ROLES,
+  CONTACT_ROLES_LABEL,
+  FIELD_REGISTRY,
+  contactNameLabel,
+  hasLegalName,
   CONTACT_ROLE_LABELS,
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
@@ -46,8 +50,8 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
 
   // Razão social só existe em pessoa jurídica.
   const legalNameFields: EntityFormField<FormValues>[] =
-    personType === 'pj'
-      ? [{ name: 'legalName', label: 'Razão social', render: (field) => <Input {...field} value={field.value ?? ''} /> }]
+    hasLegalName(personType)
+      ? [{ name: 'legalName', label: FIELD_REGISTRY.contacts.fields.legal_name.label, render: (field) => <Input {...field} value={field.value ?? ''} /> }]
       : [];
 
   return (
@@ -73,7 +77,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
             fields: [
               {
                 name: 'personType',
-                label: 'Tipo de pessoa',
+                label: FIELD_REGISTRY.contacts.fields.person_type.label,
                 render: (field) => (
                   <Select
                     value={field.value}
@@ -97,16 +101,16 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
               },
               {
                 name: 'name',
-                label: personType === 'pj' ? 'Nome fantasia' : 'Nome',
+                label: contactNameLabel(personType),
                 render: (field) => <Input {...field} value={field.value ?? ''} />,
               },
               ...legalNameFields,
               {
                 name: 'roles',
-                label: 'Papéis',
+                label: CONTACT_ROLES_LABEL,
                 colSpan: 2,
                 render: (field) => (
-                  <div role="group" aria-label="Papéis" className="flex flex-wrap gap-6">
+                  <div role="group" aria-label={CONTACT_ROLES_LABEL} className="flex flex-wrap gap-6">
                     {CONTACT_ROLES.map((role) => (
                       <label key={role} className="flex items-center gap-2 text-sm text-text-body">
                         <Checkbox
@@ -121,15 +125,15 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                   </div>
                 ),
               },
-              { name: 'email', label: 'E-mail', render: (field) => <Input type="email" {...field} value={field.value ?? ''} /> },
+              { name: 'email', label: FIELD_REGISTRY.contacts.fields.email.label, render: (field) => <Input type="email" {...field} value={field.value ?? ''} /> },
               {
                 name: 'relationshipOrigin',
-                label: 'Origem do relacionamento',
+                label: FIELD_REGISTRY.contacts.fields.relationship_origin.label,
                 render: (field) => <Input {...field} value={field.value ?? ''} />,
               },
               {
                 name: 'strategicNotes',
-                label: 'Observações estratégicas',
+                label: FIELD_REGISTRY.contacts.fields.strategic_notes.label,
                 colSpan: 2,
                 render: (field) => <Input {...field} value={field.value ?? ''} />,
               },
