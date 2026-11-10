@@ -2,6 +2,7 @@
 // indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro.
 import { z } from 'zod';
 import { listPageSchema, listQuerySchema } from './listing.js';
+import { INVALID_PHONE_MESSAGE, isBlankPhone, normalizePhone } from './phone.js';
 import { formatTaxId, isValidCnpj, isValidCpf, normalizeTaxId, taxIdKind } from './tax-id.js';
 
 export const PERSON_TYPES = ['pf', 'pj'] as const;
@@ -105,6 +106,18 @@ const contactEmailSchema = z
   .pipe(z.email('Informe um e-mail válido.').nullable())
   .nullable();
 
+/** Telefone ou WhatsApp: vazio vira ausência; o resto sai no formato internacional, ou é recusado. */
+const contactPhoneSchema = z
+  .string()
+  .trim()
+  .transform((value, ctx) => {
+    if (isBlankPhone(value)) return null;
+    const phone = normalizePhone(value);
+    if (phone === null) ctx.issues.push({ code: 'custom', message: INVALID_PHONE_MESSAGE, input: value });
+    return phone;
+  })
+  .nullable();
+
 /** Documento digitado: sai normalizado (sem pontuação, maiúsculas); vazio vira ausência. */
 const contactTaxIdSchema = z
   .string()
@@ -118,6 +131,8 @@ const contactEditableShape = {
   legalName: optionalText(CONTACT_NAME_MAX_LENGTH, 'A razão social'),
   taxId: contactTaxIdSchema,
   email: contactEmailSchema,
+  phone: contactPhoneSchema,
+  whatsapp: contactPhoneSchema,
   relationshipOrigin: optionalText(CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH, 'A origem do relacionamento'),
   strategicNotes: optionalText(CONTACT_STRATEGIC_NOTES_MAX_LENGTH, 'As observações estratégicas'),
   roles: contactRolesSchema,
@@ -139,6 +154,8 @@ export const createContactSchema = z
     legalName: contactEditableShape.legalName.optional(),
     taxId: contactEditableShape.taxId.optional(),
     email: contactEditableShape.email.optional(),
+    phone: contactEditableShape.phone.optional(),
+    whatsapp: contactEditableShape.whatsapp.optional(),
     relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
     strategicNotes: contactEditableShape.strategicNotes.optional(),
   })
@@ -160,6 +177,8 @@ export const contactSchema = z.object({
   /** Documento normalizado (sem pontuação); a tela o formata. */
   taxId: z.string().nullable(),
   email: z.string().nullable(),
+  phone: z.string().nullable(),
+  whatsapp: z.string().nullable(),
   relationshipOrigin: z.string().nullable(),
   strategicNotes: z.string().nullable(),
   roles: z.array(z.enum(CONTACT_ROLES)),

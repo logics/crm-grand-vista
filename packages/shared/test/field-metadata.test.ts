@@ -7,6 +7,8 @@ describe('formatFieldValue', () => {
   it.each([
     [({ type: 'text', label: 'Nome' } satisfies ScalarField), 'Fazenda Boa Vista', 'Fazenda Boa Vista'],
     [({ type: 'long_text', label: 'Observações' } satisfies ScalarField), 'linha 1\nlinha 2', 'linha 1\nlinha 2'],
+    [({ type: 'phone', label: 'Telefone' } satisfies ScalarField), '+5564999990000', '(64) 99999-0000'],
+    [({ type: 'phone', label: 'WhatsApp' } satisfies ScalarField), '+351912345678', '+351912345678'],
     [({ type: 'number', label: 'Cabeças' } satisfies ScalarField), '1480.5', '1.480,5'],
     [({ type: 'number', label: 'Cabeças' } satisfies ScalarField), '12', '12'],
     [({ type: 'money', label: 'Preço pedido' } satisfies ScalarField), '1480.5', 'R$ 1.480,50'],
