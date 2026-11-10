@@ -15,10 +15,13 @@ import { requirePermission } from '../../authorization/route-access.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import {
+  RoleInUseError,
   TaxIdMismatchError,
   TaxIdTakenError,
   contactExists,
+  contactInUseMessage,
   createContact,
+  deleteContact,
   findContactByTaxId,
   findDuplicates,
   getContact,
@@ -49,6 +52,22 @@ function violatesTaxIdUniqueIndex(error: unknown): boolean {
 
 /** Id malformado é contato que não existe (404), não requisição inválida. */
 const isId = (c: Context<TenantEnv>) => idSchema.safeParse(c.req.param('id')).success;
+
+const conflict = (message: string) => ({ error: { code: 'conflict', message } }) as const;
+
+/** SQLSTATE e tabela do erro do driver, que o Drizzle embrulha em `cause`. */
+function databaseError(error: unknown): { code?: string; table?: string } {
+  for (let current = error; current instanceof Error; current = current.cause) {
+    const { code, table } = current as { code?: unknown; table?: unknown };
+    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) {
+      return { code, ...(typeof table === 'string' ? { table } : {}) };
+    }
+  }
+  return {};
+}
+
+// `ON DELETE RESTRICT` falha com 23001; `NO ACTION`, com 23503: os dois são "em uso".
+const IN_USE_SQLSTATES = ['23001', '23503'];
 
 const canView = () => requirePermission('contatos.ver');
 
@@ -104,12 +123,29 @@ export function createContactsRoutes() {
       if (!isId(c)) return c.json(notFound, 404);
       const { tenant, userId, withTenant } = c.var;
       const input = c.req.valid('json');
-      const result = await withTaxIdRefusals(c, input.taxId, () =>
-        withTenant((tx) => updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input)),
-      );
-      if (!result.ok) return result.response;
-      if (isRejection(result.value)) return c.json(invalid(result.value.rejected), 400);
-      return result.value ? c.json(result.value, 200) : c.json(notFound, 404);
+      try {
+        const result = await withTaxIdRefusals(c, input.taxId, () =>
+          withTenant((tx) => updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input)),
+        );
+        if (!result.ok) return result.response;
+        if (isRejection(result.value)) return c.json(invalid(result.value.rejected), 400);
+        return result.value ? c.json(result.value, 200) : c.json(notFound, 404);
+      } catch (error) {
+        if (error instanceof RoleInUseError) return c.json(conflict(error.message), 409);
+        throw error;
+      }
+    })
+    .delete('/:id', requirePermission('contatos.excluir'), async (c) => {
+      if (!isId(c)) return c.json(notFound, 404);
+      const { tenant, userId, withTenant } = c.var;
+      try {
+        const removed = await withTenant((tx) => deleteContact(tx, { tenantId: tenant.id, userId }, c.req.param('id')));
+        return removed ? c.body(null, 204) : c.json(notFound, 404);
+      } catch (error) {
+        const { code, table } = databaseError(error);
+        if (code && IN_USE_SQLSTATES.includes(code)) return c.json(conflict(contactInUseMessage(table)), 409);
+        throw error;
+      }
     })
     .route(
       '/',

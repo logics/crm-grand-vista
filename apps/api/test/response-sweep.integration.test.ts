@@ -33,8 +33,8 @@ interface Sample {
 /** Entradas de cultura que as amostras de `PATCH` e `DELETE` apontam; criadas no `beforeAll`. */
 const sweepCrops = { patch: '', delete: '' };
 
-/** Contato que as amostras de leitura e `PATCH` apontam; criado no `beforeAll`. */
-const sweepContact = { id: '' };
+/** Contatos que as amostras de leitura e `PATCH` (`id`) e de `DELETE` (`delete`) apontam; criado no `beforeAll`. */
+const sweepContact = { id: '', delete: '' };
 
 /** Quem tenta descobrir a flag manda a flag: a resposta não pode ecoá-la. */
 const FLAG_PROBE = { is_super_admin: true, isSuperAdmin: true };
@@ -66,6 +66,9 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'PATCH /e/:tenant/contacts/:id': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/contacts/${sweepContact.id}`,
     body: { name: 'Sebastião Souza', ...FLAG_PROBE },
+  }),
+  'DELETE /e/:tenant/contacts/:id': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/contacts/${sweepContact.delete}`,
   }),
   'GET /e/:tenant/contacts/:id/history': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/contacts/${sweepContact.id}/history`,
@@ -156,11 +159,15 @@ describe('varredura das respostas da API', () => {
         .returning({ id: crops.id });
       sweepCrops.patch = rows[0]!.id;
       sweepCrops.delete = rows[1]!.id;
-      const [contact] = await tx
+      const sweptContacts = await tx
         .insert(contacts)
-        .values({ tenantId: tenant.id, personType: 'pf', name: 'Contato da varredura' })
+        .values([
+          { tenantId: tenant.id, personType: 'pf', name: 'Contato da varredura' },
+          { tenantId: tenant.id, personType: 'pf', name: 'Contato da varredura a excluir' },
+        ])
         .returning({ id: contacts.id });
-      sweepContact.id = contact!.id;
+      sweepContact.id = sweptContacts[0]!.id;
+      sweepContact.delete = sweptContacts[1]!.id;
     });
 
     for (const user of [commonUser, superAdmin]) {
