@@ -1,9 +1,12 @@
 // Contatos da empresa ativa. Contato, papéis e auditoria vão numa transação só
 // (a que a rota abre por `withTenant`), num `change_id` por save.
 import {
+  auditLog,
   auditedWrites,
   contactRoles,
   contacts,
+  diffRecords,
+  uuidv7,
   type AuditActor,
   type Transaction,
 } from '@crm/db';
@@ -20,7 +23,7 @@ import {
   type ListPage,
   type UpdateContactInput,
 } from '@crm/shared';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, getTableName, inArray, sql } from 'drizzle-orm';
 import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
@@ -187,11 +190,34 @@ export async function ensureContactRole(
   contactId: string,
   role: ContactRole,
 ): Promise<boolean> {
-  const [existing] = await tx
-    .select({ id: contactRoles.id })
-    .from(contactRoles)
-    .where(and(eq(contactRoles.contactId, contactId), eq(contactRoles.role, role)));
-  if (existing) return false;
-  await auditedWrites(tx, actor).insert(contactRoles, { tenantId: actor.tenantId!, contactId, role });
+  // `ON CONFLICT DO NOTHING` no unique (contact_id, role): chamadas simultâneas não
+  // estouram 23505; quem perde a corrida não recebe linha e devolve falso.
+  const [row] = await tx
+    .insert(contactRoles)
+    .values({ tenantId: actor.tenantId!, contactId, role })
+    .onConflictDoNothing({ target: [contactRoles.contactId, contactRoles.role] })
+    .returning();
+  if (!row) return false;
+
+  // Mesma auditoria de `auditedWrites.insert` (um campo por linha, valor anterior nulo,
+  // um `change_id` por chamada); o insert acima não passa pelo wrapper por causa do ON CONFLICT.
+  const after: Record<string, unknown> = {};
+  for (const [key, column] of Object.entries(getTableColumns(contactRoles))) {
+    after[column.name] = row[key as keyof typeof row];
+  }
+  const changeId = uuidv7();
+  const changes = diffRecords(null, after);
+  await tx.insert(auditLog).values(
+    changes.map((change) => ({
+      tenantId: actor.tenantId,
+      entity: getTableName(contactRoles),
+      entityId: row.id,
+      changeId,
+      field: change.field,
+      oldValue: change.oldValue,
+      newValue: change.newValue,
+      userId: actor.userId,
+    })),
+  );
   return true;
 }

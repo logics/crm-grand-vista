@@ -183,5 +183,33 @@ describe('papéis em uso, exclusão e garantir papel', () => {
       const titles = history.entries.flatMap((entry) => entry.children.map((child) => child.title));
       expect(titles.filter((title) => title === 'Papel adicionado: Proprietário')).toHaveLength(1);
     });
+
+    it('chamadas simultâneas para o mesmo papel não dão erro: uma acrescenta, a outra não', async () => {
+      const contato = await created('Simultâneo', ['buyer']);
+      const actor = { tenantId: tenant.id, userId: managerId };
+
+      // Barreira: as duas transações (conexões distintas) abrem antes de qualquer insert,
+      // então a corrida pelo unique é real.
+      let opened = 0;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const attempt = () =>
+        db.withTenant(tenant.id, async (tx) => {
+          if (++opened === 2) release();
+          await gate;
+          return ensureContactRole(tx, actor, contato.id, 'owner');
+        });
+
+      const results = await Promise.all([attempt(), attempt()]);
+
+      expect([...results].sort()).toEqual([false, true]);
+      const roles = await db.withTenant(tenant.id, (tx) => tx.select().from(contactRoles).where(eq(contactRoles.contactId, contato.id)));
+      expect(roles.map((r) => r.role).sort()).toEqual(['buyer', 'owner']);
+      const history = (await (await app.request(url(`/${contato.id}/history`), { headers: { cookie: managerCookie } })).json()) as {
+        entries: { children: { title: string }[] }[];
+      };
+      const titles = history.entries.flatMap((entry) => entry.children.map((child) => child.title));
+      expect(titles.filter((title) => title === 'Papel adicionado: Proprietário')).toHaveLength(1);
+    });
   });
 });
