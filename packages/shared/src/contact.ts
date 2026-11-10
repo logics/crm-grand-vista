@@ -110,13 +110,13 @@ const contactEditableShape = {
 /** Mínimo para salvar: nome, tipo de pessoa e ao menos um papel. */
 export const createContactSchema = z
   .object({
-  ...contactEditableShape,
-  legalName: contactEditableShape.legalName.optional(),
-  email: contactEditableShape.email.optional(),
-  relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
-  strategicNotes: contactEditableShape.strategicNotes.optional(),
-  classificationId: contactEditableShape.classificationId.optional(),
-  leadSourceId: contactEditableShape.leadSourceId.optional(),
+    ...contactEditableShape,
+    legalName: contactEditableShape.legalName.optional(),
+    email: contactEditableShape.email.optional(),
+    relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
+    strategicNotes: contactEditableShape.strategicNotes.optional(),
+    classificationId: contactEditableShape.classificationId.optional(),
+    leadSourceId: contactEditableShape.leadSourceId.optional(),
   })
   .refine((contact) => !contact.classificationId || hasClassification(contact.roles), {
     path: ['classificationId'],

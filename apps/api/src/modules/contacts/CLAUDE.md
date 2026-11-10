@@ -2,7 +2,7 @@
 
 Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumuláveis (comprador, proprietário, corretor externo).
 
-- **Spec:** `docs/specs/fase-1-contatos.md`; issue #123 (cadastro mínimo ponta a ponta)
+- **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta) e #126 (classificação, origem do lead, semente)
 - **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato)
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/history`, `src/listing`
 
