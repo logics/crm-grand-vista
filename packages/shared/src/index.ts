@@ -101,6 +101,10 @@ export {
   TAX_ID_TAKEN_MESSAGE,
   taxIdIssue,
   contactListQuerySchema,
+  DUPLICATE_REASONS,
+  DUPLICATE_REASON_LABELS,
+  contactDuplicateSchema,
+  contactDuplicatesQuerySchema,
   contactOptionSchema,
   contactPageSchema,
   contactSchema,
@@ -109,6 +113,9 @@ export {
 } from './contact.js';
 export type {
   Contact,
+  ContactDuplicate,
+  ContactDuplicatesQuery,
+  DuplicateReason,
   ContactListQuery,
   CreateContactInput,
   UpdateContactInput,

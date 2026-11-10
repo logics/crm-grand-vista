@@ -61,6 +61,7 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
     path: `/e/${tenantSlug}/contacts`,
     body: { personType: 'pf', name: 'Sebastião', roles: ['external_broker'], ...FLAG_PROBE },
   }),
+  'GET /e/:tenant/contacts/duplicates': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/contacts/duplicates?name=Varredura` }),
   'GET /e/:tenant/contacts/:id': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/contacts/${sweepContact.id}` }),
   'PATCH /e/:tenant/contacts/:id': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/contacts/${sweepContact.id}`,

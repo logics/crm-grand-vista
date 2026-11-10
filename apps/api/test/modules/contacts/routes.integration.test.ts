@@ -472,4 +472,88 @@ describe('contatos', () => {
       expect(JSON.stringify(await history(contact.id))).toContain('Documento');
     });
   });
+  describe('duplicatas', () => {
+    interface DuplicatesBody {
+      items: { id: string; name: string; roles: string[]; reasons: string[] }[];
+    }
+    const duplicates = async (query: Record<string, string>, cookie = managerCookie) => {
+      const response = await read(`/duplicates?${new URLSearchParams(query)}`, cookie);
+      return { status: response.status, body: (await response.json()) as DuplicatesBody };
+    };
+    const reasonsOf = (body: DuplicatesBody, id: string) => body.items.find((item) => item.id === id)?.reasons;
+
+    it('acha por telefone, digitado de qualquer jeito', async () => {
+      const contact = await created({ personType: 'pf', name: 'Dup Fone', roles: ['buyer'], phone: '(64) 98111-0001' });
+
+      const { status, body } = await duplicates({ phone: '64981110001' });
+
+      expect(status).toBe(200);
+      expect(reasonsOf(body, contact.id)).toEqual(['phone']);
+      expect(body.items.find((item) => item.id === contact.id)).toMatchObject({ name: 'Dup Fone', roles: ['buyer'] });
+    });
+
+    it('compara WhatsApp contra telefone e vice-versa', async () => {
+      const byPhone = await created({ personType: 'pf', name: 'Tem telefone', roles: ['buyer'], phone: '64981110002' });
+      const byWhatsapp = await created({ personType: 'pf', name: 'Tem zap', roles: ['buyer'], whatsapp: '64981110003' });
+
+      expect(reasonsOf((await duplicates({ whatsapp: '64981110002' })).body, byPhone.id)).toEqual(['whatsapp']);
+      expect(reasonsOf((await duplicates({ phone: '64981110003' })).body, byWhatsapp.id)).toEqual(['phone']);
+    });
+
+    it('acha por e-mail sem diferenciar caixa', async () => {
+      const contact = await created({ personType: 'pf', name: 'Sócio 1', roles: ['owner'], email: 'socios@empresa.com' });
+
+      expect(reasonsOf((await duplicates({ email: 'SOCIOS@Empresa.com' })).body, contact.id)).toEqual(['email']);
+    });
+
+    it('acha por nome sem caixa nem acento', async () => {
+      const contact = await created({ personType: 'pf', name: 'José da Conceição', roles: ['buyer'] });
+
+      expect(reasonsOf((await duplicates({ name: 'jose da conceicao' })).body, contact.id)).toEqual(['name']);
+      expect((await duplicates({ name: 'jose da' })).body.items.find((item) => item.id === contact.id)).toBeUndefined();
+    });
+
+    it('junta os motivos de um mesmo contato', async () => {
+      const contact = await created({
+        personType: 'pf',
+        name: 'Vários Motivos',
+        roles: ['buyer'],
+        whatsapp: '64981110004',
+        email: 'varios@x.com',
+      });
+
+      const { body } = await duplicates({ name: 'vários motivos', whatsapp: '64981110004', email: 'varios@x.com' });
+
+      expect(body.items.filter((item) => item.id === contact.id)).toHaveLength(1);
+      expect(reasonsOf(body, contact.id)).toEqual(['whatsapp', 'email', 'name']);
+    });
+
+    it('excludeId tira o próprio contato', async () => {
+      const contact = await created({ personType: 'pf', name: 'Edição', roles: ['buyer'], phone: '64981110005' });
+
+      expect(reasonsOf((await duplicates({ phone: '64981110005' })).body, contact.id)).toEqual(['phone']);
+      expect((await duplicates({ phone: '64981110005', excludeId: contact.id })).body.items).toEqual([]);
+    });
+
+    it('sem critério, ou com telefone inválido, não acha nada', async () => {
+      expect((await duplicates({})).body.items).toEqual([]);
+      expect((await duplicates({ phone: '123', name: '  ' })).body.items).toEqual([]);
+    });
+
+    it('não enxerga contato de outra empresa', async () => {
+      await created({ personType: 'pf', name: 'Só daqui', roles: ['buyer'], phone: '64981110006' });
+
+      const response = await read('/duplicates?phone=64981110006', outsiderCookie, other.slug);
+
+      expect(((await response.json()) as DuplicatesBody).items).toEqual([]);
+    });
+
+    it('sem contatos.ver é 403', async () => {
+      expect((await duplicates({ phone: '64981110001' }, noAccessCookie)).status).toBe(403);
+    });
+
+    it('excludeId malformado é 400', async () => {
+      expect((await duplicates({ excludeId: 'x' })).status).toBe(400);
+    });
+  });
 });
