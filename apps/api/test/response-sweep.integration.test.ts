@@ -2,7 +2,7 @@
 // de usuário, e nenhuma resposta pode trazer a flag de super admin — nem no
 // corpo, nem nos cabeçalhos. A lista de rotas vem do próprio app, não deste
 // arquivo: rota nova sem amostra aqui falha a suíte.
-import { createDatabase, createPool, crops } from '@crm/db';
+import { contacts, createDatabase, createPool, crops } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
@@ -33,6 +33,9 @@ interface Sample {
 /** Entradas de cultura que as amostras de `PATCH` e `DELETE` apontam; criadas no `beforeAll`. */
 const sweepCrops = { patch: '', delete: '' };
 
+/** Contato que as amostras de leitura e `PATCH` apontam; criado no `beforeAll`. */
+const sweepContact = { id: '' };
+
 /** Quem tenta descobrir a flag manda a flag: a resposta não pode ecoá-la. */
 const FLAG_PROBE = { is_super_admin: true, isSuperAdmin: true };
 
@@ -53,6 +56,19 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   }),
   'POST /auth/logout': () => ({ path: '/auth/logout' }),
   'GET /auth/session': () => ({ path: '/auth/session' }),
+  'GET /e/:tenant/contacts': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/contacts` }),
+  'POST /e/:tenant/contacts': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/contacts`,
+    body: { personType: 'pf', name: 'Sebastião', roles: ['external_broker'], ...FLAG_PROBE },
+  }),
+  'GET /e/:tenant/contacts/:id': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/contacts/${sweepContact.id}` }),
+  'PATCH /e/:tenant/contacts/:id': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/contacts/${sweepContact.id}`,
+    body: { name: 'Sebastião Souza', ...FLAG_PROBE },
+  }),
+  'GET /e/:tenant/contacts/:id/history': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/contacts/${sweepContact.id}/history`,
+  }),
   'GET /e/:tenant/municipalities': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/municipalities?q=rio` }),
   'GET /e/:tenant/permissions': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/permissions` }),
   'GET /e/:tenant/permissions/effective': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/permissions/effective` }),
@@ -139,6 +155,11 @@ describe('varredura das respostas da API', () => {
         .returning({ id: crops.id });
       sweepCrops.patch = rows[0]!.id;
       sweepCrops.delete = rows[1]!.id;
+      const [contact] = await tx
+        .insert(contacts)
+        .values({ tenantId: tenant.id, personType: 'pf', name: 'Contato da varredura' })
+        .returning({ id: contacts.id });
+      sweepContact.id = contact!.id;
     });
 
     for (const user of [commonUser, superAdmin]) {

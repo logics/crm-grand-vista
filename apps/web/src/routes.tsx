@@ -3,6 +3,9 @@ import { Navigate, type RouteObject } from 'react-router';
 import { LandingRedirect } from './modules/auth/landing-redirect.js';
 import { LoginPage } from './modules/auth/login-page.js';
 import { RequireSession, useAuthenticatedSession } from './modules/auth/require-session.js';
+import { ContactFormPage } from './modules/contacts/contact-form-page.js';
+import { ContactPage } from './modules/contacts/contact-page.js';
+import { ContactsPage } from './modules/contacts/contacts-page.js';
 import { ParametersPage } from './modules/settings/parameters-page.js';
 import { SettingsLayout } from './modules/settings/settings-layout.js';
 import { VocabularyPage } from './modules/settings/vocabulary-page.js';
@@ -36,6 +39,10 @@ export const routes: RouteObject[] = [
             errorElement: <TenantRouteError />,
             children: [
               { index: true, element: <TenantHome /> },
+              { path: 'contacts', element: <ContactsPage /> },
+              { path: 'contacts/new', element: <ContactFormPage /> },
+              { path: 'contacts/:id', element: <ContactPage /> },
+              { path: 'contacts/:id/edit', element: <ContactFormPage /> },
               {
                 path: 'settings',
                 element: <SettingsLayout />,

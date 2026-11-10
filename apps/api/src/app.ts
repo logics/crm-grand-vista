@@ -7,6 +7,7 @@ import { createHealthRoutes } from './health.js';
 import type { LoginRateLimit } from './modules/auth/login-rate-limit.js';
 import type { Auth } from './modules/auth/auth.js';
 import { createAuthRoutes } from './modules/auth/routes.js';
+import { createContactsRoutes } from './modules/contacts/routes.js';
 import { createMunicipalitiesRoutes } from './modules/municipalities/routes.js';
 import { createPermissionsRoutes } from './modules/permissions/routes.js';
 import { createSettingsRoutes } from './modules/settings/routes.js';
@@ -29,6 +30,7 @@ export function createApp({ auth, db, env, loginRateLimit }: AppDependencies) {
   // há como registrar um módulo aqui sem passar por ela.
   const tenantRoutes = new Hono<TenantEnv>()
     .use(createTenantContext({ auth, db }))
+    .route('/contacts', createContactsRoutes())
     .route('/municipalities', createMunicipalitiesRoutes())
     .route('/permissions', createPermissionsRoutes())
     .route('/settings', createSettingsRoutes())

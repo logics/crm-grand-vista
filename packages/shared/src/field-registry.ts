@@ -5,6 +5,7 @@
 //
 // A flag de super admin não entra: este pacote não a nomeia, e o teste de
 // cobertura ignora as colunas que o wrapper de auditoria já trata como só de plataforma.
+import { CONTACT_ROLE_LABELS, PERSON_TYPE_LABELS } from './contact.js';
 import { municipalityReference } from './region.js';
 import { ALQUEIRE_TYPE_NAMES, AREA_DISPLAY_UNIT_LABELS } from './tenant-settings.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
@@ -92,6 +93,46 @@ export const FIELD_REGISTRY = {
   payment_methods: vocabularyEntity('Forma de pagamento', 'f'),
   purchase_profiles: vocabularyEntity('Perfil de compra', 'm'),
   trading_posts: vocabularyEntity('Praça', 'f'),
+  contacts: {
+    label: 'Contato',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      person_type: { type: 'enum', label: 'Tipo de pessoa', options: PERSON_TYPE_LABELS },
+      name: { type: 'text', label: 'Nome' },
+      legal_name: { type: 'text', label: 'Razão social', gender: 'f' },
+      tax_id: { type: 'text', label: 'Documento' },
+      email: { type: 'text', label: 'E-mail' },
+      phone: { type: 'text', label: 'Telefone' },
+      whatsapp: { type: 'text', label: 'WhatsApp' },
+      classification_id: {
+        type: 'reference',
+        label: 'Classificação',
+        gender: 'f',
+        references: { table: 'contact_classifications', nameColumn: 'name' },
+      },
+      lead_source_id: {
+        type: 'reference',
+        label: 'Origem do lead',
+        gender: 'f',
+        references: { table: 'lead_sources', nameColumn: 'name' },
+      },
+      relationship_origin: { type: 'text', label: 'Origem do relacionamento', gender: 'f' },
+      strategic_notes: { type: 'long_text', label: 'Observações estratégicas', gender: 'f' },
+      custom_fields: HIDDEN,
+    },
+  },
+  contact_roles: {
+    label: 'Papel',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      contact_id: HIDDEN,
+      role: { type: 'enum', label: 'Papel', options: CONTACT_ROLE_LABELS },
+    },
+  },
   tenant_settings: {
     label: 'Parâmetros da empresa',
     gender: 'm',

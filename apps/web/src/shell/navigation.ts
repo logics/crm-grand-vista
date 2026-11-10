@@ -19,6 +19,7 @@ export type NavigationEntry = {
 
 export const NAVIGATION: NavigationEntry[] = [
   { id: 'home', label: 'Início', icon: 'house', path: '' },
+  { id: 'contacts', label: 'Contatos', icon: 'users', path: 'contacts', permission: 'contatos.ver' },
   { id: 'settings', label: 'Configurações', icon: 'sliders-horizontal', path: 'settings', permission: 'configuracoes.gerenciar' },
 ];
 

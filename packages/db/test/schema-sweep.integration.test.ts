@@ -48,6 +48,8 @@ describe('varredura de schema', () => {
       'audit_log',
       'commercial_statuses',
       'contact_classifications',
+      'contact_roles',
+      'contacts',
       'crops',
       'document_categories',
       'lead_sources',
