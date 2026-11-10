@@ -2,17 +2,23 @@
 // (a que a rota abre por `withTenant`), num `change_id` por save.
 import {
   auditedWrites,
+  contactClassifications,
   contactRoles,
   contacts,
+  leadSources,
   type AuditActor,
   type Transaction,
 } from '@crm/db';
 import {
+  CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
+  CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE,
+  CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE,
   CONTACT_ROLES,
   type Contact,
   type ContactListQuery,
   type ContactRole,
   type PersonType,
+  hasClassification,
   hasLegalName,
   taxIdIssue,
   type CreateContactInput,
@@ -47,6 +53,8 @@ function serialize(row: ContactRow, roles: readonly string[]): Contact {
     whatsapp: row.whatsapp,
     relationshipOrigin: row.relationshipOrigin,
     strategicNotes: row.strategicNotes,
+    classificationId: row.classificationId,
+    leadSourceId: row.leadSourceId,
     roles: roleOrder(roles),
     createdAt: row.createdAt.toISOString(),
   };
@@ -127,7 +135,40 @@ async function assertTaxIdFree(tx: Transaction, taxId: string | null | undefined
 const legalNameFor = (personType: PersonType, legalName: string | null | undefined) =>
   hasLegalName(personType) ? (legalName ?? null) : null;
 
-export async function createContact(tx: Transaction, actor: AuditActor, input: CreateContactInput): Promise<Contact> {
+/** Recusa de regra de negócio (400), com a mensagem pronta para exibir. */
+export interface ContactRejection {
+  rejected: string;
+}
+
+export const isRejection = (result: unknown): result is ContactRejection =>
+  typeof result === 'object' && result !== null && 'rejected' in result;
+
+/** A classificação e a origem apontam para entradas da empresa ativa (o RLS recorta a consulta). */
+async function referencesMissing(
+  tx: Transaction,
+  { classificationId, leadSourceId }: { classificationId?: string | null; leadSourceId?: string | null },
+): Promise<string | null> {
+  if (classificationId) {
+    const [row] = await tx
+      .select({ id: contactClassifications.id })
+      .from(contactClassifications)
+      .where(eq(contactClassifications.id, classificationId));
+    if (!row) return CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE;
+  }
+  if (leadSourceId) {
+    const [row] = await tx.select({ id: leadSources.id }).from(leadSources).where(eq(leadSources.id, leadSourceId));
+    if (!row) return CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE;
+  }
+  return null;
+}
+
+export async function createContact(
+  tx: Transaction,
+  actor: AuditActor,
+  input: CreateContactInput,
+): Promise<Contact | ContactRejection> {
+  const missing = await referencesMissing(tx, input);
+  if (missing) return { rejected: missing };
   await assertTaxIdFree(tx, input.taxId);
   const writes = auditedWrites(tx, actor);
   const { roles, ...fields } = input;
@@ -140,15 +181,24 @@ export async function createContact(tx: Transaction, actor: AuditActor, input: C
   return serialize(row, roles);
 }
 
-/** Altera o contato; `roles`, se presente, substitui o conjunto. Nulo se o contato não existe. */
+/**
+ * Altera o contato; `roles`, se presente, substitui o conjunto. Nulo se o contato
+ * não existe. Sem o papel comprador a classificação não existe: informá-la é
+ * recusa, e retirar o papel a apaga no mesmo save (o histórico guarda o valor anterior).
+ */
 export async function updateContact(
   tx: Transaction,
   actor: AuditActor,
   id: string,
   input: UpdateContactInput,
-): Promise<Contact | null> {
+): Promise<Contact | ContactRejection | null> {
   const current = await getContact(tx, id);
   if (!current) return null;
+
+  const isBuyer = hasClassification(input.roles ?? current.roles);
+  if (input.classificationId && !isBuyer) return { rejected: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE };
+  const missing = await referencesMissing(tx, input);
+  if (missing) return { rejected: missing };
 
   const { roles, ...fields } = input;
   const personType = fields.personType ?? current.personType;
@@ -160,6 +210,7 @@ export async function updateContact(
   const set: Partial<typeof contacts.$inferInsert> = { ...fields };
   // Passar para PF limpa a razão social; em PF ela não se grava.
   if (!hasLegalName(personType)) set.legalName = null;
+  if (!isBuyer && current.classificationId) set.classificationId = null;
 
   const [row] =
     Object.keys(set).length > 0

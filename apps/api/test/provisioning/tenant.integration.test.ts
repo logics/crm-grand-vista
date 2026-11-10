@@ -4,8 +4,10 @@ import {
   accessProfiles,
   auditLog,
   commercialStatuses,
+  contactClassifications,
   crops,
   documentCategories,
+  leadSources,
   tenantSettings,
   createDatabase,
   createPool,
@@ -219,12 +221,16 @@ describe('provisionamento de empresa', () => {
         .orderBy(asc(commercialStatuses.displayOrder)),
       categories: await tx.select({ name: documentCategories.name }).from(documentCategories),
       crops: await tx.select({ name: crops.name }).from(crops),
+      leadSources: await tx.select({ name: leadSources.name }).from(leadSources),
+      classifications: await tx.select({ name: contactClassifications.name }).from(contactClassifications),
       settings: await tx.select().from(tenantSettings),
     }));
 
     expect(seeded.statuses).toEqual(TENANT_SEED.commercialStatuses);
     expect(seeded.categories.map((row) => row.name).sort()).toEqual([...TENANT_SEED.documentCategories].sort());
     expect(seeded.crops.map((row) => row.name).sort()).toEqual([...TENANT_SEED.crops].sort());
+    expect(seeded.leadSources.map((row) => row.name).sort()).toEqual([...TENANT_SEED.leadSources].sort());
+    expect(seeded.classifications.map((row) => row.name).sort()).toEqual([...TENANT_SEED.contactClassifications].sort());
     expect(seeded.settings).toMatchObject([{ defaultAlqueireType: 'goiano', areaDisplayUnit: 'hectare' }]);
   });
 
@@ -247,6 +253,8 @@ describe('provisionamento de empresa', () => {
         'commercial_statuses',
         'document_categories',
         'crops',
+        'lead_sources',
+        'contact_classifications',
       ]),
     );
     expect(adminFields).toContain('email');

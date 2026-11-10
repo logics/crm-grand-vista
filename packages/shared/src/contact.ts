@@ -67,6 +67,13 @@ export const CONTACT_STRATEGIC_NOTES_MAX_LENGTH = 10_000;
 
 export const CONTACT_ROLE_REQUIRED_MESSAGE = 'Informe ao menos um papel.';
 export const CONTACT_NOT_FOUND_MESSAGE = 'Contato não encontrado.';
+export const CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE =
+  'A classificação do cliente só vale para quem tem o papel de comprador.';
+export const CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE = 'Classificação do cliente inválida.';
+export const CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE = 'Origem do lead inválida.';
+
+/** A classificação do cliente é dado exclusivo do papel comprador. */
+export const hasClassification = (roles: readonly ContactRole[]): boolean => roles.includes('buyer');
 export const TAX_ID_CPF_MESSAGE = 'Informe um CPF válido.';
 export const TAX_ID_CNPJ_MESSAGE = 'Informe um CNPJ válido.';
 export const TAX_ID_TAKEN_MESSAGE = 'Já existe um contato com este documento.';
@@ -136,6 +143,8 @@ const contactEditableShape = {
   relationshipOrigin: optionalText(CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH, 'A origem do relacionamento'),
   strategicNotes: optionalText(CONTACT_STRATEGIC_NOTES_MAX_LENGTH, 'As observações estratégicas'),
   roles: contactRolesSchema,
+  classificationId: z.uuid({ error: 'Classificação do cliente inválida.' }).nullable(),
+  leadSourceId: z.uuid({ error: 'Origem do lead inválida.' }).nullable(),
 };
 
 /** O documento tem de servir ao tipo de pessoa informado junto; o erro cai no campo. */
@@ -158,8 +167,14 @@ export const createContactSchema = z
     whatsapp: contactEditableShape.whatsapp.optional(),
     relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
     strategicNotes: contactEditableShape.strategicNotes.optional(),
+    classificationId: contactEditableShape.classificationId.optional(),
+    leadSourceId: contactEditableShape.leadSourceId.optional(),
   })
-  .superRefine(checkTaxId);
+  .superRefine(checkTaxId)
+  .refine((contact) => !contact.classificationId || hasClassification(contact.roles), {
+    path: ['classificationId'],
+    error: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
+  });
 export type CreateContactInput = z.output<typeof createContactSchema>;
 
 /**
@@ -181,6 +196,8 @@ export const contactSchema = z.object({
   whatsapp: z.string().nullable(),
   relationshipOrigin: z.string().nullable(),
   strategicNotes: z.string().nullable(),
+  classificationId: z.uuid().nullable(),
+  leadSourceId: z.uuid().nullable(),
   roles: z.array(z.enum(CONTACT_ROLES)),
   createdAt: z.string(),
 });
