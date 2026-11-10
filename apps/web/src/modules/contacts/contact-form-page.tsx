@@ -24,10 +24,10 @@ import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenan
 import { TaxIdTakenError, createContact, fetchContact, updateContact } from './contacts-api.js';
 
 /** O contato mais a opção só do formulário: sem coluna, ela não existe na API. */
-const contactFormSchema = createContactSchema.extend({ sameNumber: z.boolean() });
+const contactFormSchema = createContactSchema.safeExtend({ sameNumber: z.boolean() });
 type FormValues = z.input<typeof contactFormSchema>;
 /** Sem o campo na tela, o que sobrou digitado nele não pode barrar o salvamento. */
-const contactFormSchemaWithoutWhatsapp = contactFormSchema.omit({ whatsapp: true }) as unknown as typeof contactFormSchema;
+const contactFormSchemaWithoutWhatsapp = contactFormSchema.safeExtend({ whatsapp: z.any() }) as unknown as typeof contactFormSchema;
 
 /** Formulário de criação (`/contacts/new`) e edição (`/contacts/:id/edit`). */
 export function ContactFormPage() {
