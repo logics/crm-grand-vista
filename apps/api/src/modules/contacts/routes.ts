@@ -2,6 +2,7 @@
 // quem tem `contatos.ver` vê todos; não há cláusula de escopo de dados.
 import {
   CONTACT_NOT_FOUND_MESSAGE,
+  TAX_ID_TAKEN_MESSAGE,
   contactListQuerySchema,
   createContactSchema,
   updateContactSchema,
@@ -14,10 +15,13 @@ import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import {
   RoleInUseError,
+  TaxIdMismatchError,
+  TaxIdTakenError,
   contactExists,
   contactInUseMessage,
   createContact,
   deleteContact,
+  findContactByTaxId,
   getContact,
   listContacts,
   updateContact,
@@ -25,6 +29,22 @@ import {
 
 const notFound = { error: { code: 'not_found', message: CONTACT_NOT_FOUND_MESSAGE } } as const;
 const idSchema = z.uuid();
+
+const taxIdConflict = (existing: { id: string; name: string }) =>
+  ({ error: { code: 'conflict', message: TAX_ID_TAKEN_MESSAGE, field: 'taxId', existing } }) as const;
+
+const taxIdMismatch = (message: string) =>
+  ({ error: { code: 'validation_error', message, field: 'taxId' } }) as const;
+
+/** Constraint do índice único `(tenant_id, tax_id)`, que o driver aponta quando duas gravações empatam. */
+const TAX_ID_UNIQUE_INDEX = 'contacts_tenant_id_tax_id_unique';
+
+function violatesTaxIdUniqueIndex(error: unknown): boolean {
+  for (let current = error; current instanceof Error; current = current.cause) {
+    if ((current as { constraint?: unknown }).constraint === TAX_ID_UNIQUE_INDEX) return true;
+  }
+  return false;
+}
 
 /** Id malformado é contato que não existe (404), não requisição inválida. */
 const isId = (c: Context<TenantEnv>) => idSchema.safeParse(c.req.param('id')).success;
@@ -47,6 +67,30 @@ const IN_USE_SQLSTATES = ['23001', '23503'];
 
 const canView = () => requirePermission('contatos.ver');
 
+/**
+ * A recusa de regra do documento como resposta: duplicado é 409 com o contato
+ * existente, documento que não serve ao tipo de pessoa é 400. Outro erro sobe.
+ * Duas gravações simultâneas do mesmo documento passam pela pré-checagem do
+ * serviço; o índice único pega a segunda, e o dono do documento é buscado de novo.
+ */
+async function withTaxIdRefusals<T>(
+  c: Context<TenantEnv>,
+  taxId: string | null | undefined,
+  run: () => Promise<T>,
+) {
+  try {
+    return { ok: true, value: await run() } as const;
+  } catch (error) {
+    if (error instanceof TaxIdTakenError) return { ok: false, response: c.json(taxIdConflict(error.existing), 409) } as const;
+    if (error instanceof TaxIdMismatchError) return { ok: false, response: c.json(taxIdMismatch(error.message), 400) } as const;
+    if (taxId && violatesTaxIdUniqueIndex(error)) {
+      const existing = await c.var.withTenant((tx) => findContactByTaxId(tx, taxId));
+      if (existing) return { ok: false, response: c.json(taxIdConflict(existing), 409) } as const;
+    }
+    throw error;
+  }
+}
+
 export function createContactsRoutes() {
   return new Hono<TenantEnv>()
     .get('/', canView(), zValidator('query', contactListQuerySchema), async (c) => {
@@ -56,7 +100,10 @@ export function createContactsRoutes() {
     .post('/', requirePermission('contatos.criar'), zValidator('json', createContactSchema), async (c) => {
       const { tenant, userId, withTenant } = c.var;
       const input = c.req.valid('json');
-      return c.json(await withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input)), 201);
+      const result = await withTaxIdRefusals(c, input.taxId, () =>
+        withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input)),
+      );
+      return result.ok ? c.json(result.value, 201) : result.response;
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
@@ -68,10 +115,11 @@ export function createContactsRoutes() {
       const { tenant, userId, withTenant } = c.var;
       const input = c.req.valid('json');
       try {
-        const contact = await withTenant((tx) =>
-          updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input),
+        const result = await withTaxIdRefusals(c, input.taxId, () =>
+          withTenant((tx) => updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input)),
         );
-        return contact ? c.json(contact, 200) : c.json(notFound, 404);
+        if (!result.ok) return result.response;
+        return result.value ? c.json(result.value, 200) : c.json(notFound, 404);
       } catch (error) {
         if (error instanceof RoleInUseError) return c.json(conflict(error.message), 409);
         throw error;

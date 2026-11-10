@@ -19,11 +19,12 @@ import {
   type ContactRole,
   type PersonType,
   hasLegalName,
+  taxIdIssue,
   type CreateContactInput,
   type ListPage,
   type UpdateContactInput,
 } from '@crm/shared';
-import { and, eq, getTableColumns, getTableName, inArray, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, getTableName, inArray, ne, sql } from 'drizzle-orm';
 import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
@@ -46,6 +47,7 @@ function serialize(row: ContactRow, roles: readonly string[]): Contact {
     personType: row.personType as PersonType,
     name: row.name,
     legalName: row.legalName,
+    taxId: row.taxId,
     email: row.email,
     relationshipOrigin: row.relationshipOrigin,
     strategicNotes: row.strategicNotes,
@@ -103,11 +105,53 @@ async function assertRolesNotInUse(tx: Transaction, contact: Contact, removed: r
   }
 }
 
+/** Contato que já tem o documento: o que o formulário oferece abrir. */
+export interface ExistingContact {
+  id: string;
+  name: string;
+}
+
+/** O documento já é de outro contato da empresa (409). */
+export class TaxIdTakenError extends Error {
+  constructor(readonly existing: ExistingContact) {
+    super('Documento já cadastrado.');
+    this.name = 'TaxIdTakenError';
+  }
+}
+
+/** O documento não serve ao tipo de pessoa do cadastro (400 no campo). */
+export class TaxIdMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TaxIdMismatchError';
+  }
+}
+
+/** Dono do documento na empresa ativa (o RLS recorta), exceto `exceptId`. */
+export async function findContactByTaxId(
+  tx: Transaction,
+  taxId: string,
+  exceptId?: string,
+): Promise<ExistingContact | null> {
+  const [row] = await tx
+    .select({ id: contacts.id, name: contacts.name })
+    .from(contacts)
+    .where(and(eq(contacts.taxId, taxId), exceptId ? ne(contacts.id, exceptId) : undefined));
+  return row ?? null;
+}
+
+async function assertTaxIdFree(tx: Transaction, taxId: string | null | undefined, exceptId?: string) {
+  if (!taxId) return;
+  const existing = await findContactByTaxId(tx, taxId, exceptId);
+  if (existing) throw new TaxIdTakenError(existing);
+}
+
 /** Razão social só existe em PJ. */
 const legalNameFor = (personType: PersonType, legalName: string | null | undefined) =>
   hasLegalName(personType) ? (legalName ?? null) : null;
 
 export async function createContact(tx: Transaction, actor: AuditActor, input: CreateContactInput): Promise<Contact> {
+  await assertTaxIdFree(tx, input.taxId);
   const writes = auditedWrites(tx, actor);
   const { roles, ...fields } = input;
   const row = await writes.insert(contacts, {
@@ -129,12 +173,14 @@ export async function updateContact(
   const current = await getContact(tx, id);
   if (!current) return null;
 
-  const nextRoles = input.roles;
-  if (nextRoles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !nextRoles.includes(role)));
-
-  const writes = auditedWrites(tx, actor);
   const { roles, ...fields } = input;
   const personType = fields.personType ?? current.personType;
+  // O schema só confere o par que veio junto; aqui o documento é conferido contra o cadastro.
+  const mismatch = taxIdIssue(personType, fields.taxId === undefined ? current.taxId : fields.taxId);
+  if (mismatch) throw new TaxIdMismatchError(mismatch);
+  if (fields.taxId && fields.taxId !== current.taxId) await assertTaxIdFree(tx, fields.taxId, id);
+  if (roles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !roles.includes(role)));
+  const writes = auditedWrites(tx, actor);
   const set: Partial<typeof contacts.$inferInsert> = { ...fields };
   // Passar para PF limpa a razão social; em PF ela não se grava.
   if (!hasLegalName(personType)) set.legalName = null;

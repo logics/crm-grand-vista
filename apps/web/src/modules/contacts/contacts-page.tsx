@@ -1,4 +1,11 @@
-import { CONTACT_ROLES_LABEL, CONTACT_ROLE_LABELS, FIELD_REGISTRY, contactListQuerySchema, type Contact } from '@crm/shared';
+import {
+  CONTACT_ROLES_LABEL,
+  CONTACT_ROLE_LABELS,
+  FIELD_REGISTRY,
+  abbreviateTaxId,
+  contactListQuerySchema,
+  type Contact,
+} from '@crm/shared';
 import { Badge, Button, Card } from '@crm/ui';
 import { useNavigate } from 'react-router';
 import { ListPage } from '../../listing/list-page.js';
@@ -48,6 +55,11 @@ export function ContactsPage() {
         columns={[
           { key: 'name', label: FIELD_REGISTRY.contacts.fields.name.label, strong: true, sortable: true },
           { key: 'roles', label: CONTACT_ROLES_LABEL, render: roleBadges },
+          {
+            key: 'taxId',
+            label: FIELD_REGISTRY.contacts.fields.tax_id.label,
+            render: (contact) => abbreviateTaxId(contact.taxId) ?? '—',
+          },
           { key: 'createdAt', label: 'Cadastrado em', sortable: true, render: registeredAt },
         ]}
         renderCard={(contact) => (
