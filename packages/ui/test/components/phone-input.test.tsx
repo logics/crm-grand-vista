@@ -151,14 +151,68 @@ describe('PhoneInput', () => {
 
   it('edição no meio mantém o cursor depois do dígito inserido', async () => {
     const user = userEvent.setup();
-    render(<Controlled initial="(64) 99999-0000" />);
+    render(<Controlled initial="(64) 9999-9999" />);
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Telefone' });
 
     // cursor depois do 3º dígito (o primeiro 9)
     await user.type(input, '1', { initialSelectionStart: 6, initialSelectionEnd: 6 });
 
-    expect(input).toHaveValue('(64) 91999-9000');
+    expect(input).toHaveValue('(64) 91999-9999');
     expect(input.selectionStart).toBe(7);
+  });
+
+  it('colar 55 64 99999 0000 num campo vazio vira (64) 99999-0000', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    const input = screen.getByRole('textbox', { name: 'Telefone' });
+
+    await user.click(input);
+    await user.paste('55 64 99999 0000');
+
+    expect(input).toHaveValue('(64) 99999-0000');
+  });
+
+  it('número do DDD 55 completo recusa o dígito a mais no fim', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial="(55) 99999-0000" />);
+    const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Telefone' });
+
+    await user.type(input, '1');
+
+    expect(input).toHaveValue('(55) 99999-0000');
+    expect(input.selectionStart).toBe(15);
+  });
+
+  it('número do DDD 55 completo recusa o dígito a mais no meio', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial="(55) 99999-0000" />);
+    const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Telefone' });
+
+    await user.type(input, '1', { initialSelectionStart: 6, initialSelectionEnd: 6 });
+
+    expect(input).toHaveValue('(55) 99999-0000');
+    expect(input.selectionStart).toBe(6);
+  });
+
+  it('número completo recusa dígito no meio em vez de empurrar o último para fora', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial="(64) 99999-0000" />);
+    const input = screen.getByRole('textbox', { name: 'Telefone' });
+
+    await user.type(input, '1', { initialSelectionStart: 6, initialSelectionEnd: 6 });
+
+    expect(input).toHaveValue('(64) 99999-0000');
+  });
+
+  it('selecionar tudo e colar outro número de 12 dígitos continua permitido', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial="(55) 99999-0000" />);
+    const input = screen.getByRole('textbox', { name: 'Telefone' });
+
+    await user.tripleClick(input);
+    await user.paste('55 64 99999 0000');
+
+    expect(input).toHaveValue('(64) 99999-0000');
   });
 
   it('apagar com backspace até esvaziar', async () => {

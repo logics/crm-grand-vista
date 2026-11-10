@@ -23,6 +23,19 @@ export type PhoneInputProps = Omit<InputProps, 'type' | 'prefix' | 'value' | 'de
 const SEPARATOR = /[()\s-]/;
 const isDigit = (char: string | undefined): boolean => char !== undefined && char >= '0' && char <= '9';
 const countDigits = (text: string): number => text.replace(/\D/g, '').length;
+const BRAZIL_CEILING = 11;
+const INTERNATIONAL_CEILING = 15;
+
+/** `after` é `before` com exatamente um dígito inserido (ou anexado)? Compara as sequências de dígitos. */
+function insertsOneDigit(before: string, after: string): boolean {
+  const a = before.replace(/\D/g, '');
+  const b = after.replace(/\D/g, '');
+  if (b.length !== a.length + 1) return false;
+  for (let i = 0; i <= a.length; i++) {
+    if (b.slice(0, i) + b.slice(i + 1) === a) return true;
+  }
+  return false;
+}
 
 export function PhoneInput({
   value,
@@ -78,6 +91,17 @@ export function PhoneInput({
     const input = event.currentTarget;
     const raw = input.value;
     const caret = input.selectionStart ?? raw.length;
+    // Campo no teto + um dígito a mais: recusa a tecla. Mascarar reinterpretaria o `55`
+    // inicial como código do país e trocaria o número por outro, válido (`(55) 99999-0000` + `1`).
+    const ceiling = text.startsWith('+') ? INTERNATIONAL_CEILING : BRAZIL_CEILING;
+    if (countDigits(text) >= ceiling && insertsOneDigit(text, raw)) {
+      const digitsBefore = countDigits(raw.slice(0, caret)) - 1;
+      const restored = caret >= raw.length ? text.length : caretAfterDigits(text, Math.max(digitsBefore, 0));
+      pendingCaret.current = null;
+      input.value = text;
+      input.setSelectionRange(restored, restored);
+      return;
+    }
     // colar `+55 (64)…` muda a contagem de dígitos: com o cursor no fim, ele fica no fim
     apply(input, raw, caret >= raw.length ? null : countDigits(raw.slice(0, caret)));
   };
