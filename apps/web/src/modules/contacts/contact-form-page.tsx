@@ -10,7 +10,7 @@ import {
   createContactSchema,
   type PersonType,
 } from '@crm/shared';
-import { Checkbox, EntityForm, type EntityFormField, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@crm/ui';
+import { Checkbox, EntityForm, type EntityFormField, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TaxIdInput } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -18,8 +18,9 @@ import type { z } from 'zod';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
 import { tenantPath } from '../../shell/tenant-path.js';
+import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
-import { createContact, fetchContact, updateContact } from './contacts-api.js';
+import { TaxIdTakenError, createContact, fetchContact, updateContact } from './contacts-api.js';
 
 type FormValues = z.input<typeof createContactSchema>;
 
@@ -40,10 +41,19 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [personType, setPersonType] = useState<PersonType>(contact?.personType ?? 'pf');
+  // Dono do documento que a API recusou por duplicado: o campo oferece abrir o cadastro dele.
+  const [duplicate, setDuplicate] = useState<TaxIdTakenError['existing'] | null>(null);
   const back = tenantPath(slug, contact ? `contacts/${contact.id}` : 'contacts');
 
   const save = async (values: ReturnType<typeof createContactSchema.parse>) => {
-    const saved = contact ? await updateContact(slug, contact.id, values) : await createContact(slug, values);
+    setDuplicate(null);
+    let saved;
+    try {
+      saved = contact ? await updateContact(slug, contact.id, values) : await createContact(slug, values);
+    } catch (error) {
+      if (error instanceof TaxIdTakenError) setDuplicate(error.existing);
+      throw error;
+    }
     await queryClient.invalidateQueries({ queryKey: tenantQueryKey(slug, 'contacts') });
     navigate(tenantPath(slug, `contacts/${saved.id}`));
   };
@@ -63,6 +73,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
           personType: contact?.personType ?? 'pf',
           name: contact?.name ?? '',
           legalName: contact?.legalName ?? '',
+          taxId: contact?.taxId ?? '',
           roles: contact?.roles ?? [],
           email: contact?.email ?? '',
           relationshipOrigin: contact?.relationshipOrigin ?? '',
@@ -105,6 +116,28 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                 render: (field) => <Input {...field} value={field.value ?? ''} />,
               },
               ...legalNameFields,
+              {
+                name: 'taxId',
+                label: FIELD_REGISTRY.contacts.fields.tax_id.label,
+                render: (field) => (
+                  <div className="flex flex-col gap-2">
+                    <TaxIdInput
+                      {...field}
+                      personType={personType}
+                      value={field.value ?? null}
+                      onChange={(value) => {
+                        setDuplicate(null);
+                        field.onChange(value ?? '');
+                      }}
+                    />
+                    {duplicate && (
+                      <TextLink to={tenantPath(slug, `contacts/${duplicate.id}`)} target="_blank">
+                        Abrir o cadastro de {duplicate.name}
+                      </TextLink>
+                    )}
+                  </div>
+                ),
+              },
               {
                 name: 'roles',
                 label: CONTACT_ROLES_LABEL,
