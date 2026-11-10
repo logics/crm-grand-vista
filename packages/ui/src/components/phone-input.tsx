@@ -1,4 +1,4 @@
-import { formatPhone, normalizePhone } from '@crm/shared';
+import { DEFAULT_COUNTRY_PREFIX, formatPhone, normalizePhone } from '@crm/shared';
 import { type FocusEvent, useState } from 'react';
 import { Input, type InputProps } from '../primitives/input.js';
 
@@ -16,9 +16,6 @@ export type PhoneInputProps = Omit<InputProps, 'type' | 'prefix' | 'value' | 'de
   /** Recebe o texto a cada tecla; o vazio é `''`. */
   onChange?: (value: string) => void;
 };
-
-/** Código do país pré-preenchido. */
-const DEFAULT_COUNTRY_PREFIX = '+55';
 
 export function PhoneInput({
   value,

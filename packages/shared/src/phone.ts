@@ -16,6 +16,9 @@ const BRAZILIAN_AREA_CODES: ReadonlySet<string> = new Set([
 ]);
 
 const BRAZIL_COUNTRY_CODE = '55';
+
+/** Código do país pré-preenchido nos campos de telefone. */
+export const DEFAULT_COUNTRY_PREFIX = `+${BRAZIL_COUNTRY_CODE}`;
 const INTERNATIONAL_MIN_DIGITS = 8;
 const INTERNATIONAL_MAX_DIGITS = 15;
 
@@ -72,11 +75,13 @@ export function formatPhone(phone: string | null): string | null {
   return `(${area}) ${number.slice(0, split)}-${number.slice(split)}`;
 }
 
+const digitsOf = (phone: string): string => phone.replace(/\D/g, '');
+
 /** Link do WhatsApp (`wa.me`) para o número gravado; só os dígitos entram. */
-export const whatsappUrl = (phone: string): string => `https://wa.me/${phone.replace(/\D/g, '')}`;
+export const whatsappUrl = (phone: string): string => `https://wa.me/${digitsOf(phone)}`;
 
 /** Link de ligação (`tel:`) para o número gravado. */
-export const telUrl = (phone: string): string => `tel:+${phone.replace(/\D/g, '')}`;
+export const telUrl = (phone: string): string => `tel:+${digitsOf(phone)}`;
 
 /** Link de e-mail (`mailto:`). */
 export const mailtoUrl = (email: string): string => `mailto:${email}`;
