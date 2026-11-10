@@ -49,6 +49,11 @@ export async function updateContact(slug: string, id: string, json: UpdateContac
   return (await response.json()) as Contact;
 }
 
+export async function deleteContact(slug: string, id: string): Promise<void> {
+  const response = await api.e[':tenant'].contacts[':id'].$delete({ param: { tenant: slug, id } });
+  if (response.status !== 204) throw await failure(response);
+}
+
 export const fetchContactHistory = (slug: string, id: string, cursor: string | undefined) =>
   api.e[':tenant'].contacts[':id'].history.$get({
     param: { tenant: slug, id },

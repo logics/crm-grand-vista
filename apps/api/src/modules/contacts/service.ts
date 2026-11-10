@@ -8,7 +8,9 @@ import {
   type Transaction,
 } from '@crm/db';
 import {
+  CONTACT_ROLE_LABELS,
   CONTACT_ROLES,
+  FIELD_REGISTRY,
   type Contact,
   type ContactListQuery,
   type ContactRole,
@@ -19,6 +21,7 @@ import {
   type UpdateContactInput,
 } from '@crm/shared';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
@@ -78,6 +81,25 @@ export async function getContact(tx: Transaction, id: string): Promise<Contact |
   return serialize(row, (await rolesByContact(tx, [id])).get(id) ?? []);
 }
 
+/** Retirar papel em uso: a mensagem já diz onde, para o front exibi-la. */
+export class RoleInUseError extends Error {}
+
+const countedLabel = (count: number, label: { singular: string; plural: string }) =>
+  `${count} ${count === 1 ? label.singular : label.plural}`;
+
+/** Recusa a retirada de papel que alguma declaração de uso ainda referencia. */
+async function assertRolesNotInUse(tx: Transaction, contact: Contact, removed: readonly ContactRole[]) {
+  for (const role of removed) {
+    const uses = await countRoleUsage(tx, role, contact.id);
+    if (uses.length === 0) continue;
+    const roleLabel = CONTACT_ROLE_LABELS[role].toLowerCase();
+    const where = uses.map(({ usage, count }) => countedLabel(count, usage.label)).join(' e ');
+    throw new RoleInUseError(
+      `${contact.name} é ${roleLabel} de ${where}; troque o ${roleLabel} antes de retirar o papel.`,
+    );
+  }
+}
+
 /** Razão social só existe em PJ. */
 const legalNameFor = (personType: PersonType, legalName: string | null | undefined) =>
   hasLegalName(personType) ? (legalName ?? null) : null;
@@ -104,6 +126,8 @@ export async function updateContact(
   const current = await getContact(tx, id);
   if (!current) return null;
 
+  if (input.roles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !input.roles!.includes(role)));
+
   const writes = auditedWrites(tx, actor);
   const { roles, ...fields } = input;
   const personType = fields.personType ?? current.personType;
@@ -129,4 +153,44 @@ export async function updateContact(
   }
 
   return serialize(row, finalRoles);
+}
+
+/** Rótulo (plural, capitalizado) da entidade que referencia o contato pela tabela, pelas declarações ou pelos metadados de campo. */
+export function referencingEntityLabel(table: string | undefined): string {
+  if (!table) return 'outros cadastros';
+  const declared = pluralLabelOfTable(table);
+  const registered = (FIELD_REGISTRY as Record<string, { label: string }>)[table]?.label;
+  const label = declared ?? registered ?? table;
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+export const contactInUseMessage = (table: string | undefined) =>
+  `Este contato está em uso em ${referencingEntityLabel(table)}. Remova os vínculos antes de excluir.`;
+
+/**
+ * Exclui o contato e os papéis (auditados). Falso se não existe. A FK `RESTRICT`
+ * de quem consome o contato faz o banco recusar: o erro sobe para a rota traduzir.
+ */
+export async function deleteContact(tx: Transaction, actor: AuditActor, id: string): Promise<boolean> {
+  if (!(await contactExists(tx, id))) return false;
+  const writes = auditedWrites(tx, actor);
+  await writes.delete(contactRoles, eq(contactRoles.contactId, id));
+  await writes.delete(contacts, eq(contacts.id, id));
+  return true;
+}
+
+/** Garantir papel: acrescenta se faltar, na transação de quem chama. Verdadeiro se acrescentou. */
+export async function ensureContactRole(
+  tx: Transaction,
+  actor: AuditActor,
+  contactId: string,
+  role: ContactRole,
+): Promise<boolean> {
+  const [existing] = await tx
+    .select({ id: contactRoles.id })
+    .from(contactRoles)
+    .where(and(eq(contactRoles.contactId, contactId), eq(contactRoles.role, role)));
+  if (existing) return false;
+  await auditedWrites(tx, actor).insert(contactRoles, { tenantId: actor.tenantId!, contactId, role });
+  return true;
 }
