@@ -29,6 +29,8 @@ const contact = (overrides = {}) => ({
   name: 'Sebastião',
   legalName: null,
   email: null,
+  phone: null,
+  whatsapp: null,
   relationshipOrigin: null,
   strategicNotes: null,
   roles: ['external_broker'],

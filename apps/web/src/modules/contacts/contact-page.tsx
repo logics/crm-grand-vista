@@ -1,5 +1,5 @@
 import { CONTACT_ROLE_LABELS } from '@crm/shared';
-import { Badge, Button, ConfirmDialog } from '@crm/ui';
+import { Badge, Button, ConfirmDialog, ContactShortcuts } from '@crm/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -71,10 +71,17 @@ export function ContactPage() {
         confirmIcon="trash-2"
         onConfirm={() => remove.mutate()}
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {record.roles.map((role) => (
           <Badge key={role}>{CONTACT_ROLE_LABELS[role]}</Badge>
         ))}
+        <ContactShortcuts
+          className="ml-2"
+          name={record.name}
+          phone={record.phone}
+          whatsapp={record.whatsapp}
+          email={record.email}
+        />
       </div>
       <RecordSections registry={contactSections} record={record} roles={record.roles} />
     </div>
