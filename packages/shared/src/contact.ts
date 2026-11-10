@@ -2,6 +2,7 @@
 // indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro.
 import { z } from 'zod';
 import { listPageSchema, listQuerySchema } from './listing.js';
+import { INVALID_PHONE_MESSAGE, isBlankPhone, normalizePhone } from './phone.js';
 import { formatTaxId, isValidCnpj, isValidCpf, normalizeTaxId, taxIdKind } from './tax-id.js';
 
 export const PERSON_TYPES = ['pf', 'pj'] as const;
@@ -66,6 +67,13 @@ export const CONTACT_STRATEGIC_NOTES_MAX_LENGTH = 10_000;
 
 export const CONTACT_ROLE_REQUIRED_MESSAGE = 'Informe ao menos um papel.';
 export const CONTACT_NOT_FOUND_MESSAGE = 'Contato não encontrado.';
+export const CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE =
+  'A classificação do cliente só vale para quem tem o papel de comprador.';
+export const CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE = 'Classificação do cliente inválida.';
+export const CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE = 'Origem do lead inválida.';
+
+/** A classificação do cliente é dado exclusivo do papel comprador. */
+export const hasClassification = (roles: readonly ContactRole[]): boolean => roles.includes('buyer');
 export const TAX_ID_CPF_MESSAGE = 'Informe um CPF válido.';
 export const TAX_ID_CNPJ_MESSAGE = 'Informe um CNPJ válido.';
 export const TAX_ID_TAKEN_MESSAGE = 'Já existe um contato com este documento.';
@@ -105,6 +113,18 @@ const contactEmailSchema = z
   .pipe(z.email('Informe um e-mail válido.').nullable())
   .nullable();
 
+/** Telefone ou WhatsApp: vazio vira ausência; o resto sai no formato internacional, ou é recusado. */
+const contactPhoneSchema = z
+  .string()
+  .trim()
+  .transform((value, ctx) => {
+    if (isBlankPhone(value)) return null;
+    const phone = normalizePhone(value);
+    if (phone === null) ctx.issues.push({ code: 'custom', message: INVALID_PHONE_MESSAGE, input: value });
+    return phone;
+  })
+  .nullable();
+
 /** Documento digitado: sai normalizado (sem pontuação, maiúsculas); vazio vira ausência. */
 const contactTaxIdSchema = z
   .string()
@@ -118,9 +138,13 @@ const contactEditableShape = {
   legalName: optionalText(CONTACT_NAME_MAX_LENGTH, 'A razão social'),
   taxId: contactTaxIdSchema,
   email: contactEmailSchema,
+  phone: contactPhoneSchema,
+  whatsapp: contactPhoneSchema,
   relationshipOrigin: optionalText(CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH, 'A origem do relacionamento'),
   strategicNotes: optionalText(CONTACT_STRATEGIC_NOTES_MAX_LENGTH, 'As observações estratégicas'),
   roles: contactRolesSchema,
+  classificationId: z.uuid({ error: 'Classificação do cliente inválida.' }).nullable(),
+  leadSourceId: z.uuid({ error: 'Origem do lead inválida.' }).nullable(),
 };
 
 /** O documento tem de servir ao tipo de pessoa informado junto; o erro cai no campo. */
@@ -139,10 +163,18 @@ export const createContactSchema = z
     legalName: contactEditableShape.legalName.optional(),
     taxId: contactEditableShape.taxId.optional(),
     email: contactEditableShape.email.optional(),
+    phone: contactEditableShape.phone.optional(),
+    whatsapp: contactEditableShape.whatsapp.optional(),
     relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
     strategicNotes: contactEditableShape.strategicNotes.optional(),
+    classificationId: contactEditableShape.classificationId.optional(),
+    leadSourceId: contactEditableShape.leadSourceId.optional(),
   })
-  .superRefine(checkTaxId);
+  .superRefine(checkTaxId)
+  .refine((contact) => !contact.classificationId || hasClassification(contact.roles), {
+    path: ['classificationId'],
+    error: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
+  });
 export type CreateContactInput = z.output<typeof createContactSchema>;
 
 /**
@@ -160,8 +192,12 @@ export const contactSchema = z.object({
   /** Documento normalizado (sem pontuação); a tela o formata. */
   taxId: z.string().nullable(),
   email: z.string().nullable(),
+  phone: z.string().nullable(),
+  whatsapp: z.string().nullable(),
   relationshipOrigin: z.string().nullable(),
   strategicNotes: z.string().nullable(),
+  classificationId: z.uuid().nullable(),
+  leadSourceId: z.uuid().nullable(),
   roles: z.array(z.enum(CONTACT_ROLES)),
   createdAt: z.string(),
 });

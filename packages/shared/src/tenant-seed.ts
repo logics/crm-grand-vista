@@ -14,6 +14,8 @@ export interface TenantSeed {
   commercialStatuses: readonly SeedCommercialStatus[];
   documentCategories: readonly string[];
   crops: readonly string[];
+  leadSources: readonly string[];
+  contactClassifications: readonly string[];
 }
 
 export const TENANT_SEED: TenantSeed = {
@@ -25,4 +27,6 @@ export const TENANT_SEED: TenantSeed = {
   ],
   documentCategories: ['CAR', 'CCIR', 'Contratos', 'Georreferenciamento', 'Laudos', 'Licenças', 'Mapas', 'Matrículas'],
   crops: ['Algodão', 'Café', 'Cana-de-açúcar', 'Milho', 'Pecuária', 'Soja'],
+  leadSources: ['Evento', 'Indicação', 'Instagram', 'Placa na fazenda', 'Site', 'WhatsApp'],
+  contactClassifications: ['A', 'B', 'C'],
 };

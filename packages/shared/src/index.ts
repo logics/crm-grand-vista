@@ -86,6 +86,10 @@ export {
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
   CONTACT_NOT_FOUND_MESSAGE,
+  CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
+  CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE,
+  CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE,
+  hasClassification,
   CONTACT_ROLES_LABEL,
   contactNameLabel,
   hasLegalName,
@@ -112,6 +116,7 @@ export type {
   ContactRole,
   PersonType,
 } from './contact.js';
+export { DEFAULT_COUNTRY_PREFIX, INVALID_PHONE_MESSAGE, caretAfterDigits, formatPhone, isBlankPhone, mailtoUrl, maskPhoneInput, normalizePhone, telUrl, whatsappUrl } from './phone.js';
 export { farmOptionSchema, formatAlqueires, formatHectares } from './farm.js';
 export type { FarmOption } from './farm.js';
 export { describeCommissionIssue, splitCommission, validateCommission } from './commission.js';

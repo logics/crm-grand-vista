@@ -4,9 +4,10 @@ import {
   FIELD_REGISTRY,
   abbreviateTaxId,
   contactListQuerySchema,
+  formatPhone,
   type Contact,
 } from '@crm/shared';
-import { Badge, Button, Card } from '@crm/ui';
+import { Badge, Button, Card, ContactShortcuts } from '@crm/ui';
 import { useNavigate } from 'react-router';
 import { ListPage } from '../../listing/list-page.js';
 import { PageHeader } from '../../shell/page-header.js';
@@ -25,9 +26,13 @@ const roleBadges = (contact: Contact) => (
   </span>
 );
 
+const shortcuts = (contact: Contact) => (
+  <ContactShortcuts name={contact.name} phone={contact.phone} whatsapp={contact.whatsapp} email={contact.email} />
+);
+
 const registeredAt = (contact: Contact) => new Date(contact.createdAt).toLocaleDateString('pt-BR');
 
-/** Lista simples de contatos: nome, papéis e data de cadastro. */
+/** Lista de contatos: nome, papéis, telefone, data de cadastro e os atalhos de contato. */
 export function ContactsPage() {
   const slug = useTenantSlug();
   const navigate = useNavigate();
@@ -60,10 +65,14 @@ export function ContactsPage() {
             label: FIELD_REGISTRY.contacts.fields.tax_id.label,
             render: (contact) => abbreviateTaxId(contact.taxId) ?? '—',
           },
+          { key: 'phone', label: FIELD_REGISTRY.contacts.fields.phone.label, render: (contact) => formatPhone(contact.phone) },
           { key: 'createdAt', label: 'Cadastrado em', sortable: true, render: registeredAt },
+          { key: 'shortcuts', label: 'Atalhos', render: shortcuts },
         ]}
         renderCard={(contact) => (
-          <Card title={contact.name} subtitle={roleBadges(contact)} interactive onClick={() => open(contact)} />
+          <Card title={contact.name} subtitle={roleBadges(contact)} action={shortcuts(contact)} interactive onClick={() => open(contact)}>
+            {contact.phone && <p className="text-sm text-text-body">{formatPhone(contact.phone)}</p>}
+          </Card>
         )}
         empty={{
           icon: 'users',

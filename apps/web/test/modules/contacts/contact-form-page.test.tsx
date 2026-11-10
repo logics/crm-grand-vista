@@ -16,6 +16,8 @@ const contact = {
   legalName: null,
   taxId: null,
   email: null,
+  phone: null,
+  whatsapp: null,
   relationshipOrigin: null,
   strategicNotes: null,
   roles: ['owner'],

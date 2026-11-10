@@ -1,25 +1,37 @@
 // Contatos da empresa ativa. Contato, papéis e auditoria vão numa transação só
 // (a que a rota abre por `withTenant`), num `change_id` por save.
 import {
+  auditLog,
   auditedWrites,
+  contactClassifications,
   contactRoles,
   contacts,
+  diffRecords,
+  leadSources,
+  uuidv7,
   type AuditActor,
   type Transaction,
 } from '@crm/db';
 import {
+  CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
+  CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE,
+  CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE,
+  CONTACT_ROLE_LABELS,
   CONTACT_ROLES,
+  FIELD_REGISTRY,
   type Contact,
   type ContactListQuery,
   type ContactRole,
   type PersonType,
+  hasClassification,
   hasLegalName,
   taxIdIssue,
   type CreateContactInput,
   type ListPage,
   type UpdateContactInput,
 } from '@crm/shared';
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, getTableName, inArray, ne, sql } from 'drizzle-orm';
+import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
@@ -43,8 +55,12 @@ function serialize(row: ContactRow, roles: readonly string[]): Contact {
     legalName: row.legalName,
     taxId: row.taxId,
     email: row.email,
+    phone: row.phone,
+    whatsapp: row.whatsapp,
     relationshipOrigin: row.relationshipOrigin,
     strategicNotes: row.strategicNotes,
+    classificationId: row.classificationId,
+    leadSourceId: row.leadSourceId,
     roles: roleOrder(roles),
     createdAt: row.createdAt.toISOString(),
   };
@@ -78,6 +94,25 @@ export async function getContact(tx: Transaction, id: string): Promise<Contact |
   const [row] = await tx.select().from(contacts).where(eq(contacts.id, id));
   if (!row) return null;
   return serialize(row, (await rolesByContact(tx, [id])).get(id) ?? []);
+}
+
+/** Retirar papel em uso: a mensagem já diz onde, para o front exibi-la. */
+export class RoleInUseError extends Error {}
+
+const countedLabel = (count: number, label: { singular: string; plural: string }) =>
+  `${count} ${count === 1 ? label.singular : label.plural}`;
+
+/** Recusa a retirada de papel que alguma declaração de uso ainda referencia. */
+async function assertRolesNotInUse(tx: Transaction, contact: Contact, removed: readonly ContactRole[]) {
+  for (const role of removed) {
+    const uses = await countRoleUsage(tx, role, contact.id);
+    if (uses.length === 0) continue;
+    const roleLabel = CONTACT_ROLE_LABELS[role].toLowerCase();
+    const where = uses.map(({ usage, count }) => countedLabel(count, usage.label)).join(' e ');
+    throw new RoleInUseError(
+      `${contact.name} é ${roleLabel} de ${where}; troque o ${roleLabel} antes de retirar o papel.`,
+    );
+  }
 }
 
 /** Contato que já tem o documento: o que o formulário oferece abrir. */
@@ -125,7 +160,40 @@ async function assertTaxIdFree(tx: Transaction, taxId: string | null | undefined
 const legalNameFor = (personType: PersonType, legalName: string | null | undefined) =>
   hasLegalName(personType) ? (legalName ?? null) : null;
 
-export async function createContact(tx: Transaction, actor: AuditActor, input: CreateContactInput): Promise<Contact> {
+/** Recusa de regra de negócio (400), com a mensagem pronta para exibir. */
+export interface ContactRejection {
+  rejected: string;
+}
+
+export const isRejection = (result: unknown): result is ContactRejection =>
+  typeof result === 'object' && result !== null && 'rejected' in result;
+
+/** A classificação e a origem apontam para entradas da empresa ativa (o RLS recorta a consulta). */
+async function referencesMissing(
+  tx: Transaction,
+  { classificationId, leadSourceId }: { classificationId?: string | null; leadSourceId?: string | null },
+): Promise<string | null> {
+  if (classificationId) {
+    const [row] = await tx
+      .select({ id: contactClassifications.id })
+      .from(contactClassifications)
+      .where(eq(contactClassifications.id, classificationId));
+    if (!row) return CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE;
+  }
+  if (leadSourceId) {
+    const [row] = await tx.select({ id: leadSources.id }).from(leadSources).where(eq(leadSources.id, leadSourceId));
+    if (!row) return CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE;
+  }
+  return null;
+}
+
+export async function createContact(
+  tx: Transaction,
+  actor: AuditActor,
+  input: CreateContactInput,
+): Promise<Contact | ContactRejection> {
+  const missing = await referencesMissing(tx, input);
+  if (missing) return { rejected: missing };
   await assertTaxIdFree(tx, input.taxId);
   const writes = auditedWrites(tx, actor);
   const { roles, ...fields } = input;
@@ -138,15 +206,24 @@ export async function createContact(tx: Transaction, actor: AuditActor, input: C
   return serialize(row, roles);
 }
 
-/** Altera o contato; `roles`, se presente, substitui o conjunto. Nulo se o contato não existe. */
+/**
+ * Altera o contato; `roles`, se presente, substitui o conjunto. Nulo se o contato
+ * não existe. Sem o papel comprador a classificação não existe: informá-la é
+ * recusa, e retirar o papel a apaga no mesmo save (o histórico guarda o valor anterior).
+ */
 export async function updateContact(
   tx: Transaction,
   actor: AuditActor,
   id: string,
   input: UpdateContactInput,
-): Promise<Contact | null> {
+): Promise<Contact | ContactRejection | null> {
   const current = await getContact(tx, id);
   if (!current) return null;
+
+  const isBuyer = hasClassification(input.roles ?? current.roles);
+  if (input.classificationId && !isBuyer) return { rejected: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE };
+  const missing = await referencesMissing(tx, input);
+  if (missing) return { rejected: missing };
 
   const { roles, ...fields } = input;
   const personType = fields.personType ?? current.personType;
@@ -154,10 +231,12 @@ export async function updateContact(
   const mismatch = taxIdIssue(personType, fields.taxId === undefined ? current.taxId : fields.taxId);
   if (mismatch) throw new TaxIdMismatchError(mismatch);
   if (fields.taxId && fields.taxId !== current.taxId) await assertTaxIdFree(tx, fields.taxId, id);
+  if (roles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !roles.includes(role)));
   const writes = auditedWrites(tx, actor);
   const set: Partial<typeof contacts.$inferInsert> = { ...fields };
   // Passar para PF limpa a razão social; em PF ela não se grava.
   if (!hasLegalName(personType)) set.legalName = null;
+  if (!isBuyer && current.classificationId) set.classificationId = null;
 
   const [row] =
     Object.keys(set).length > 0
@@ -177,4 +256,67 @@ export async function updateContact(
   }
 
   return serialize(row, finalRoles);
+}
+
+/** Rótulo (plural, capitalizado) da entidade que referencia o contato pela tabela, pelas declarações ou pelos metadados de campo. */
+function referencingEntityLabel(table: string | undefined): string {
+  if (!table) return 'outros cadastros';
+  const declared = pluralLabelOfTable(table);
+  const registered = (FIELD_REGISTRY as Record<string, { label: string }>)[table]?.label;
+  const label = declared ?? registered ?? table;
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+export const contactInUseMessage = (table: string | undefined) =>
+  `Este contato está em uso em ${referencingEntityLabel(table)}. Remova os vínculos antes de excluir.`;
+
+/**
+ * Exclui o contato e os papéis (auditados). Falso se não existe. A FK `RESTRICT`
+ * de quem consome o contato faz o banco recusar: o erro sobe para a rota traduzir.
+ */
+export async function deleteContact(tx: Transaction, actor: AuditActor, id: string): Promise<boolean> {
+  if (!(await contactExists(tx, id))) return false;
+  const writes = auditedWrites(tx, actor);
+  await writes.delete(contactRoles, eq(contactRoles.contactId, id));
+  await writes.delete(contacts, eq(contacts.id, id));
+  return true;
+}
+
+/** Garantir papel: acrescenta se faltar, na transação de quem chama. Verdadeiro se acrescentou. */
+export async function ensureContactRole(
+  tx: Transaction,
+  actor: AuditActor,
+  contactId: string,
+  role: ContactRole,
+): Promise<boolean> {
+  // `ON CONFLICT DO NOTHING` no unique (contact_id, role): chamadas simultâneas não
+  // estouram 23505; quem perde a corrida não recebe linha e devolve falso.
+  const [row] = await tx
+    .insert(contactRoles)
+    .values({ tenantId: actor.tenantId!, contactId, role })
+    .onConflictDoNothing({ target: [contactRoles.contactId, contactRoles.role] })
+    .returning();
+  if (!row) return false;
+
+  // Mesma auditoria de `auditedWrites.insert` (um campo por linha, valor anterior nulo,
+  // um `change_id` por chamada); o insert acima não passa pelo wrapper por causa do ON CONFLICT.
+  const after: Record<string, unknown> = {};
+  for (const [key, column] of Object.entries(getTableColumns(contactRoles))) {
+    after[column.name] = row[key as keyof typeof row];
+  }
+  const changeId = uuidv7();
+  const changes = diffRecords(null, after);
+  await tx.insert(auditLog).values(
+    changes.map((change) => ({
+      tenantId: actor.tenantId,
+      entity: getTableName(contactRoles),
+      entityId: row.id,
+      changeId,
+      field: change.field,
+      oldValue: change.oldValue,
+      newValue: change.newValue,
+      userId: actor.userId,
+    })),
+  );
+  return true;
 }

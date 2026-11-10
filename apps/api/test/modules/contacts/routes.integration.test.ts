@@ -1,6 +1,6 @@
 // Contatos por HTTP, contra o Postgres real: cadastro mínimo, papéis, histórico,
 // acesso (base compartilhada, 403 antes do banco) e isolamento entre empresas.
-import { auditedWrites, createDatabase, createPool, userProfiles } from '@crm/db';
+import { auditedWrites, contactClassifications, createDatabase, createPool, leadSources, userProfiles } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../../src/app.js';
@@ -23,10 +23,14 @@ interface ContactBody {
   legalName: string | null;
   taxId: string | null;
   roles: string[];
+  classificationId: string | null;
+  leadSourceId: string | null;
+  phone: string | null;
+  whatsapp: string | null;
 }
 
 interface HistoryBody {
-  entries: { title: string; children: { title: string }[] }[];
+  entries: { title: string; changes: { field: string; from: string | null; to: string | null }[]; children: { title: string }[] }[];
 }
 
 describe('contatos', () => {
@@ -42,6 +46,8 @@ describe('contatos', () => {
   let noAccessCookie: string;
   let readOnlyCookie: string;
   let outsiderCookie: string;
+  let classA: string;
+  let referral: string;
 
   const url = (path = '', slug = tenant.slug) => `/e/${slug}/contacts${path}`;
   const create = (body: unknown, cookie = managerCookie) => app.request(url(), jsonRequest('POST', body, cookie));
@@ -81,6 +87,12 @@ describe('contatos', () => {
     await createLinkedAccessProfile(db, tenant.id, users.readOnly.id, 'Leitor', { permissions: ['contatos.ver'] });
     await createLinkedAccessProfile(db, other.id, users.outsider.id, 'Admin', {
       permissions: ['contatos.ver', 'contatos.criar', 'contatos.editar', 'contatos.excluir'],
+    });
+
+    [classA, referral] = await db.withTenant(tenant.id, async (tx) => {
+      const [a] = await tx.insert(contactClassifications).values({ tenantId: tenant.id, name: 'A' }).returning();
+      const [indicacao] = await tx.insert(leadSources).values({ tenantId: tenant.id, name: 'Indicação' }).returning();
+      return [a!.id, indicacao!.id] as const;
     });
 
     managerCookie = await loginAs(app, users.manager);
@@ -141,6 +153,54 @@ describe('contatos', () => {
     });
   });
 
+  describe('telefones', () => {
+    it('grava telefone e WhatsApp em formato internacional', async () => {
+      const response = await create({
+        personType: 'pf',
+        name: 'Com telefone',
+        roles: ['buyer'],
+        phone: '(64) 99999-0000',
+        whatsapp: '+351 912 345 678',
+      });
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ phone: '+5564999990000', whatsapp: '+351912345678' });
+    });
+
+    it('sem telefone, os campos voltam nulos; vazio apaga na edição', async () => {
+      const contact = await created({ personType: 'pf', name: 'Sem telefone', roles: ['buyer'], phone: '(64) 99999-0000' });
+      expect(await created({ personType: 'pf', name: 'Sem nada', roles: ['buyer'] })).toMatchObject({ phone: null, whatsapp: null });
+
+      const response = await patch(contact.id, { phone: '' });
+
+      expect(await response.json()).toMatchObject({ phone: null });
+    });
+
+    it.each([
+      ['DDD inexistente', { phone: '(10) 99999-0000' }],
+      ['tamanho errado', { phone: '(64) 9999' }],
+      ['WhatsApp inválido', { whatsapp: 'abc' }],
+    ])('telefone com %s é 400', async (_case, extra) => {
+      expect((await create({ personType: 'pf', name: 'Inválido', roles: ['buyer'], ...extra })).status).toBe(400);
+      const contact = await created({ personType: 'pf', name: 'Inválido na edição', roles: ['buyer'] });
+      expect((await patch(contact.id, extra)).status).toBe(400);
+    });
+
+    it('o histórico mostra os números formatados', async () => {
+      const contact = await created({ personType: 'pf', name: 'Histórico de telefone', roles: ['buyer'], phone: '64999990000' });
+      await patch(contact.id, { phone: '(11) 3333-4444', whatsapp: '+351912345678' });
+
+      const { entries } = await history(contact.id);
+
+      expect(entries[0]?.changes).toEqual(
+        expect.arrayContaining([
+          { field: 'Telefone', from: '(64) 99999-0000', to: '(11) 3333-4444' },
+          { field: 'WhatsApp', from: null, to: '+351912345678' },
+        ]),
+      );
+    });
+  });
+
   describe('papéis', () => {
     it('o PATCH com roles substitui o conjunto', async () => {
       const contact = await created({ personType: 'pf', name: 'Papéis', roles: ['buyer', 'owner'] });
@@ -177,6 +237,81 @@ describe('contatos', () => {
       const { entries } = await history(contact.id);
 
       expect(entries[0]).toMatchObject({ title: '2 alterações', children: [{ title: 'Papel adicionado: Proprietário' }] });
+    });
+  });
+
+  describe('classificação e origem do lead', () => {
+    it('grava a origem em qualquer papel e a classificação no comprador', async () => {
+      const response = await create({
+        personType: 'pf',
+        name: 'Classificado',
+        roles: ['buyer'],
+        classificationId: classA,
+        leadSourceId: referral,
+      });
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ classificationId: classA, leadSourceId: referral });
+      const owner = await created({ personType: 'pf', name: 'Dono', roles: ['owner'], leadSourceId: referral });
+      expect(owner.leadSourceId).toBe(referral);
+      expect(owner.classificationId).toBeNull();
+    });
+
+    it('classificationId em contato sem comprador é 400, no cadastro e na edição', async () => {
+      expect((await create({ personType: 'pf', name: 'Sem comprador', roles: ['owner'], classificationId: classA })).status).toBe(400);
+
+      const owner = await created({ personType: 'pf', name: 'Só dono', roles: ['owner'] });
+      expect((await patch(owner.id, { classificationId: classA })).status).toBe(400);
+      // Retirar o papel e classificar no mesmo save também é incoerente.
+      const buyer = await created({ personType: 'pf', name: 'Troca', roles: ['buyer', 'owner'] });
+      expect((await patch(buyer.id, { roles: ['owner'], classificationId: classA })).status).toBe(400);
+    });
+
+    it('recusa classificação e origem que não existem na empresa', async () => {
+      const unknown = '0197c000-0000-7000-8000-00000000dead';
+      expect((await create({ personType: 'pf', name: 'X', roles: ['buyer'], classificationId: unknown })).status).toBe(400);
+      expect((await create({ personType: 'pf', name: 'Y', roles: ['buyer'], leadSourceId: unknown })).status).toBe(400);
+    });
+
+    it('retirar o papel comprador apaga a classificação no mesmo save, e o histórico guarda o valor anterior', async () => {
+      const contact = await created({
+        personType: 'pf',
+        name: 'Deixa de comprar',
+        roles: ['buyer', 'owner'],
+        classificationId: classA,
+        leadSourceId: referral,
+      });
+
+      const response = await patch(contact.id, { roles: ['owner'] });
+
+      expect(await response.json()).toMatchObject({ roles: ['owner'], classificationId: null, leadSourceId: referral });
+      expect(await (await read(`/${contact.id}`)).json()).toMatchObject({ classificationId: null });
+      const { entries } = await history(contact.id);
+      expect(entries).toHaveLength(2);
+      expect(entries[0]?.changes).toContainEqual({ field: 'Classificação', from: 'A', to: null });
+      expect(entries[0]?.children.map((child) => child.title)).toEqual(['Papel removido: Comprador']);
+    });
+
+    it('retirar o comprador de quem não tem classificação não escreve nada além do papel', async () => {
+      const contact = await created({ personType: 'pf', name: 'Sem classe', roles: ['buyer', 'owner'] });
+      await patch(contact.id, { roles: ['owner'] });
+
+      const { entries } = await history(contact.id);
+      expect(entries[0]?.changes).toEqual([]);
+    });
+
+    it('limpar a origem e a classificação com nulo registra o valor anterior', async () => {
+      const contact = await created({ personType: 'pf', name: 'Limpa', roles: ['buyer'], classificationId: classA, leadSourceId: referral });
+
+      await patch(contact.id, { classificationId: null, leadSourceId: null });
+
+      const { entries } = await history(contact.id);
+      expect(entries[0]?.changes).toEqual(
+        expect.arrayContaining([
+          { field: 'Classificação', from: 'A', to: null },
+          { field: 'Origem do lead', from: 'Indicação', to: null },
+        ]),
+      );
     });
   });
 

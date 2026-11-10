@@ -104,8 +104,8 @@ export const FIELD_REGISTRY = {
       legal_name: { type: 'text', label: 'Razão social', gender: 'f' },
       tax_id: { type: 'text', label: 'Documento' },
       email: { type: 'text', label: 'E-mail' },
-      phone: { type: 'text', label: 'Telefone' },
-      whatsapp: { type: 'text', label: 'WhatsApp' },
+      phone: { type: 'phone', label: 'Telefone' },
+      whatsapp: { type: 'phone', label: 'WhatsApp' },
       classification_id: {
         type: 'reference',
         label: 'Classificação',

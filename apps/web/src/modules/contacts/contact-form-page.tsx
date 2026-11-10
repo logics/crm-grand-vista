@@ -3,18 +3,22 @@ import {
   CONTACT_ROLES_LABEL,
   FIELD_REGISTRY,
   contactNameLabel,
+  hasClassification,
   hasLegalName,
   CONTACT_ROLE_LABELS,
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
   createContactSchema,
+  type ContactRole,
+  formatPhone,
   type PersonType,
 } from '@crm/shared';
-import { Checkbox, EntityForm, type EntityFormField, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TaxIdInput } from '@crm/ui';
+import { Checkbox, ConfirmDialog, EntityForm, type EntityFormField, Input, PhoneInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TaxIdInput } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import type { z } from 'zod';
+import { z } from 'zod';
+import { VocabularyField } from '../settings/vocabulary-field.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
 import { tenantPath } from '../../shell/tenant-path.js';
@@ -22,7 +26,11 @@ import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
 import { TaxIdTakenError, createContact, fetchContact, updateContact } from './contacts-api.js';
 
-type FormValues = z.input<typeof createContactSchema>;
+/** O contato mais a opção só do formulário: sem coluna, ela não existe na API. */
+const contactFormSchema = createContactSchema.safeExtend({ sameNumber: z.boolean() });
+type FormValues = z.input<typeof contactFormSchema>;
+/** Sem o campo na tela, o que sobrou digitado nele não pode barrar o salvamento. */
+const contactFormSchemaWithoutWhatsapp = contactFormSchema.safeExtend({ whatsapp: z.any() }) as unknown as typeof contactFormSchema;
 
 /** Formulário de criação (`/contacts/new`) e edição (`/contacts/:id/edit`). */
 export function ContactFormPage() {
@@ -41,11 +49,24 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [personType, setPersonType] = useState<PersonType>(contact?.personType ?? 'pf');
+  const [roles, setRoles] = useState<ContactRole[]>(contact?.roles ?? []);
+  // Retirada do papel comprador à espera de confirmação (há classificação a apagar).
+  const [pendingRemoval, setPendingRemoval] = useState<(() => void) | null>(null);
+  // O campo de classificação só existe com o papel comprador: guarda o valor e o
+  // `onChange` dele enquanto está na tela, para a retirada do papel poder apagá-lo.
+  const classification = useRef<{ value: string | null | undefined; clear: () => void }>({
+    value: contact?.classificationId,
+    clear: () => undefined,
+  });
+  // Vem marcada em contato novo e, na edição, quando os dois números são iguais.
+  const initialSameNumber = contact ? (contact.phone ?? null) === (contact.whatsapp ?? null) : true;
+  const [sameNumber, setSameNumber] = useState(initialSameNumber);
   // Dono do documento que a API recusou por duplicado: o campo oferece abrir o cadastro dele.
   const [duplicate, setDuplicate] = useState<TaxIdTakenError['existing'] | null>(null);
   const back = tenantPath(slug, contact ? `contacts/${contact.id}` : 'contacts');
 
-  const save = async (values: ReturnType<typeof createContactSchema.parse>) => {
+  const save = async ({ sameNumber: copy, ...parsed }: z.output<typeof contactFormSchema>) => {
+    const values = copy ? { ...parsed, whatsapp: parsed.phone ?? null } : parsed;
     setDuplicate(null);
     let saved;
     try {
@@ -64,18 +85,56 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
       ? [{ name: 'legalName', label: FIELD_REGISTRY.contacts.fields.legal_name.label, render: (field) => <Input {...field} value={field.value ?? ''} /> }]
       : [];
 
+  // Classificação é dado do comprador.
+  const classificationFields: EntityFormField<FormValues>[] = hasClassification(roles)
+    ? [
+        {
+          name: 'classificationId',
+          label: FIELD_REGISTRY.contacts.fields.classification_id.label,
+          render: (field) => {
+            classification.current = { value: field.value, clear: () => field.onChange(null) };
+            return (
+              <VocabularyField
+                vocabulary="contact-classifications"
+                aria-label={FIELD_REGISTRY.contacts.fields.classification_id.label}
+                value={field.value ?? null}
+                onChange={(entry) => field.onChange(entry?.id ?? null)}
+                onBlur={field.onBlur}
+              />
+            );
+          },
+        },
+      ]
+    : [];
+
+  // Com a opção marcada o WhatsApp é o telefone, e o campo não aparece.
+  const whatsappFields: EntityFormField<FormValues>[] = sameNumber
+    ? []
+    : [
+        {
+          name: 'whatsapp',
+          label: FIELD_REGISTRY.contacts.fields.whatsapp.label,
+          render: (field) => <PhoneInput {...field} value={field.value ?? ''} />,
+        },
+      ];
+
   return (
     <div className="flex flex-col gap-gap-shell">
       <PageHeader title={contact ? 'Editar contato' : 'Novo contato'} />
       <EntityForm
-        schema={createContactSchema}
+        schema={sameNumber ? contactFormSchemaWithoutWhatsapp : contactFormSchema}
         defaultValues={{
           personType: contact?.personType ?? 'pf',
           name: contact?.name ?? '',
           legalName: contact?.legalName ?? '',
           taxId: contact?.taxId ?? '',
           roles: contact?.roles ?? [],
+          classificationId: contact?.classificationId ?? null,
+          leadSourceId: contact?.leadSourceId ?? null,
           email: contact?.email ?? '',
+          phone: contact?.phone ? formatPhone(contact.phone) : '',
+          whatsapp: contact?.whatsapp ? formatPhone(contact.whatsapp) : '',
+          sameNumber: initialSameNumber,
           relationshipOrigin: contact?.relationshipOrigin ?? '',
           strategicNotes: contact?.strategicNotes ?? '',
         }}
@@ -147,10 +206,19 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                     {CONTACT_ROLES.map((role) => (
                       <label key={role} className="flex items-center gap-2 text-sm text-text-body">
                         <Checkbox
+                          aria-label={CONTACT_ROLE_LABELS[role]}
                           checked={field.value.includes(role)}
-                          onCheckedChange={(checked) =>
-                            field.onChange(checked ? [...field.value, role] : field.value.filter((item) => item !== role))
-                          }
+                          onCheckedChange={(checked) => {
+                            const next = checked ? [...field.value, role] : field.value.filter((item) => item !== role);
+                            const apply = () => {
+                              field.onChange(next);
+                              setRoles(next);
+                              if (!hasClassification(next)) classification.current.clear();
+                            };
+                            // Retirar o comprador apaga a classificação: pergunta antes, se houver o que apagar.
+                            if (role === 'buyer' && !checked && classification.current.value) setPendingRemoval(() => apply);
+                            else apply();
+                          }}
                         />
                         {CONTACT_ROLE_LABELS[role]}
                       </label>
@@ -158,6 +226,41 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                   </div>
                 ),
               },
+              ...classificationFields,
+              {
+                name: 'leadSourceId',
+                label: FIELD_REGISTRY.contacts.fields.lead_source_id.label,
+                render: (field) => (
+                  <VocabularyField
+                    vocabulary="lead-sources"
+                    aria-label={FIELD_REGISTRY.contacts.fields.lead_source_id.label}
+                    value={field.value ?? null}
+                    onChange={(entry) => field.onChange(entry?.id ?? null)}
+                    onBlur={field.onBlur}
+                  />
+                ),
+              },
+              {
+                name: 'phone',
+                label: FIELD_REGISTRY.contacts.fields.phone.label,
+                render: (field) => <PhoneInput {...field} value={field.value ?? ''} />,
+              },
+              {
+                name: 'sameNumber',
+                label: 'WhatsApp é o mesmo número',
+                render: (field) => (
+                  <Checkbox
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      setSameNumber(checked === true);
+                      field.onChange(checked === true);
+                    }}
+                  />
+                ),
+              },
+              ...whatsappFields,
               { name: 'email', label: FIELD_REGISTRY.contacts.fields.email.label, render: (field) => <Input type="email" {...field} value={field.value ?? ''} /> },
               {
                 name: 'relationshipOrigin',
@@ -173,6 +276,16 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
             ],
           },
         ]}
+      />
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemoval(null);
+        }}
+        title={`Retirar o papel ${CONTACT_ROLE_LABELS.buyer}?`}
+        description="A classificação do cliente será apagada ao salvar. O histórico de alterações guarda o valor anterior."
+        confirmLabel="Retirar papel"
+        onConfirm={() => pendingRemoval?.()}
       />
     </div>
   );
