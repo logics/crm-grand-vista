@@ -83,8 +83,8 @@ jobs:
       - name: Postgres 18
         run: pnpm db:up
 
-      # O setup global zera crm_test e aplica as migrations do zero; as
-      # conexões vêm do `.env.test`, que aponta para o container acima.
+      # No CI o banco de teste é o crm_test; o setup global o reforça, zera e
+      # migra. As conexões vêm do `.env.test`, que aponta para o container acima.
       - name: Testes de integração
         run: pnpm test:integration
 
