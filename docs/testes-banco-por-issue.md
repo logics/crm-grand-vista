@@ -1,33 +1,36 @@
-# Banco de teste por issue
+# Banco de teste por checkout
 
-A suíte de integração zera o banco de teste a cada execução (`packages/db/test/support/reset-database.ts`). Duas issues rodando a suíte ao mesmo tempo no mesmo Postgres se apagariam uma à outra, então cada issue usa o seu banco: `crm_<n>_test` (ex.: `crm_124_test`).
+A suíte de integração zera o banco de teste a cada execução (`packages/db/test/support/reset-database.ts`). Dois checkouts rodando a suíte ao mesmo tempo no mesmo Postgres se apagariam um ao outro, então cada checkout usa o seu banco, sem passo manual.
 
-## Criar o banco
+## Nome do banco
 
-```
-tools/db/create-issue-test-db.sh 124
-```
+Derivado da branch do checkout (`packages/db/test/support/test-database-name.ts`):
 
-O script é idempotente:
+- `CI` definido, branch `main` ou git sem branch (HEAD destacada): `crm_test`;
+- `feat/129-avisos-duplicata` (`<tipo>/<n>-…`): `crm_129_test`;
+- outra branch: slug da branch, ex.: `chore/test-db-por-issue` vira `crm_chore_test_db_por_issue_test` (cortado em 63 bytes, com hash, se for longo).
 
-- banco novo: `CREATE DATABASE … OWNER crm_owner`, `REVOKE ALL … FROM PUBLIC`, `GRANT CONNECT, TEMPORARY` a `crm_owner`, `GRANT CONNECT` a `crm_app`, e aplica `packages/db/sql/public-schema.sql` (o mesmo que o `docker/postgres/init.sh` faz);
-- banco existente: só reforça o `REVOKE`/`GRANT`. Nunca derruba o banco nem apaga dados.
+Todo nome termina em `_test`, como a trava de `reset-database.ts` exige. Se o ambiente trouxer `DATABASE_URL`, `MIGRATION_DATABASE_URL` ou `SUPERUSER_DATABASE_URL`, host e credenciais são mantidos, mas o banco do caminho é sempre o do checkout.
 
-Não crie bancos do CRM "na mão": com a ACL padrão do Postgres (`CONNECT` para `PUBLIC`), `packages/db/test/roles.integration.test.ts` falha para todas as suítes que dividem a instância.
+## O que `pnpm test:integration` faz
 
-## Conexão
+O setup global (`packages/db/test/support/global-setup.ts`), com a conexão de superusuário do `.env.test` (`SUPERUSER_DATABASE_URL`):
 
-Só pelo ambiente; o script não guarda nem imprime senha. Use um dos dois:
+1. Cria o banco se faltar (`OWNER crm_owner`, aplicando `packages/db/sql/public-schema.sql`) e sempre reforça a ACL do `docker/postgres/init.sh` (`REVOKE` de `PUBLIC`, `CONNECT` para `crm_owner` e `crm_app`). Guarda a branch no comentário do banco. Nunca apaga dados de banco existente.
+2. Derruba os bancos `crm_*_test` de branches já mergeadas.
+3. Zera e migra o banco do checkout.
 
-- `SUPERUSER_DATABASE_URL` (ex.: `postgres://usuário:senha@host:5433/postgres`; o banco da URL é ignorado, o script conecta em `postgres`);
-- as variáveis padrão do libpq: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`.
+Não crie bancos do CRM "na mão": com a ACL padrão do Postgres (`CONNECT` para `PUBLIC`), `packages/db/test/roles.integration.test.ts` falha.
 
-O usuário precisa criar bancos e conceder privilégios (superusuário). Requer `psql` no `PATH`.
+## Limpeza de branch mergeada
 
-## Usar na suíte
+Só com prova do git local (sem `fetch`, sem `gh`), em relação a `main` ou `origin/main`:
 
-Aponte `DATABASE_URL` e `MIGRATION_DATABASE_URL` para `crm_<n>_test` (variáveis do ambiente têm precedência sobre `.env.test`). A trava de `reset-database.ts` continua exigindo o sufixo `_test`.
+- a branch existe e seu tip é ancestral da base, fora do `--first-parent` (branch nova sem commits não conta como mergeada); ou
+- a branch foi apagada e a base tem o merge commit `Merge pull request #<n> from <dono>/<branch>`.
 
-## Teste
+Qualquer dúvida mantém o banco: sem comentário, base ausente, erro do git ou banco em uso. `crm_test`, `crm_dev`, o banco corrente e nomes fora de `crm_*_test` nunca são derrubados. O `DROP` é sem `FORCE`.
 
-`apps/api/test/tools/create-issue-test-db.integration.test.ts` roda o script contra o Postgres do container, com um banco descartável que apaga no fim: criar duas vezes não falha, `PUBLIC` não tem `CONNECT`, e rodar de novo repara a ACL sem apagar dados.
+## CI, main e e2e
+
+No CI e em `main` a suíte usa `crm_test`, o mesmo do `.env.test`. O e2e segue em `crm_test`.

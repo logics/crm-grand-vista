@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { defaultServerConditions, loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { resolveTestDatabase, withDatabase } from './packages/db/test/support/test-database-name.js';
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
 
@@ -11,6 +12,19 @@ const rootDir = fileURLToPath(new URL('.', import.meta.url));
 // traz) resolve para um build que o Node não executa — e o teste deixaria de
 // carregar o que produção carrega.
 const conditions = ['@crm/source', ...defaultServerConditions.filter((condition) => condition !== 'module')];
+
+// Banco de teste do checkout: derivado da branch (`crm_<n>_test`), ou `crm_test`
+// no CI e em `main`. URL no ambiente mantém host e credenciais; o banco do path
+// é sempre sobrescrito. O global setup cria o banco se faltar.
+function integrationEnv(): Record<string, string> {
+  const env = loadEnv('test', rootDir, '');
+  const { name } = resolveTestDatabase({ env, cwd: rootDir });
+  for (const key of ['DATABASE_URL', 'MIGRATION_DATABASE_URL', 'SUPERUSER_DATABASE_URL']) {
+    const url = env[key];
+    if (url) env[key] = withDatabase(url, name);
+  }
+  return env;
+}
 
 const ignored = ['**/node_modules/**', '**/dist/**', 'e2e/**'];
 
@@ -36,13 +50,14 @@ export default defineConfig({
         extends: true,
         test: {
           // Postgres real do container, com as migrations aplicadas do zero
-          // a cada execução (ver `packages/db/test/support/global-setup.ts`).
+          // a cada execução no banco de teste do checkout (ver
+          // `packages/db/test/support/global-setup.ts`).
           name: 'integration',
           include: ['**/*.integration.test.ts'],
           exclude: ignored,
-          // `.env.test` aponta para o banco de teste; variáveis já definidas
-          // no ambiente (CI) têm precedência.
-          env: loadEnv('test', rootDir, ''),
+          // `.env.test` dá host e credenciais; variáveis já definidas no
+          // ambiente (CI) têm precedência. O banco vem do checkout.
+          env: integrationEnv(),
           globalSetup: ['packages/db/test/support/global-setup.ts'],
           fileParallelism: false,
         },
