@@ -103,6 +103,7 @@ pnpm typecheck          # tsc --noEmit strict em todos os pacotes
 pnpm lint               # oxlint, com as regras de aderência ao Design System
 pnpm test               # projeto Vitest `unit` — sem banco, sem container
 pnpm test:integration   # projeto `integration` — zera crm_test e aplica as migrations do zero
+tools/db/create-issue-test-db.sh <n>  # cria/reforça o banco crm_<n>_test da issue (idempotente; conexão por SUPERUSER_DATABASE_URL ou PG*; ver docs/testes-banco-por-issue.md)
 pnpm test:e2e           # Playwright
 pnpm tenant:provision   # provisiona empresa: --slug --name --admin-name --admin-email
 pnpm super-admin        # grant|revoke <e-mail>, com confirmação interativa
