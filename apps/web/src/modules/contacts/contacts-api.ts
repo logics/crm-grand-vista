@@ -1,4 +1,4 @@
-import type { Contact, ContactListQuery, CreateContactInput, ListPage, UpdateContactInput } from '@crm/shared';
+import type { Contact, ContactDuplicate, ContactDuplicatesQuery, ContactListQuery, CreateContactInput, ListPage, UpdateContactInput } from '@crm/shared';
 import { FormSubmitError } from '@crm/ui';
 import { api } from '../../lib/api.js';
 import { ResourceNotFoundError } from '../../shell/tenant-query.js';
@@ -76,3 +76,11 @@ export const fetchContactHistory = (slug: string, id: string, cursor: string | u
     param: { tenant: slug, id },
     query: cursor ? { cursor } : {},
   });
+
+/** Contatos que coincidem com o que se vai cadastrar (aviso, não bloqueio). */
+export async function fetchDuplicates(slug: string, query: ContactDuplicatesQuery): Promise<ContactDuplicate[]> {
+  const params = Object.fromEntries(Object.entries(query).filter(([, value]) => typeof value === 'string' && value !== ''));
+  const response = await api.e[':tenant'].contacts.duplicates.$get({ param: { tenant: slug }, query: params });
+  if (!response.ok) throw new Error(`Falha ao consultar duplicatas: HTTP ${response.status}.`);
+  return ((await response.json()) as { items: ContactDuplicate[] }).items;
+}

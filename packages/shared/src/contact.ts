@@ -209,3 +209,35 @@ export const contactListQuerySchema = listQuerySchema({ sortable: CONTACT_SORT_F
 export type ContactListQuery = z.output<typeof contactListQuerySchema>;
 
 export const contactPageSchema = listPageSchema(contactSchema);
+
+/** Motivo pelo qual um contato existente parece o que está sendo cadastrado. */
+export const DUPLICATE_REASONS = ['phone', 'whatsapp', 'email', 'name'] as const;
+export type DuplicateReason = (typeof DUPLICATE_REASONS)[number];
+
+export const DUPLICATE_REASON_LABELS: Record<DuplicateReason, string> = {
+  phone: 'mesmo telefone',
+  whatsapp: 'mesmo WhatsApp',
+  email: 'mesmo e-mail',
+  name: 'mesmo nome',
+};
+
+/**
+ * Consulta de duplicatas: todos os critérios são opcionais e vêm como texto da
+ * URL (telefone digitado de qualquer jeito; o serviço o normaliza).
+ */
+export const contactDuplicatesQuerySchema = z.object({
+  name: z.string().trim().optional(),
+  phone: z.string().trim().optional(),
+  whatsapp: z.string().trim().optional(),
+  email: z.string().trim().optional(),
+  excludeId: z.uuid().optional(),
+});
+export type ContactDuplicatesQuery = z.output<typeof contactDuplicatesQuerySchema>;
+
+export const contactDuplicateSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  roles: z.array(z.enum(CONTACT_ROLES)),
+  reasons: z.array(z.enum(DUPLICATE_REASONS)),
+});
+export type ContactDuplicate = z.infer<typeof contactDuplicateSchema>;

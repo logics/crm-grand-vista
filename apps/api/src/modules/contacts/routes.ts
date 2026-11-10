@@ -3,6 +3,7 @@
 import {
   CONTACT_NOT_FOUND_MESSAGE,
   TAX_ID_TAKEN_MESSAGE,
+  contactDuplicatesQuerySchema,
   contactListQuerySchema,
   createContactSchema,
   updateContactSchema,
@@ -22,6 +23,7 @@ import {
   createContact,
   deleteContact,
   findContactByTaxId,
+  findDuplicates,
   getContact,
   isRejection,
   listContacts,
@@ -107,6 +109,10 @@ export function createContactsRoutes() {
       );
       if (!result.ok) return result.response;
       return isRejection(result.value) ? c.json(invalid(result.value.rejected), 400) : c.json(result.value, 201);
+    })
+    .get('/duplicates', canView(), zValidator('query', contactDuplicatesQuerySchema), async (c) => {
+      const query = c.req.valid('query');
+      return c.json({ items: await c.var.withTenant((tx) => findDuplicates(tx, query)) }, 200);
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);

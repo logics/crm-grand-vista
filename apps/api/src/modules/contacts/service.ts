@@ -20,17 +20,21 @@ import {
   CONTACT_ROLES,
   FIELD_REGISTRY,
   type Contact,
+  type ContactDuplicate,
+  type ContactDuplicatesQuery,
   type ContactListQuery,
+  type DuplicateReason,
   type ContactRole,
   type PersonType,
   hasClassification,
   hasLegalName,
+  normalizePhone,
   taxIdIssue,
   type CreateContactInput,
   type ListPage,
   type UpdateContactInput,
 } from '@crm/shared';
-import { and, eq, getTableColumns, getTableName, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, getTableName, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
@@ -256,6 +260,53 @@ export async function updateContact(
   }
 
   return serialize(row, finalRoles);
+}
+
+/** Nome para comparar: sem caixa nem acento. */
+const foldedName = (column: SQL | typeof contacts.name) => sql`lower(unaccent(${column}))`;
+
+/**
+ * Contatos que coincidem com o que está sendo cadastrado: telefone e WhatsApp
+ * (comparados entre si, em qualquer combinação), e-mail e nome igual sem caixa
+ * nem acento. Cada um vem com os motivos. É aviso, não bloqueio. `excludeId`
+ * tira o próprio contato (edição). Critério vazio ou telefone inválido não conta.
+ */
+export async function findDuplicates(tx: Transaction, query: ContactDuplicatesQuery): Promise<ContactDuplicate[]> {
+  const phone = query.phone ? normalizePhone(query.phone) : null;
+  const whatsapp = query.whatsapp ? normalizePhone(query.whatsapp) : null;
+  const email = query.email?.toLowerCase() || null;
+  const name = query.name || null;
+
+  const matchers: Record<DuplicateReason, SQL | null> = {
+    phone: phone ? or(eq(contacts.phone, phone), eq(contacts.whatsapp, phone))! : null,
+    whatsapp: whatsapp ? or(eq(contacts.phone, whatsapp), eq(contacts.whatsapp, whatsapp))! : null,
+    email: email ? sql`lower(${contacts.email}) = ${email}` : null,
+    name: name ? sql`${foldedName(contacts.name)} = ${foldedName(sql`${name}`)}` : null,
+  };
+  const reasons = (Object.keys(matchers) as DuplicateReason[]).filter((reason) => matchers[reason]);
+  if (reasons.length === 0) return [];
+
+  const rows = await tx
+    .select({
+      id: contacts.id,
+      name: contacts.name,
+      ...Object.fromEntries(reasons.map((reason) => [reason, sql<boolean>`coalesce(${matchers[reason]}, false)`])),
+    })
+    .from(contacts)
+    .where(and(or(...reasons.map((reason) => matchers[reason]!)), query.excludeId ? ne(contacts.id, query.excludeId) : undefined))
+    .orderBy(sql`${contacts.name} collate "pt-BR-x-icu"`, contacts.id)
+    .limit(20);
+
+  const roles = await rolesByContact(tx, rows.map((row) => row.id));
+  return rows.map((row) => {
+    const flags = row as unknown as Record<DuplicateReason, boolean>;
+    return {
+      id: row.id,
+      name: row.name,
+      roles: roleOrder(roles.get(row.id) ?? []),
+      reasons: reasons.filter((reason) => flags[reason]),
+    };
+  });
 }
 
 /** Rótulo (plural, capitalizado) da entidade que referencia o contato pela tabela, pelas declarações ou pelos metadados de campo. */

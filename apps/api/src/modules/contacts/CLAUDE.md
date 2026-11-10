@@ -2,7 +2,7 @@
 
 Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumuláveis (comprador, proprietário, corretor externo).
 
-- **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta) e #126 (classificação, origem do lead, semente)
+- **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente) e #129 (avisos de duplicata)
 - **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato)
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/history`, `src/listing`
 
@@ -17,4 +17,5 @@ Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumulávei
 - **Uso declarado** (`role-usage.ts`): `declareRoleUsage(papel, { table, column, label })` é o ponto de extensão; nasce vazio. A spec consumidora declara o seu uso no módulo que cria a tabela. Retirar papel com linhas declaradas é 409 (`RoleInUseError`, mensagem com contagem), antes de qualquer escrita.
 - **Exclusão** apaga os papéis (auditados) e o contato; a FK `RESTRICT` das consumidoras vira 409 na rota (SQLSTATE 23001/23503), com o rótulo plural da declaração da tabela, senão o rótulo dos metadados de campo, senão o nome da tabela.
 - **`ensureContactRole(tx, actor, contactId, role)`**: garantir papel, idempotente e auditada, na transação de quem chama (devolve se acrescentou).
-- Ainda sem API: `custom_fields`, `/options` e `/duplicates` — das issues seguintes da spec.
+- `GET /duplicates` (`contatos.ver`): coincidência por telefone/WhatsApp (cruzados), e-mail e nome sem caixa nem acento (`lower(unaccent())`), com os `reasons`; `excludeId` tira o próprio contato; telefone passa por `normalizePhone`. Registrada antes de `/:id`. É aviso, nunca bloqueio.
+- Ainda sem API: `custom_fields` e `/options` — das issues seguintes da spec.

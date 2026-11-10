@@ -9,6 +9,7 @@ import {
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
   createContactSchema,
+  type ContactDuplicate,
   type ContactRole,
   formatPhone,
   type PersonType,
@@ -24,7 +25,10 @@ import { PageHeader } from '../../shell/page-header.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
-import { TaxIdTakenError, createContact, fetchContact, updateContact } from './contacts-api.js';
+import { TaxIdTakenError, createContact, fetchContact, fetchDuplicates, updateContact } from './contacts-api.js';
+import { DuplicateWarning } from './duplicate-warning.js';
+
+const FORM_ID = 'contact-form';
 
 /** O contato mais a opção só do formulário: sem coluna, ela não existe na API. */
 const contactFormSchema = createContactSchema.safeExtend({ sameNumber: z.boolean() });
@@ -63,11 +67,29 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   const [sameNumber, setSameNumber] = useState(initialSameNumber);
   // Dono do documento que a API recusou por duplicado: o campo oferece abrir o cadastro dele.
   const [duplicate, setDuplicate] = useState<TaxIdTakenError['existing'] | null>(null);
+  // Contatos parecidos achados antes de salvar; "salvar mesmo assim" pula a consulta uma vez.
+  const [matches, setMatches] = useState<ContactDuplicate[]>([]);
+  const skipDuplicateCheck = useRef(false);
   const back = tenantPath(slug, contact ? `contacts/${contact.id}` : 'contacts');
 
   const save = async ({ sameNumber: copy, ...parsed }: z.output<typeof contactFormSchema>) => {
     const values = copy ? { ...parsed, whatsapp: parsed.phone ?? null } : parsed;
     setDuplicate(null);
+    const confirmed = skipDuplicateCheck.current;
+    skipDuplicateCheck.current = false;
+    if (!confirmed) {
+      // O aviso é conselho: se a consulta falha, o cadastro segue.
+      const found = await fetchDuplicates(slug, {
+        ...(parsed.name ? { name: parsed.name } : {}),
+        ...(values.phone ? { phone: values.phone } : {}),
+        ...(values.whatsapp ? { whatsapp: values.whatsapp } : {}),
+        ...(parsed.email ? { email: parsed.email } : {}),
+        ...(contact ? { excludeId: contact.id } : {}),
+      }).catch((): ContactDuplicate[] => []);
+      setMatches(found);
+      if (found.length > 0) return;
+    }
+    setMatches([]);
     let saved;
     try {
       saved = contact ? await updateContact(slug, contact.id, values) : await createContact(slug, values);
@@ -121,7 +143,15 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   return (
     <div className="flex flex-col gap-gap-shell">
       <PageHeader title={contact ? 'Editar contato' : 'Novo contato'} />
+      <DuplicateWarning
+        matches={matches}
+        form={FORM_ID}
+        onSaveAnyway={() => {
+          skipDuplicateCheck.current = true;
+        }}
+      />
       <EntityForm
+        id={FORM_ID}
         schema={sameNumber ? contactFormSchemaWithoutWhatsapp : contactFormSchema}
         defaultValues={{
           personType: contact?.personType ?? 'pf',
