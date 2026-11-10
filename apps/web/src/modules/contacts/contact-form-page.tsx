@@ -8,20 +8,25 @@ import {
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
   createContactSchema,
+  formatPhone,
   type PersonType,
 } from '@crm/shared';
-import { Checkbox, EntityForm, type EntityFormField, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@crm/ui';
+import { Checkbox, EntityForm, type EntityFormField, Input, PhoneInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
 import { createContact, fetchContact, updateContact } from './contacts-api.js';
 
-type FormValues = z.input<typeof createContactSchema>;
+/** O contato mais a opção só do formulário: sem coluna, ela não existe na API. */
+const contactFormSchema = createContactSchema.extend({ sameNumber: z.boolean() });
+type FormValues = z.input<typeof contactFormSchema>;
+/** Sem o campo na tela, o que sobrou digitado nele não pode barrar o salvamento. */
+const contactFormSchemaWithoutWhatsapp = contactFormSchema.omit({ whatsapp: true }) as unknown as typeof contactFormSchema;
 
 /** Formulário de criação (`/contacts/new`) e edição (`/contacts/:id/edit`). */
 export function ContactFormPage() {
@@ -40,9 +45,13 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [personType, setPersonType] = useState<PersonType>(contact?.personType ?? 'pf');
+  // Vem marcada em contato novo e, na edição, quando os dois números são iguais.
+  const initialSameNumber = contact ? (contact.phone ?? null) === (contact.whatsapp ?? null) : true;
+  const [sameNumber, setSameNumber] = useState(initialSameNumber);
   const back = tenantPath(slug, contact ? `contacts/${contact.id}` : 'contacts');
 
-  const save = async (values: ReturnType<typeof createContactSchema.parse>) => {
+  const save = async ({ sameNumber: copy, ...parsed }: z.output<typeof contactFormSchema>) => {
+    const values = copy ? { ...parsed, whatsapp: parsed.phone ?? null } : parsed;
     const saved = contact ? await updateContact(slug, contact.id, values) : await createContact(slug, values);
     await queryClient.invalidateQueries({ queryKey: tenantQueryKey(slug, 'contacts') });
     navigate(tenantPath(slug, `contacts/${saved.id}`));
@@ -54,17 +63,31 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
       ? [{ name: 'legalName', label: FIELD_REGISTRY.contacts.fields.legal_name.label, render: (field) => <Input {...field} value={field.value ?? ''} /> }]
       : [];
 
+  // Com a opção marcada o WhatsApp é o telefone, e o campo não aparece.
+  const whatsappFields: EntityFormField<FormValues>[] = sameNumber
+    ? []
+    : [
+        {
+          name: 'whatsapp',
+          label: FIELD_REGISTRY.contacts.fields.whatsapp.label,
+          render: (field) => <PhoneInput {...field} value={field.value ?? ''} />,
+        },
+      ];
+
   return (
     <div className="flex flex-col gap-gap-shell">
       <PageHeader title={contact ? 'Editar contato' : 'Novo contato'} />
       <EntityForm
-        schema={createContactSchema}
+        schema={sameNumber ? contactFormSchemaWithoutWhatsapp : contactFormSchema}
         defaultValues={{
           personType: contact?.personType ?? 'pf',
           name: contact?.name ?? '',
           legalName: contact?.legalName ?? '',
           roles: contact?.roles ?? [],
           email: contact?.email ?? '',
+          phone: contact?.phone ? formatPhone(contact.phone) : '',
+          whatsapp: contact?.whatsapp ? formatPhone(contact.whatsapp) : '',
+          sameNumber: initialSameNumber,
           relationshipOrigin: contact?.relationshipOrigin ?? '',
           strategicNotes: contact?.strategicNotes ?? '',
         }}
@@ -125,6 +148,27 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                   </div>
                 ),
               },
+              {
+                name: 'phone',
+                label: FIELD_REGISTRY.contacts.fields.phone.label,
+                render: (field) => <PhoneInput {...field} value={field.value ?? ''} />,
+              },
+              {
+                name: 'sameNumber',
+                label: 'WhatsApp é o mesmo número',
+                render: (field) => (
+                  <Checkbox
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      setSameNumber(checked === true);
+                      field.onChange(checked === true);
+                    }}
+                  />
+                ),
+              },
+              ...whatsappFields,
               { name: 'email', label: FIELD_REGISTRY.contacts.fields.email.label, render: (field) => <Input type="email" {...field} value={field.value ?? ''} /> },
               {
                 name: 'relationshipOrigin',

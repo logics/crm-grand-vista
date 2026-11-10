@@ -22,10 +22,12 @@ interface ContactBody {
   personType: string;
   legalName: string | null;
   roles: string[];
+  phone: string | null;
+  whatsapp: string | null;
 }
 
 interface HistoryBody {
-  entries: { title: string; children: { title: string }[] }[];
+  entries: { title: string; changes: { field: string; from: string | null; to: string | null }[]; children: { title: string }[] }[];
 }
 
 describe('contatos', () => {
@@ -137,6 +139,54 @@ describe('contatos', () => {
       const response = await patch(contact.id, { name: 'Editado', email: ' EDITA@Exemplo.com ', strategicNotes: 'Prefere ligar' });
 
       expect(await response.json()).toMatchObject({ name: 'Editado', email: 'edita@exemplo.com', strategicNotes: 'Prefere ligar' });
+    });
+  });
+
+  describe('telefones', () => {
+    it('grava telefone e WhatsApp em formato internacional', async () => {
+      const response = await create({
+        personType: 'pf',
+        name: 'Com telefone',
+        roles: ['buyer'],
+        phone: '(64) 99999-0000',
+        whatsapp: '+351 912 345 678',
+      });
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ phone: '+5564999990000', whatsapp: '+351912345678' });
+    });
+
+    it('sem telefone, os campos voltam nulos; vazio apaga na edição', async () => {
+      const contact = await created({ personType: 'pf', name: 'Sem telefone', roles: ['buyer'], phone: '(64) 99999-0000' });
+      expect(await created({ personType: 'pf', name: 'Sem nada', roles: ['buyer'] })).toMatchObject({ phone: null, whatsapp: null });
+
+      const response = await patch(contact.id, { phone: '' });
+
+      expect(await response.json()).toMatchObject({ phone: null });
+    });
+
+    it.each([
+      ['DDD inexistente', { phone: '(10) 99999-0000' }],
+      ['tamanho errado', { phone: '(64) 9999' }],
+      ['WhatsApp inválido', { whatsapp: 'abc' }],
+    ])('telefone com %s é 400', async (_case, extra) => {
+      expect((await create({ personType: 'pf', name: 'Inválido', roles: ['buyer'], ...extra })).status).toBe(400);
+      const contact = await created({ personType: 'pf', name: 'Inválido na edição', roles: ['buyer'] });
+      expect((await patch(contact.id, extra)).status).toBe(400);
+    });
+
+    it('o histórico mostra os números formatados', async () => {
+      const contact = await created({ personType: 'pf', name: 'Histórico de telefone', roles: ['buyer'], phone: '64999990000' });
+      await patch(contact.id, { phone: '(11) 3333-4444', whatsapp: '+351912345678' });
+
+      const { entries } = await history(contact.id);
+
+      expect(entries[0]?.changes).toEqual(
+        expect.arrayContaining([
+          { field: 'Telefone', from: '(64) 99999-0000', to: '(11) 3333-4444' },
+          { field: 'WhatsApp', from: null, to: '+351912345678' },
+        ]),
+      );
     });
   });
 

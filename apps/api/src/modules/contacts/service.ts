@@ -41,6 +41,8 @@ function serialize(row: ContactRow, roles: readonly string[]): Contact {
     name: row.name,
     legalName: row.legalName,
     email: row.email,
+    phone: row.phone,
+    whatsapp: row.whatsapp,
     relationshipOrigin: row.relationshipOrigin,
     strategicNotes: row.strategicNotes,
     roles: roleOrder(roles),
