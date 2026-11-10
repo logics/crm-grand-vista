@@ -121,6 +121,79 @@ describe('ficha do contato', () => {
   });
 });
 
+describe('excluir pela ficha', () => {
+  /** API falsa com o DELETE do contato, que ela não conhece, respondendo `answer`. */
+  const stubWithDelete = (permissions: string[], answer: () => Response) => {
+    const api = stubFakeApi({
+      session: session(),
+      permissions: permissions as never,
+      records: { '/e/grand-vista/contacts/c1': contact(), '/e/grand-vista/contacts/c1/history': history },
+    });
+    const base = globalThis.fetch;
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : undefined;
+      const method = init?.method ?? request?.method ?? 'GET';
+      const path = new URL(request?.url ?? String(input), 'http://localhost').pathname;
+      if (method === 'DELETE' && path === '/e/grand-vista/contacts/c1') {
+        api.requests.push({ method, path, init });
+        return Promise.resolve(answer());
+      }
+      return base(input, init);
+    });
+    return api;
+  };
+
+  it('pede confirmação e, recusada pela API, mostra o 409 sem sair da ficha', async () => {
+    const api = stubWithDelete(['contatos.ver', 'contatos.excluir'], () =>
+      new Response(JSON.stringify({ error: { code: 'conflict', message: 'Este contato está em uso em Fazendas. Remova os vínculos antes de excluir.' } }), {
+        status: 409,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const { pathname } = renderApp('/e/grand-vista/contacts/c1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(api.requests.some((request) => request.method === 'DELETE')).toBe(false);
+    await user.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+
+    expect(await screen.findByText('Este contato está em uso em Fazendas. Remova os vínculos antes de excluir.')).toBeInTheDocument();
+    expect(pathname()).toBe('/e/grand-vista/contacts/c1');
+    expect(screen.getByRole('heading', { name: 'Sebastião' })).toBeInTheDocument();
+  });
+
+  it('cancelar não exclui', async () => {
+    const api = stubWithDelete(['contatos.ver', 'contatos.excluir'], () => new Response(null, { status: 204 }));
+    renderApp('/e/grand-vista/contacts/c1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }));
+    await user.click(await screen.findByRole('button', { name: 'Cancelar' }));
+
+    expect(api.requests.some((request) => request.method === 'DELETE')).toBe(false);
+  });
+
+  it('esconde Excluir de quem não tem contatos.excluir', async () => {
+    stubWithDelete(['contatos.ver', 'contatos.editar'], () => new Response(null, { status: 204 }));
+    renderApp('/e/grand-vista/contacts/c1');
+
+    await screen.findByRole('button', { name: 'Editar' });
+    expect(screen.queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument();
+  });
+
+  it('confirmada com 204, volta para a lista', async () => {
+    stubWithDelete(['contatos.ver', 'contatos.excluir'], () => new Response(null, { status: 204 }));
+    const { pathname } = renderApp('/e/grand-vista/contacts/c1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Excluir' }));
+
+    await waitFor(() => expect(pathname()).toBe('/e/grand-vista/contacts'));
+  });
+});
+
 describe('lista de contatos', () => {
   it('mostra nome, papéis e abre a ficha ao clicar', async () => {
     stubFakeApi({

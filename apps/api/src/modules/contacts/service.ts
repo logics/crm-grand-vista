@@ -1,11 +1,14 @@
 // Contatos da empresa ativa. Contato, papéis e auditoria vão numa transação só
 // (a que a rota abre por `withTenant`), num `change_id` por save.
 import {
+  auditLog,
   auditedWrites,
   contactClassifications,
   contactRoles,
   contacts,
+  diffRecords,
   leadSources,
+  uuidv7,
   type AuditActor,
   type Transaction,
 } from '@crm/db';
@@ -13,7 +16,9 @@ import {
   CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
   CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE,
   CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE,
+  CONTACT_ROLE_LABELS,
   CONTACT_ROLES,
+  FIELD_REGISTRY,
   type Contact,
   type ContactListQuery,
   type ContactRole,
@@ -25,7 +30,8 @@ import {
   type ListPage,
   type UpdateContactInput,
 } from '@crm/shared';
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, getTableName, inArray, ne, sql } from 'drizzle-orm';
+import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
@@ -88,6 +94,25 @@ export async function getContact(tx: Transaction, id: string): Promise<Contact |
   const [row] = await tx.select().from(contacts).where(eq(contacts.id, id));
   if (!row) return null;
   return serialize(row, (await rolesByContact(tx, [id])).get(id) ?? []);
+}
+
+/** Retirar papel em uso: a mensagem já diz onde, para o front exibi-la. */
+export class RoleInUseError extends Error {}
+
+const countedLabel = (count: number, label: { singular: string; plural: string }) =>
+  `${count} ${count === 1 ? label.singular : label.plural}`;
+
+/** Recusa a retirada de papel que alguma declaração de uso ainda referencia. */
+async function assertRolesNotInUse(tx: Transaction, contact: Contact, removed: readonly ContactRole[]) {
+  for (const role of removed) {
+    const uses = await countRoleUsage(tx, role, contact.id);
+    if (uses.length === 0) continue;
+    const roleLabel = CONTACT_ROLE_LABELS[role].toLowerCase();
+    const where = uses.map(({ usage, count }) => countedLabel(count, usage.label)).join(' e ');
+    throw new RoleInUseError(
+      `${contact.name} é ${roleLabel} de ${where}; troque o ${roleLabel} antes de retirar o papel.`,
+    );
+  }
 }
 
 /** Contato que já tem o documento: o que o formulário oferece abrir. */
@@ -206,6 +231,7 @@ export async function updateContact(
   const mismatch = taxIdIssue(personType, fields.taxId === undefined ? current.taxId : fields.taxId);
   if (mismatch) throw new TaxIdMismatchError(mismatch);
   if (fields.taxId && fields.taxId !== current.taxId) await assertTaxIdFree(tx, fields.taxId, id);
+  if (roles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !roles.includes(role)));
   const writes = auditedWrites(tx, actor);
   const set: Partial<typeof contacts.$inferInsert> = { ...fields };
   // Passar para PF limpa a razão social; em PF ela não se grava.
@@ -230,4 +256,67 @@ export async function updateContact(
   }
 
   return serialize(row, finalRoles);
+}
+
+/** Rótulo (plural, capitalizado) da entidade que referencia o contato pela tabela, pelas declarações ou pelos metadados de campo. */
+function referencingEntityLabel(table: string | undefined): string {
+  if (!table) return 'outros cadastros';
+  const declared = pluralLabelOfTable(table);
+  const registered = (FIELD_REGISTRY as Record<string, { label: string }>)[table]?.label;
+  const label = declared ?? registered ?? table;
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+export const contactInUseMessage = (table: string | undefined) =>
+  `Este contato está em uso em ${referencingEntityLabel(table)}. Remova os vínculos antes de excluir.`;
+
+/**
+ * Exclui o contato e os papéis (auditados). Falso se não existe. A FK `RESTRICT`
+ * de quem consome o contato faz o banco recusar: o erro sobe para a rota traduzir.
+ */
+export async function deleteContact(tx: Transaction, actor: AuditActor, id: string): Promise<boolean> {
+  if (!(await contactExists(tx, id))) return false;
+  const writes = auditedWrites(tx, actor);
+  await writes.delete(contactRoles, eq(contactRoles.contactId, id));
+  await writes.delete(contacts, eq(contacts.id, id));
+  return true;
+}
+
+/** Garantir papel: acrescenta se faltar, na transação de quem chama. Verdadeiro se acrescentou. */
+export async function ensureContactRole(
+  tx: Transaction,
+  actor: AuditActor,
+  contactId: string,
+  role: ContactRole,
+): Promise<boolean> {
+  // `ON CONFLICT DO NOTHING` no unique (contact_id, role): chamadas simultâneas não
+  // estouram 23505; quem perde a corrida não recebe linha e devolve falso.
+  const [row] = await tx
+    .insert(contactRoles)
+    .values({ tenantId: actor.tenantId!, contactId, role })
+    .onConflictDoNothing({ target: [contactRoles.contactId, contactRoles.role] })
+    .returning();
+  if (!row) return false;
+
+  // Mesma auditoria de `auditedWrites.insert` (um campo por linha, valor anterior nulo,
+  // um `change_id` por chamada); o insert acima não passa pelo wrapper por causa do ON CONFLICT.
+  const after: Record<string, unknown> = {};
+  for (const [key, column] of Object.entries(getTableColumns(contactRoles))) {
+    after[column.name] = row[key as keyof typeof row];
+  }
+  const changeId = uuidv7();
+  const changes = diffRecords(null, after);
+  await tx.insert(auditLog).values(
+    changes.map((change) => ({
+      tenantId: actor.tenantId,
+      entity: getTableName(contactRoles),
+      entityId: row.id,
+      changeId,
+      field: change.field,
+      oldValue: change.oldValue,
+      newValue: change.newValue,
+      userId: actor.userId,
+    })),
+  );
+  return true;
 }
