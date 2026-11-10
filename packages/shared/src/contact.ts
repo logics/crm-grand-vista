@@ -2,6 +2,7 @@
 // indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro.
 import { z } from 'zod';
 import { listPageSchema, listQuerySchema } from './listing.js';
+import { formatTaxId, isValidCnpj, isValidCpf, normalizeTaxId, taxIdKind } from './tax-id.js';
 
 export const PERSON_TYPES = ['pf', 'pj'] as const;
 export type PersonType = (typeof PERSON_TYPES)[number];
@@ -31,17 +32,23 @@ export type ContactOption = z.infer<typeof contactOptionSchema>;
 
 /**
  * Documento para listagem: o CPF mascarado como no Portal da Transparência
- * (`***.456.789-**`), o CNPJ por inteiro, que é dado público. Decide pelos
- * dígitos, não pelo tipo de pessoa, para que um CPF num cadastro PJ não saia
- * inteiro. O que não é CPF nem CNPJ volta como veio; ausente, `null`.
+ * (`***.456.789-**`), o CNPJ por inteiro, que é dado público. Decide pelo valor
+ * normalizado, não pelo tipo de pessoa: 11 dígitos é CPF, 14 posições (numéricas
+ * ou alfanuméricas) é CNPJ — contar só os dígitos mascararia como CPF um CNPJ
+ * alfanumérico com exatamente 11 deles. O que não é CPF nem CNPJ volta como
+ * veio; ausente, `null`.
  */
 export function abbreviateTaxId(taxId: string | null): string | null {
   if (!taxId) return null;
-  const digits = taxId.replace(/\D/g, '');
-  if (digits.length === 11) return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
-  if (digits.length === 14)
-    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
-  return taxId;
+  const normalized = normalizeTaxId(taxId);
+  switch (taxIdKind(normalized)) {
+    case 'cpf':
+      return `***.${normalized.slice(3, 6)}.${normalized.slice(6, 9)}-**`;
+    case 'cnpj':
+      return formatTaxId(normalized);
+    default:
+      return taxId;
+  }
 }
 
 /** Rótulo do conjunto de papéis (não é coluna de `contacts`, então não está no registro de campos). */
@@ -66,6 +73,16 @@ export const CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE = 'Origem do lead inválida.';
 
 /** A classificação do cliente é dado exclusivo do papel comprador. */
 export const hasClassification = (roles: readonly ContactRole[]): boolean => roles.includes('buyer');
+export const TAX_ID_CPF_MESSAGE = 'Informe um CPF válido.';
+export const TAX_ID_CNPJ_MESSAGE = 'Informe um CNPJ válido.';
+export const TAX_ID_TAKEN_MESSAGE = 'Já existe um contato com este documento.';
+
+/** Recusa do documento para o tipo de pessoa (PF exige CPF, PJ exige CNPJ), ou `null` se serve. Ausente serve: o documento é opcional. */
+export function taxIdIssue(personType: PersonType, taxId: string | null | undefined): string | null {
+  if (!taxId) return null;
+  if (personType === 'pf') return isValidCpf(taxId) ? null : TAX_ID_CPF_MESSAGE;
+  return isValidCnpj(taxId) ? null : TAX_ID_CNPJ_MESSAGE;
+}
 
 /** Texto opcional: espaços nas pontas saem, e o vazio vira ausência (`null`). */
 const optionalText = (max: number, label: string) =>
@@ -95,10 +112,18 @@ const contactEmailSchema = z
   .pipe(z.email('Informe um e-mail válido.').nullable())
   .nullable();
 
+/** Documento digitado: sai normalizado (sem pontuação, maiúsculas); vazio vira ausência. */
+const contactTaxIdSchema = z
+  .string()
+  .transform(normalizeTaxId)
+  .transform((value) => value || null)
+  .nullable();
+
 const contactEditableShape = {
   personType: z.enum(PERSON_TYPES, { error: 'Informe o tipo de pessoa.' }),
   name: contactNameSchema,
   legalName: optionalText(CONTACT_NAME_MAX_LENGTH, 'A razão social'),
+  taxId: contactTaxIdSchema,
   email: contactEmailSchema,
   relationshipOrigin: optionalText(CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH, 'A origem do relacionamento'),
   strategicNotes: optionalText(CONTACT_STRATEGIC_NOTES_MAX_LENGTH, 'As observações estratégicas'),
@@ -107,25 +132,39 @@ const contactEditableShape = {
   leadSourceId: z.uuid({ error: 'Origem do lead inválida.' }).nullable(),
 };
 
+/** O documento tem de servir ao tipo de pessoa informado junto; o erro cai no campo. */
+const checkTaxId = (
+  value: { personType?: PersonType | undefined; taxId?: string | null | undefined },
+  ctx: z.RefinementCtx,
+) => {
+  const message = value.personType ? taxIdIssue(value.personType, value.taxId) : null;
+  if (message) ctx.addIssue({ code: 'custom', path: ['taxId'], message });
+};
+
 /** Mínimo para salvar: nome, tipo de pessoa e ao menos um papel. */
 export const createContactSchema = z
   .object({
     ...contactEditableShape,
     legalName: contactEditableShape.legalName.optional(),
+    taxId: contactEditableShape.taxId.optional(),
     email: contactEditableShape.email.optional(),
     relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
     strategicNotes: contactEditableShape.strategicNotes.optional(),
     classificationId: contactEditableShape.classificationId.optional(),
     leadSourceId: contactEditableShape.leadSourceId.optional(),
   })
+  .superRefine(checkTaxId)
   .refine((contact) => !contact.classificationId || hasClassification(contact.roles), {
     path: ['classificationId'],
     error: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
   });
 export type CreateContactInput = z.output<typeof createContactSchema>;
 
-/** `roles`, se presente, substitui o conjunto de papéis. */
-export const updateContactSchema = z.object(contactEditableShape).partial();
+/**
+ * `roles`, se presente, substitui o conjunto de papéis. Documento sem tipo de
+ * pessoa no mesmo corpo só pode ser conferido contra o do cadastro (serviço).
+ */
+export const updateContactSchema = z.object(contactEditableShape).partial().superRefine(checkTaxId);
 export type UpdateContactInput = z.output<typeof updateContactSchema>;
 
 export const contactSchema = z.object({
@@ -133,6 +172,8 @@ export const contactSchema = z.object({
   personType: z.enum(PERSON_TYPES),
   name: z.string(),
   legalName: z.string().nullable(),
+  /** Documento normalizado (sem pontuação); a tela o formata. */
+  taxId: z.string().nullable(),
   email: z.string().nullable(),
   relationshipOrigin: z.string().nullable(),
   strategicNotes: z.string().nullable(),

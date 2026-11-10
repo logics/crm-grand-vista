@@ -21,6 +21,7 @@ interface ContactBody {
   name: string;
   personType: string;
   legalName: string | null;
+  taxId: string | null;
   roles: string[];
   classificationId: string | null;
   leadSourceId: string | null;
@@ -325,6 +326,100 @@ describe('contatos', () => {
     it('id malformado é 404', async () => {
       expect((await read('/nao-e-uuid')).status).toBe(404);
       expect((await read('/nao-e-uuid/history')).status).toBe(404);
+    });
+  });
+  describe('documento', () => {
+    const cpf = (n: number) => ['52998224725', '12345678909', '10000000019'][n]!;
+    const pj = (taxId: string | null, name = 'Agro') => ({ personType: 'pj', name, roles: ['owner'], taxId });
+    const pf = (taxId: string | null, name = 'Pessoa') => ({ personType: 'pf', name, roles: ['buyer'], taxId });
+
+    it('formatado e sem formatação gravam o mesmo valor', async () => {
+      const formatted = await created(pf('529.982.247-25', 'Com pontuação'));
+      expect(formatted.taxId).toBe('52998224725');
+      expect(((await (await read(`/${formatted.id}`)).json()) as ContactBody).taxId).toBe('52998224725');
+
+      const pjFormatted = await created(pj('11.222.333/0001-81', 'PJ formatado'));
+      expect(pjFormatted.taxId).toBe('11222333000181');
+      expect((await create(pj('11222333000181', 'PJ cru'))).status).toBe(409);
+    });
+
+    it('aceita CNPJ alfanumérico e grava em maiúsculas', async () => {
+      const contact = await created(pj('12.abc.345/01de-35', 'Alfa'));
+      expect(contact.taxId).toBe('12ABC34501DE35');
+    });
+
+    it.each([
+      ['CNPJ em PF', pf('11222333000181')],
+      ['CPF em PJ', pj('52998224725')],
+      ['CPF com dígito errado', pf('52998224726')],
+      ['CNPJ com dígito errado', pj('11222333000182')],
+      ['sequência repetida', pf('11111111111')],
+    ])('recusa %s com 400 no campo do documento', async (_label, body) => {
+      const response = await create(body);
+      expect(response.status).toBe(400);
+      expect(JSON.stringify(await response.json())).toContain('taxId');
+    });
+
+    it('repetido na empresa é 409 com o contato existente', async () => {
+      const first = await created(pf(cpf(1), 'Primeiro'));
+      const response = await create(pf('123.456.789-09', 'Segundo'));
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: { code: 'conflict', existing: { id: first.id, name: 'Primeiro' } },
+      });
+      const page = (await (await read('?q=Segundo')).json()) as { total: number };
+      expect(page.total).toBe(0);
+    });
+
+    it('duas empresas podem ter o mesmo documento', async () => {
+      const mine = await created(pf(cpf(2), 'Minha empresa'));
+      const theirs = await app.request(url('', other.slug), jsonRequest('POST', pf(cpf(2), 'Outra empresa'), outsiderCookie));
+
+      expect(mine.taxId).toBe(cpf(2));
+      expect(theirs.status).toBe(201);
+    });
+
+    it('vários contatos sem documento convivem', async () => {
+      const [a, b, c] = await Promise.all([
+        create(pf(null, 'Sem doc 1')),
+        create({ personType: 'pf', name: 'Sem doc 2', roles: ['buyer'] }),
+        create(pf('', 'Sem doc 3')),
+      ]);
+      expect([a.status, b.status, c.status]).toEqual([201, 201, 201]);
+    });
+
+    it('na edição, trocar para um documento alheio é 409; o próprio documento passa', async () => {
+      const owner = await created(pf('39053344705', 'Dona do documento'));
+      const other2 = await created(pf(null, 'Quer o documento'));
+
+      const taken = await patch(other2.id, { taxId: '390.533.447-05' });
+      expect(taken.status).toBe(409);
+      expect(await taken.json()).toMatchObject({ error: { existing: { id: owner.id } } });
+
+      expect((await patch(owner.id, { taxId: '39053344705', name: 'Mesma dona' })).status).toBe(200);
+    });
+
+    it('na edição, o documento é conferido contra o tipo de pessoa do cadastro', async () => {
+      const contact = await created(pf('86288366757', 'Vai virar PJ'));
+
+      expect((await patch(contact.id, { personType: 'pj' })).status).toBe(400);
+      expect((await patch(contact.id, { taxId: '11222333000191' })).status).toBe(400);
+      expect(((await (await read(`/${contact.id}`)).json()) as ContactBody).taxId).toBe('86288366757');
+
+      expect((await patch(contact.id, { personType: 'pj', taxId: '45.723.174/0001-10' })).status).toBe(200);
+    });
+
+    it('retirar o documento (null) é permitido', async () => {
+      const contact = await created(pf('10000791989', 'Sem mais doc'));
+      const response = await patch(contact.id, { taxId: null });
+      expect(((await response.json()) as ContactBody).taxId).toBeNull();
+    });
+
+    it('o documento aparece formatado no histórico', async () => {
+      const contact = await created(pf('45317828791', 'Histórico doc'));
+      await patch(contact.id, { taxId: '39053344705' });
+      expect(JSON.stringify(await history(contact.id))).toContain('Documento');
     });
   });
 });

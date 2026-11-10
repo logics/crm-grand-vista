@@ -11,3 +11,4 @@ Lista, ficha e formulário de contatos.
 - A ficha é `RecordSections` sobre `contactSections` (`contact-sections.tsx`): quem pendura algo na ficha registra a seção ali, sem editar a página. Dados e Histórico de alterações são as seções desta issue.
 - O formulário usa `createContactSchema` de `@crm/shared`, o mesmo da API.
 - Classificação do cliente só aparece no formulário e na ficha com o papel comprador (`VocabularyField`); a origem do lead, sempre. Desmarcar o comprador com classificação preenchida abre o `ConfirmDialog` dizendo o que será apagado; ao confirmar, o campo é limpo e o `PATCH` leva `classificationId: null`. A ficha resolve os nomes por id nos endpoints de opções dos cadastros.
+- Documento: `TaxIdInput` (máscara pelo tipo de pessoa); o 409 vira `TaxIdTakenError` em `contacts-api.ts` e o formulário mostra o link "Abrir o cadastro de …" sob o campo, sem limpar o digitado. A lista mostra o documento abreviado (`abbreviateTaxId`).

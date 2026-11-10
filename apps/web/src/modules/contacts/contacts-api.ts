@@ -6,13 +6,30 @@ import { ResourceNotFoundError } from '../../shell/tenant-query.js';
 // Chamadas da API de contatos (`/e/:tenant/contacts`). A recusa de regra vira
 // `FormSubmitError` com a mensagem pronta da API, para o formulário exibi-la.
 
+/** Documento já cadastrado (409): o formulário mostra a mensagem no campo e o link para o existente. */
+export class TaxIdTakenError extends FormSubmitError {
+  constructor(
+    message: string,
+    readonly existing: { id: string; name: string },
+  ) {
+    super(message, { taxId: message });
+    this.name = 'TaxIdTakenError';
+  }
+}
+
 async function failure(response: Response): Promise<FormSubmitError> {
   const body: unknown = await response.json().catch(() => null);
-  const message =
-    typeof body === 'object' && body !== null && 'error' in body
-      ? (body.error as { message?: unknown } | null)?.message
-      : undefined;
-  return new FormSubmitError(typeof message === 'string' ? message : 'Não foi possível salvar. Tente de novo.');
+  const error = (typeof body === 'object' && body !== null && 'error' in body ? body.error : null) as {
+    message?: unknown;
+    field?: unknown;
+    existing?: { id?: unknown; name?: unknown };
+  } | null;
+  const message = typeof error?.message === 'string' ? error.message : 'Não foi possível salvar. Tente de novo.';
+  const { existing } = error ?? {};
+  if (response.status === 409 && typeof existing?.id === 'string' && typeof existing.name === 'string') {
+    return new TaxIdTakenError(message, { id: existing.id, name: existing.name });
+  }
+  return new FormSubmitError(message, error?.field === 'taxId' ? { taxId: message } : {});
 }
 
 export async function fetchContacts(slug: string, query: ContactListQuery): Promise<ListPage<Contact>> {
