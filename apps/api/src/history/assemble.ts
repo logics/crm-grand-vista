@@ -304,7 +304,10 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
       if (kind === 'updated' && changes.length === 0) return [];
 
       const shortTitle = labelWith(CHILD_VERBS[kind], meta);
-      const name = declaration.nameColumn ? state[declaration.nameColumn] : null;
+      const nameField = fields.find((field) => field.column === declaration.nameColumn);
+      const rawName = (declaration.nameColumn ? state[declaration.nameColumn] : null) ?? null;
+      // Coluna de lista fechada (`role`) aparece pelo rótulo, não pelo valor gravado.
+      const name = rawName !== null && nameField?.type === 'enum' ? formatFieldValue(nameField, rawName) : rawName;
       return [
         {
           child: { title: name ? `${shortTitle}: ${name}` : shortTitle, changes: changes.map(({ change }) => change) },

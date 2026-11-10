@@ -1,6 +1,7 @@
 // Contato: pessoa física ou jurídica, com papéis acumuláveis — o parceiro que
 // indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro.
 import { z } from 'zod';
+import { listPageSchema, listQuerySchema } from './listing.js';
 
 export const PERSON_TYPES = ['pf', 'pj'] as const;
 export type PersonType = (typeof PERSON_TYPES)[number];
@@ -42,3 +43,91 @@ export function abbreviateTaxId(taxId: string | null): string | null {
     return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
   return taxId;
 }
+
+/** Rótulo do conjunto de papéis (não é coluna de `contacts`, então não está no registro de campos). */
+export const CONTACT_ROLES_LABEL = 'Papéis';
+
+/** Em PJ o nome é o nome fantasia. */
+export const contactNameLabel = (personType: PersonType): string => (personType === 'pj' ? 'Nome fantasia' : 'Nome');
+
+/** Razão social só existe em pessoa jurídica. */
+export const hasLegalName = (personType: PersonType): boolean => personType === 'pj';
+
+export const CONTACT_NAME_MAX_LENGTH = 200;
+export const CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH = 500;
+export const CONTACT_STRATEGIC_NOTES_MAX_LENGTH = 10_000;
+
+export const CONTACT_ROLE_REQUIRED_MESSAGE = 'Informe ao menos um papel.';
+export const CONTACT_NOT_FOUND_MESSAGE = 'Contato não encontrado.';
+
+/** Texto opcional: espaços nas pontas saem, e o vazio vira ausência (`null`). */
+const optionalText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} aceita até ${max} caracteres.`)
+    .transform((value) => value || null)
+    .nullable();
+
+const contactNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Informe o nome.')
+  .max(CONTACT_NAME_MAX_LENGTH, `O nome aceita até ${CONTACT_NAME_MAX_LENGTH} caracteres.`);
+
+const contactRolesSchema = z
+  .array(z.enum(CONTACT_ROLES, { error: 'Papel inválido.' }))
+  .min(1, CONTACT_ROLE_REQUIRED_MESSAGE)
+  .transform((roles) => CONTACT_ROLES.filter((role) => roles.includes(role)));
+
+const contactEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((value) => value || null)
+  .pipe(z.email('Informe um e-mail válido.').nullable())
+  .nullable();
+
+const contactEditableShape = {
+  personType: z.enum(PERSON_TYPES, { error: 'Informe o tipo de pessoa.' }),
+  name: contactNameSchema,
+  legalName: optionalText(CONTACT_NAME_MAX_LENGTH, 'A razão social'),
+  email: contactEmailSchema,
+  relationshipOrigin: optionalText(CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH, 'A origem do relacionamento'),
+  strategicNotes: optionalText(CONTACT_STRATEGIC_NOTES_MAX_LENGTH, 'As observações estratégicas'),
+  roles: contactRolesSchema,
+};
+
+/** Mínimo para salvar: nome, tipo de pessoa e ao menos um papel. */
+export const createContactSchema = z.object({
+  ...contactEditableShape,
+  legalName: contactEditableShape.legalName.optional(),
+  email: contactEditableShape.email.optional(),
+  relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
+  strategicNotes: contactEditableShape.strategicNotes.optional(),
+});
+export type CreateContactInput = z.output<typeof createContactSchema>;
+
+/** `roles`, se presente, substitui o conjunto de papéis. */
+export const updateContactSchema = z.object(contactEditableShape).partial();
+export type UpdateContactInput = z.output<typeof updateContactSchema>;
+
+export const contactSchema = z.object({
+  id: z.uuid(),
+  personType: z.enum(PERSON_TYPES),
+  name: z.string(),
+  legalName: z.string().nullable(),
+  email: z.string().nullable(),
+  relationshipOrigin: z.string().nullable(),
+  strategicNotes: z.string().nullable(),
+  roles: z.array(z.enum(CONTACT_ROLES)),
+  createdAt: z.string(),
+});
+export type Contact = z.infer<typeof contactSchema>;
+
+export const CONTACT_SORT_FIELDS = ['name', 'createdAt'] as const;
+
+export const contactListQuerySchema = listQuerySchema({ sortable: CONTACT_SORT_FIELDS });
+export type ContactListQuery = z.output<typeof contactListQuerySchema>;
+
+export const contactPageSchema = listPageSchema(contactSchema);

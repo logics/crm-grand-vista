@@ -85,10 +85,29 @@ export {
   CONTACT_ROLE_LABELS,
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
+  CONTACT_NOT_FOUND_MESSAGE,
+  CONTACT_ROLES_LABEL,
+  contactNameLabel,
+  hasLegalName,
+  CONTACT_ROLE_REQUIRED_MESSAGE,
+  CONTACT_SORT_FIELDS,
   abbreviateTaxId,
+  contactListQuerySchema,
   contactOptionSchema,
+  contactPageSchema,
+  contactSchema,
+  createContactSchema,
+  updateContactSchema,
 } from './contact.js';
-export type { ContactOption, ContactRole, PersonType } from './contact.js';
+export type {
+  Contact,
+  ContactListQuery,
+  CreateContactInput,
+  UpdateContactInput,
+  ContactOption,
+  ContactRole,
+  PersonType,
+} from './contact.js';
 export { farmOptionSchema, formatAlqueires, formatHectares } from './farm.js';
 export type { FarmOption } from './farm.js';
 export { describeCommissionIssue, splitCommission, validateCommission } from './commission.js';
