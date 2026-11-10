@@ -59,6 +59,13 @@ export const CONTACT_STRATEGIC_NOTES_MAX_LENGTH = 10_000;
 
 export const CONTACT_ROLE_REQUIRED_MESSAGE = 'Informe ao menos um papel.';
 export const CONTACT_NOT_FOUND_MESSAGE = 'Contato não encontrado.';
+export const CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE =
+  'A classificação do cliente só vale para quem tem o papel de comprador.';
+export const CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE = 'Classificação do cliente inválida.';
+export const CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE = 'Origem do lead inválida.';
+
+/** A classificação do cliente é dado exclusivo do papel comprador. */
+export const hasClassification = (roles: readonly ContactRole[]): boolean => roles.includes('buyer');
 
 /** Texto opcional: espaços nas pontas saem, e o vazio vira ausência (`null`). */
 const optionalText = (max: number, label: string) =>
@@ -96,16 +103,25 @@ const contactEditableShape = {
   relationshipOrigin: optionalText(CONTACT_RELATIONSHIP_ORIGIN_MAX_LENGTH, 'A origem do relacionamento'),
   strategicNotes: optionalText(CONTACT_STRATEGIC_NOTES_MAX_LENGTH, 'As observações estratégicas'),
   roles: contactRolesSchema,
+  classificationId: z.uuid({ error: 'Classificação do cliente inválida.' }).nullable(),
+  leadSourceId: z.uuid({ error: 'Origem do lead inválida.' }).nullable(),
 };
 
 /** Mínimo para salvar: nome, tipo de pessoa e ao menos um papel. */
-export const createContactSchema = z.object({
+export const createContactSchema = z
+  .object({
   ...contactEditableShape,
   legalName: contactEditableShape.legalName.optional(),
   email: contactEditableShape.email.optional(),
   relationshipOrigin: contactEditableShape.relationshipOrigin.optional(),
   strategicNotes: contactEditableShape.strategicNotes.optional(),
-});
+  classificationId: contactEditableShape.classificationId.optional(),
+  leadSourceId: contactEditableShape.leadSourceId.optional(),
+  })
+  .refine((contact) => !contact.classificationId || hasClassification(contact.roles), {
+    path: ['classificationId'],
+    error: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
+  });
 export type CreateContactInput = z.output<typeof createContactSchema>;
 
 /** `roles`, se presente, substitui o conjunto de papéis. */
@@ -120,6 +136,8 @@ export const contactSchema = z.object({
   email: z.string().nullable(),
   relationshipOrigin: z.string().nullable(),
   strategicNotes: z.string().nullable(),
+  classificationId: z.uuid().nullable(),
+  leadSourceId: z.uuid().nullable(),
   roles: z.array(z.enum(CONTACT_ROLES)),
   createdAt: z.string(),
 });

@@ -12,4 +12,5 @@ Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumulávei
 - Contato, papéis e auditoria vão numa transação e num `auditedWrites` (um `change_id` por save). `roles` no `PATCH` substitui o conjunto (diferença: insere os novos, apaga os retirados); lista vazia é 400 pelo schema (`min(1)`).
 - Razão social só existe em PJ: passar para PF a limpa; PF nunca a grava.
 - O histórico declara `contact_roles` como filho (`nameColumn: 'role'`, mostrado pelo rótulo do enum: "Papel adicionado: Comprador").
-- Ainda sem API: documento, telefones, classificação, origem do lead, `custom_fields`, `/options`, `/duplicates`, exclusão e semente — das issues seguintes da spec.
+- Classificação do cliente (`classification_id`) é dado do papel comprador: informá-la sem o papel é 400 (no schema de criação e, na edição, no serviço, que olha o conjunto final de papéis). Retirar o comprador apaga a classificação no mesmo save, e o histórico guarda o valor anterior. Classificação e origem do lead (`lead_source_id`) têm de existir na empresa (FK não passa pelo RLS), senão 400. O serviço devolve `{ rejected }` para recusas de regra; a rota as traduz em 400.
+- Ainda sem API: documento, telefones, `custom_fields`, `/options`, `/duplicates` e exclusão — das issues seguintes da spec.

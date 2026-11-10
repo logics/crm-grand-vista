@@ -12,9 +12,10 @@ import { z } from 'zod';
 import { requirePermission } from '../../authorization/route-access.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
-import { contactExists, createContact, getContact, listContacts, updateContact } from './service.js';
+import { contactExists, createContact, getContact, isRejection, listContacts, updateContact } from './service.js';
 
 const notFound = { error: { code: 'not_found', message: CONTACT_NOT_FOUND_MESSAGE } } as const;
+const invalid = (message: string) => ({ error: { code: 'validation_error', message } }) as const;
 const idSchema = z.uuid();
 
 /** Id malformado é contato que não existe (404), não requisição inválida. */
@@ -31,7 +32,8 @@ export function createContactsRoutes() {
     .post('/', requirePermission('contatos.criar'), zValidator('json', createContactSchema), async (c) => {
       const { tenant, userId, withTenant } = c.var;
       const input = c.req.valid('json');
-      return c.json(await withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input)), 201);
+      const created = await withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input));
+      return isRejection(created) ? c.json(invalid(created.rejected), 400) : c.json(created, 201);
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
@@ -45,6 +47,7 @@ export function createContactsRoutes() {
       const contact = await withTenant((tx) =>
         updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input),
       );
+      if (isRejection(contact)) return c.json(invalid(contact.rejected), 400);
       return contact ? c.json(contact, 200) : c.json(notFound, 404);
     })
     .route(
