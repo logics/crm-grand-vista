@@ -23,11 +23,13 @@ import {
   deleteContact,
   findContactByTaxId,
   getContact,
+  isRejection,
   listContacts,
   updateContact,
 } from './service.js';
 
 const notFound = { error: { code: 'not_found', message: CONTACT_NOT_FOUND_MESSAGE } } as const;
+const invalid = (message: string) => ({ error: { code: 'validation_error', message } }) as const;
 const idSchema = z.uuid();
 
 const taxIdConflict = (existing: { id: string; name: string }) =>
@@ -103,7 +105,8 @@ export function createContactsRoutes() {
       const result = await withTaxIdRefusals(c, input.taxId, () =>
         withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input)),
       );
-      return result.ok ? c.json(result.value, 201) : result.response;
+      if (!result.ok) return result.response;
+      return isRejection(result.value) ? c.json(invalid(result.value.rejected), 400) : c.json(result.value, 201);
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
@@ -119,6 +122,7 @@ export function createContactsRoutes() {
           withTenant((tx) => updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input)),
         );
         if (!result.ok) return result.response;
+        if (isRejection(result.value)) return c.json(invalid(result.value.rejected), 400);
         return result.value ? c.json(result.value, 200) : c.json(notFound, 404);
       } catch (error) {
         if (error instanceof RoleInUseError) return c.json(conflict(error.message), 409);

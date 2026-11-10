@@ -60,7 +60,7 @@ Migration única para as empresas existentes (Postgres 18 tem `uuidv7()` nativo)
 - **Categorias de documento:** CAR, CCIR, Contratos, Georreferenciamento, Laudos, Licenças, Mapas, Matrículas
 - **Culturas:** Algodão, Café, Cana-de-açúcar, Milho, Pecuária, Soja
 - **Parâmetros:** a linha de `tenant_settings` com os defaults
-- Os demais cadastros nascem **vazios** — exceto origens do lead e classificações do cliente, acrescentadas à semente por `fase-1-contatos`
+- Os demais cadastros nascem **vazios** — exceto origens do lead (Evento, Indicação, Instagram, Placa na fazenda, Site, WhatsApp) e classificações do cliente (A, B, C), acrescentadas à semente por `fase-1-contatos`. Como a `0015_tenant_seed` já tinha rodado, entram numa migration à parte (`0019_contacts_seed`) que só insere o nome que a empresa ainda não tem, sem caixa nem acento; as empresas novas as recebem no `tenant:provision`, pela mesma constante `TENANT_SEED`.
 
 ## Regras de negócio
 
