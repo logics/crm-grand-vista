@@ -126,7 +126,8 @@ export async function updateContact(
   const current = await getContact(tx, id);
   if (!current) return null;
 
-  if (input.roles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !input.roles!.includes(role)));
+  const nextRoles = input.roles;
+  if (nextRoles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !nextRoles.includes(role)));
 
   const writes = auditedWrites(tx, actor);
   const { roles, ...fields } = input;
@@ -156,7 +157,7 @@ export async function updateContact(
 }
 
 /** Rótulo (plural, capitalizado) da entidade que referencia o contato pela tabela, pelas declarações ou pelos metadados de campo. */
-export function referencingEntityLabel(table: string | undefined): string {
+function referencingEntityLabel(table: string | undefined): string {
   if (!table) return 'outros cadastros';
   const declared = pluralLabelOfTable(table);
   const registered = (FIELD_REGISTRY as Record<string, { label: string }>)[table]?.label;

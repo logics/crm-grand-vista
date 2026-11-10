@@ -50,7 +50,10 @@ export function ContactPage() {
                 </Button>
               )}
               {canDelete && (
-                <Button variant="danger" icon="trash-2" onClick={() => setConfirmingDelete(true)}>
+                <Button variant="danger" icon="trash-2" onClick={() => {
+                    remove.reset();
+                    setConfirmingDelete(true);
+                  }}>
                   Excluir
                 </Button>
               )}
