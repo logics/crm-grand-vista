@@ -92,6 +92,10 @@ export {
   CONTACT_ROLE_REQUIRED_MESSAGE,
   CONTACT_SORT_FIELDS,
   abbreviateTaxId,
+  TAX_ID_CNPJ_MESSAGE,
+  TAX_ID_CPF_MESSAGE,
+  TAX_ID_TAKEN_MESSAGE,
+  taxIdIssue,
   contactListQuerySchema,
   contactOptionSchema,
   contactPageSchema,
@@ -228,3 +232,4 @@ export type {
   VocabularyOrderMode,
   VocabularyStatus,
 } from './vocabulary.js';
+export { formatTaxId, isValidCnpj, isValidCpf, maskTaxId, normalizeTaxId, sanitizeTaxIdInput, taxIdKind } from './tax-id.js';

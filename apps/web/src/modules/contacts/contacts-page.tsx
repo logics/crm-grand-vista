@@ -2,6 +2,7 @@ import {
   CONTACT_ROLES_LABEL,
   CONTACT_ROLE_LABELS,
   FIELD_REGISTRY,
+  abbreviateTaxId,
   contactListQuerySchema,
   formatPhone,
   type Contact,
@@ -59,6 +60,11 @@ export function ContactsPage() {
         columns={[
           { key: 'name', label: FIELD_REGISTRY.contacts.fields.name.label, strong: true, sortable: true },
           { key: 'roles', label: CONTACT_ROLES_LABEL, render: roleBadges },
+          {
+            key: 'taxId',
+            label: FIELD_REGISTRY.contacts.fields.tax_id.label,
+            render: (contact) => abbreviateTaxId(contact.taxId) ?? '—',
+          },
           { key: 'phone', label: FIELD_REGISTRY.contacts.fields.phone.label, render: (contact) => formatPhone(contact.phone) },
           { key: 'createdAt', label: 'Cadastrado em', sortable: true, render: registeredAt },
           { key: 'shortcuts', label: 'Atalhos', render: shortcuts },

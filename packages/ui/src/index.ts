@@ -57,6 +57,7 @@ export * from './components/spec-list.js';
 export * from './components/stage-stepper.js';
 export * from './components/stat-card.js';
 export * from './components/tag.js';
+export * from './components/tax-id-input.js';
 export * from './components/top-bar.js';
 export * from './components/upload-status.js';
 export * from './components/user-picker.js';

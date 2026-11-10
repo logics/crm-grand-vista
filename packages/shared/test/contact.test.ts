@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CONTACT_ROLE_LABELS,
   CONTACT_ROLES,
+  TAX_ID_CNPJ_MESSAGE,
+  TAX_ID_CPF_MESSAGE,
   abbreviateTaxId,
   contactOptionSchema,
   createContactSchema,
@@ -89,5 +91,63 @@ describe('telefone e WhatsApp no schema', () => {
 
   it('recusa WhatsApp inválido na edição', () => {
     expect(updateContactSchema.safeParse({ whatsapp: '123' }).success).toBe(false);
+  });
+});
+
+describe('abbreviateTaxId por CPF ou CNPJ', () => {
+  it('devolve o CNPJ numérico inteiro e formatado', () => {
+    expect(abbreviateTaxId('11222333000181')).toBe('11.222.333/0001-81');
+  });
+
+  it('devolve o CNPJ alfanumérico inteiro e formatado', () => {
+    expect(abbreviateTaxId('12ABC34501DE35')).toBe('12.ABC.345/01DE-35');
+  });
+
+  it('não confunde com CPF um CNPJ alfanumérico de exatamente 11 dígitos', () => {
+    // 14 posições, 11 delas dígitos: contar só dígitos o mascararia como CPF
+    expect(abbreviateTaxId('12ABC34501DE35')?.startsWith('***')).toBe(false);
+    expect(abbreviateTaxId('1AB2C345678901')).toBe('1A.B2C.345/6789-01');
+  });
+
+  it('o que não é CPF nem CNPJ volta como veio', () => {
+    expect(abbreviateTaxId('A1234')).toBe('A1234');
+  });
+});
+
+describe('documento nos schemas de contato', () => {
+  const base = { name: 'Fulano', roles: ['buyer'] };
+
+  it('grava o documento normalizado, com ou sem pontuação', () => {
+    const formatted = createContactSchema.parse({ ...base, personType: 'pf', taxId: '529.982.247-25' });
+    const plain = createContactSchema.parse({ ...base, personType: 'pf', taxId: '52998224725' });
+    expect(formatted.taxId).toBe('52998224725');
+    expect(plain.taxId).toBe(formatted.taxId);
+  });
+
+  it('põe o CNPJ alfanumérico em maiúsculas', () => {
+    expect(createContactSchema.parse({ ...base, personType: 'pj', taxId: '12.abc.345/01de-35' }).taxId).toBe(
+      '12ABC34501DE35',
+    );
+  });
+
+  it('o documento é opcional: vazio vira ausência', () => {
+    expect(createContactSchema.parse({ ...base, personType: 'pf', taxId: '  ' }).taxId).toBeNull();
+    expect(createContactSchema.parse({ ...base, personType: 'pf' }).taxId).toBeUndefined();
+  });
+
+  it.each([
+    ['CNPJ em PF', 'pf', '11222333000181', TAX_ID_CPF_MESSAGE],
+    ['CPF em PJ', 'pj', '52998224725', TAX_ID_CNPJ_MESSAGE],
+    ['CPF com dígito errado', 'pf', '52998224726', TAX_ID_CPF_MESSAGE],
+    ['sequência repetida', 'pf', '111.111.111-11', TAX_ID_CPF_MESSAGE],
+  ])('recusa %s no campo do documento', (_case, personType, taxId, message) => {
+    const result = createContactSchema.safeParse({ ...base, personType, taxId });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([expect.objectContaining({ path: ['taxId'], message })]);
+  });
+
+  it('a edição confere o documento contra o tipo de pessoa enviado junto', () => {
+    expect(updateContactSchema.safeParse({ personType: 'pj', taxId: '52998224725' }).success).toBe(false);
+    expect(updateContactSchema.safeParse({ taxId: '52998224725' }).success).toBe(true);
   });
 });
