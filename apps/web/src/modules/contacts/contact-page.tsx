@@ -1,5 +1,5 @@
 import { CONTACT_ROLE_LABELS } from '@crm/shared';
-import { Badge, Button } from '@crm/ui';
+import { Badge, Button, ContactShortcuts } from '@crm/ui';
 import { useNavigate, useParams } from 'react-router';
 import { RecordSections } from '../../record-sections/record-sections.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
@@ -34,10 +34,17 @@ export function ContactPage() {
           )
         }
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {record.roles.map((role) => (
           <Badge key={role}>{CONTACT_ROLE_LABELS[role]}</Badge>
         ))}
+        <ContactShortcuts
+          className="ml-2"
+          name={record.name}
+          phone={record.phone}
+          whatsapp={record.whatsapp}
+          email={record.email}
+        />
       </div>
       <RecordSections registry={contactSections} record={record} roles={record.roles} />
     </div>

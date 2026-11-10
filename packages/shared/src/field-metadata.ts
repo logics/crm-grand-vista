@@ -7,6 +7,7 @@
 // formulários é derivado dela, nunca declarado de novo.
 import { AREA_FORMAT, type AlqueireType, formatDecimal, formatMoney, formatPercent } from './decimal.js';
 import { formatAlqueires, formatHectares } from './farm.js';
+import { formatPhone } from './phone.js';
 
 /** Gênero gramatical da entidade: "Fazenda cadastrad**a**", "Contato cadastrad**o**". */
 export type GrammaticalGender = 'f' | 'm';
@@ -23,7 +24,7 @@ interface LabeledField {
 
 /** Campos que se formatam sozinhos, a partir do valor gravado. */
 export type ScalarField =
-  | (LabeledField & { type: 'text' | 'long_text' | 'number' | 'money' | 'area' | 'percent' | 'date' | 'boolean' })
+  | (LabeledField & { type: 'text' | 'long_text' | 'phone' | 'number' | 'money' | 'area' | 'percent' | 'date' | 'boolean' })
   /** Lista fechada: o rótulo de cada valor gravado (`high` → "Alto"). */
   | (LabeledField & { type: 'enum'; options: Readonly<Record<string, string>> });
 
@@ -133,6 +134,8 @@ export function formatFieldValue(
     case 'text':
     case 'long_text':
       return value;
+    case 'phone':
+      return formatPhone(value);
     case 'number':
       return formatDecimal(value, AREA_FORMAT);
     case 'money':

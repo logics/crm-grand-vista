@@ -1,4 +1,4 @@
-import { CONTACT_ROLES_LABEL, hasClassification, type VocabularyKey, CONTACT_ROLE_LABELS, FIELD_REGISTRY, PERSON_TYPE_LABELS, contactNameLabel, formatTaxId, hasLegalName, type Contact } from '@crm/shared';
+import { CONTACT_ROLES_LABEL, hasClassification, type VocabularyKey, CONTACT_ROLE_LABELS, FIELD_REGISTRY, PERSON_TYPE_LABELS, contactNameLabel, formatPhone, formatTaxId, hasLegalName, type Contact } from '@crm/shared';
 import { SpecList } from '@crm/ui';
 import { RecordHistory } from '../../history/record-history.js';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
@@ -33,6 +33,8 @@ function DataSection({ record }: { record: Contact }) {
         ...(hasLegalName(record.personType) ? [{ label: fields.legal_name.label, value: record.legalName }] : []),
         { label: fields.tax_id.label, value: record.taxId ? formatTaxId(record.taxId) : null },
         { label: CONTACT_ROLES_LABEL, value: record.roles.map((role) => CONTACT_ROLE_LABELS[role]).join(', ') },
+        { label: fields.phone.label, value: formatPhone(record.phone) },
+        { label: fields.whatsapp.label, value: formatPhone(record.whatsapp) },
         ...(hasClassification(record.roles) ? [{ label: fields.classification_id.label, value: classification }] : []),
         { label: fields.lead_source_id.label, value: leadSource },
         { label: fields.email.label, value: record.email },
