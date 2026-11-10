@@ -15,10 +15,16 @@ const seedSql = readFileSync(join(MIGRATIONS_FOLDER, '0019_contacts_seed.sql'), 
 describe('migration da semente de contatos em empresa existente', () => {
   const tenantId = '0197c000-0000-7000-8000-000000000019';
 
-  /** Nomes da tabela na empresa de teste (a policy vale também para o dono). */
+  /**
+   * Nomes da tabela na empresa de teste (a policy vale também para o dono).
+   * Ordena com a collation pt-BR do ICU, a mesma das listas de produção, que ignora caixa
+   * e acento; assim a ordem não depende do locale do cluster.
+   */
   const namesOf = async (table: string): Promise<string[]> => {
     await owner.query(`select set_config('app.tenant_id', $1, false)`, [tenantId]);
-    return (await owner.query(`select name from ${table} order by name`)).rows.map((row) => row.name as string);
+    return (await owner.query(`select name from ${table} order by name collate "pt-BR-x-icu"`)).rows.map(
+      (row) => row.name as string,
+    );
   };
 
   beforeAll(async () => {
@@ -50,6 +56,6 @@ describe('migration da semente de contatos em empresa existente', () => {
     expect(sources).toEqual(expect.arrayContaining(['Evento', 'Instagram', 'Placa na fazenda', 'Site', 'WhatsApp']));
 
     const classifications = await namesOf('contact_classifications');
-    expect(classifications).toEqual(['B', 'C', 'a']);
+    expect(classifications).toEqual(['a', 'B', 'C']);
   });
 });
