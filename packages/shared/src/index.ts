@@ -112,7 +112,7 @@ export type {
   ContactRole,
   PersonType,
 } from './contact.js';
-export { DEFAULT_COUNTRY_PREFIX, INVALID_PHONE_MESSAGE, formatPhone, isBlankPhone, mailtoUrl, normalizePhone, telUrl, whatsappUrl } from './phone.js';
+export { DEFAULT_COUNTRY_PREFIX, INVALID_PHONE_MESSAGE, caretAfterDigits, formatPhone, isBlankPhone, mailtoUrl, maskPhoneInput, normalizePhone, telUrl, whatsappUrl } from './phone.js';
 export { farmOptionSchema, formatAlqueires, formatHectares } from './farm.js';
 export type { FarmOption } from './farm.js';
 export { describeCommissionIssue, splitCommission, validateCommission } from './commission.js';

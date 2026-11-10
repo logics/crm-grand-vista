@@ -1,45 +1,108 @@
-import { DEFAULT_COUNTRY_PREFIX, formatPhone, normalizePhone } from '@crm/shared';
-import { type FocusEvent, useState } from 'react';
+import { caretAfterDigits, DEFAULT_COUNTRY_PREFIX, maskPhoneInput } from '@crm/shared';
+import { type ChangeEvent, type KeyboardEvent, type Ref, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Input, type InputProps } from '../primitives/input.js';
 
-// Campo de telefone. O texto é o que a pessoa digita — `(64) 99999-0000` — e é
-// ele que o formulário guarda e o Zod normaliza (`normalizePhone`): este campo
-// não decide o que vale. O `+55` aparece pré-preenchido como prefixo enquanto o
-// texto não começa com `+`; quem começa por `+` digita o código do país e o
-// prefixo some, porque o número deixou de ser brasileiro. Ao sair do campo, um
-// número válido é reescrito no formato de exibição (`formatPhone`).
+// Campo de telefone. Formata enquanto se digita (`maskPhoneInput`): `(64) 99999-0000`
+// ou `(64) 3333-4444`, e não aceita além da máscara (11 dígitos no Brasil, 15 no
+// internacional). O texto mascarado é o que o formulário guarda e o Zod normaliza
+// (`normalizePhone`): este campo não decide o que vale, só impede de digitar o que
+// nunca serve. O `+55` aparece pré-preenchido como prefixo enquanto o texto não
+// começa com `+`; quem começa por `+` digita o código do país e o prefixo some,
+// porque o número deixou de ser brasileiro. Não há reescrita ao sair do campo.
+// O teto vem da máscara, não do `maxLength` nativo, que truncaria o colar de
+// `+55 (64) 99999-0000` antes de a máscara tirar o prefixo.
 
-export type PhoneInputProps = Omit<InputProps, 'type' | 'prefix' | 'value' | 'defaultValue' | 'onChange'> & {
+export type PhoneInputProps = Omit<InputProps, 'type' | 'prefix' | 'value' | 'defaultValue' | 'onChange' | 'maxLength'> & {
   /** Texto do campo; `null` é vazio. Com ele, o campo é controlado. */
   value?: string | null;
   defaultValue?: string | null;
-  /** Recebe o texto a cada tecla; o vazio é `''`. */
+  /** Recebe o texto mascarado a cada tecla; o vazio é `''`. */
   onChange?: (value: string) => void;
 };
+
+const SEPARATOR = /[()\s-]/;
+const isDigit = (char: string | undefined): boolean => char !== undefined && char >= '0' && char <= '9';
+const countDigits = (text: string): number => text.replace(/\D/g, '').length;
 
 export function PhoneInput({
   value,
   defaultValue,
   onChange,
-  onBlur,
+  onKeyDown,
+  ref,
   placeholder = '(64) 99999-0000',
   ...props
 }: PhoneInputProps) {
   // Sem `value`, o campo guarda o próprio texto: o prefixo precisa dele.
   const [draft, setDraft] = useState(defaultValue ?? '');
   const controlled = value !== undefined;
-  const text = controlled ? (value ?? '') : draft;
+  const text = maskPhoneInput(controlled ? (value ?? '') : draft);
 
-  const change = (next: string) => {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const pendingCaret = useRef<number | null>(null);
+
+  // A ref do RHF (via `{...field}`) precisa chegar ao `<input>`; a interna convive com ela.
+  const composedRef = useCallback(
+    (node: HTMLInputElement | null) => {
+      inputRef.current = node;
+      if (typeof ref === 'function') ref(node);
+      else if (ref) (ref as { current: HTMLInputElement | null }).current = node;
+    },
+    [ref],
+  );
+
+  // O cursor só pode ser posto depois do render que reescreve o valor.
+  useLayoutEffect(() => {
+    const caret = pendingCaret.current;
+    if (caret === null) return;
+    pendingCaret.current = null;
+    inputRef.current?.setSelectionRange(caret, caret);
+  });
+
+  /** Mascara `raw`; `digitsBefore` é quantos dígitos ficam antes do cursor (`null`: cursor no fim). */
+  const apply = (input: HTMLInputElement, raw: string, digitsBefore: number | null) => {
+    const next = maskPhoneInput(raw);
+    const caret = digitsBefore === null ? next.length : caretAfterDigits(next, digitsBefore);
+    if (next === text) {
+      // sem mudança não há render: o que o navegador inseriu (letra, dígito além do teto) sai na hora
+      input.value = next;
+      input.setSelectionRange(caret, caret);
+      return;
+    }
+    pendingCaret.current = caret;
     if (!controlled) setDraft(next);
     onChange?.(next);
   };
 
-  const reformat = (event: FocusEvent<HTMLInputElement>) => {
-    const phone = normalizePhone(event.currentTarget.value);
-    const formatted = phone === null ? null : formatPhone(phone);
-    if (formatted !== null && formatted !== event.currentTarget.value) change(formatted);
-    onBlur?.(event);
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const raw = input.value;
+    const caret = input.selectionStart ?? raw.length;
+    // colar `+55 (64)…` muda a contagem de dígitos: com o cursor no fim, ele fica no fim
+    apply(input, raw, caret >= raw.length ? null : countDigits(raw.slice(0, caret)));
+  };
+
+  // Backspace sobre um separador apagaria só o separador, e a máscara o devolveria: apaga o dígito anterior.
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    onKeyDown?.(event);
+    if (event.defaultPrevented) return;
+    const input = event.currentTarget;
+    const { selectionStart: start, selectionEnd: end, value: current } = input;
+    if (start === null || start !== end) return;
+
+    if (event.key === 'Backspace' && start > 0 && SEPARATOR.test(current[start - 1] as string)) {
+      let index = start - 2;
+      while (index >= 0 && !isDigit(current[index])) index--;
+      if (index < 0) return;
+      event.preventDefault();
+      apply(input, current.slice(0, index) + current.slice(index + 1), countDigits(current.slice(0, index)));
+    } else if (event.key === 'Delete' && start < current.length && SEPARATOR.test(current[start] as string)) {
+      let index = start + 1;
+      while (index < current.length && !isDigit(current[index])) index++;
+      if (index >= current.length) return;
+      event.preventDefault();
+      apply(input, current.slice(0, index) + current.slice(index + 1), countDigits(current.slice(0, start)));
+    }
   };
 
   return (
@@ -49,11 +112,12 @@ export function PhoneInput({
       autoComplete="tel"
       placeholder={placeholder}
       // sem `+` o número é brasileiro
-      prefix={text.trimStart().startsWith('+') ? undefined : DEFAULT_COUNTRY_PREFIX}
-      value={text}
-      onChange={(event) => change(event.target.value)}
-      onBlur={reformat}
+      prefix={text.startsWith('+') ? undefined : DEFAULT_COUNTRY_PREFIX}
       {...props}
+      ref={composedRef as Ref<HTMLInputElement>}
+      value={text}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
     />
   );
 }

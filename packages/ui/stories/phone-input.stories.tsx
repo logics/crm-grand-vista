@@ -19,7 +19,7 @@ export const Brasileiro: Story = { args: { defaultValue: '(64) 99999-0000' } };
 
 export const OutroPais: Story = {
   name: 'Outro país',
-  args: { defaultValue: '+351 912 345 678' },
+  args: { defaultValue: '+351912345678' },
 };
 
 export const Controlado: Story = {

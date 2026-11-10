@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPhone, isBlankPhone, normalizePhone } from '../src/phone.js';
+import { caretAfterDigits, formatPhone, isBlankPhone, maskPhoneInput, normalizePhone } from '../src/phone.js';
 
 describe('normalizePhone', () => {
   it.each([
@@ -51,4 +51,50 @@ describe('formatPhone', () => {
   it('fixo brasileiro: (DD) XXXX-XXXX', () => expect(formatPhone('+556433334444')).toBe('(64) 3333-4444'));
   it('internacional como veio', () => expect(formatPhone('+351912345678')).toBe('+351912345678'));
   it('nulo continua nulo', () => expect(formatPhone(null)).toBeNull());
+});
+
+describe('maskPhoneInput', () => {
+  it.each([
+    ['vazio', '', ''],
+    ['1 dígito', '6', '(6'],
+    ['2 dígitos', '64', '(64'],
+    ['3 dígitos', '649', '(64) 9'],
+    ['6 dígitos', '649999', '(64) 9999'],
+    ['7 dígitos (fixo em andamento)', '6499999', '(64) 9999-9'],
+    ['10 dígitos (fixo)', '6433334444', '(64) 3333-4444'],
+    ['11 dígitos (celular)', '64999990000', '(64) 99999-0000'],
+    ['12+ dígitos cortados em 11', '649999900001234', '(64) 99999-0000'],
+    ['idempotente sobre o celular', '(64) 99999-0000', '(64) 99999-0000'],
+    ['idempotente sobre o fixo', '(64) 3333-4444', '(64) 3333-4444'],
+    ['colar com +55', '+55 (64) 99999-0000', '(64) 99999-0000'],
+    ['colar com 55 sem +', '55 64 99999 0000', '(64) 99999-0000'],
+    ['DDD 55 com 11 dígitos não perde o DDD', '55999990000', '(55) 99999-0000'],
+    ['+351 sem máscara', '+351 912 345 678', '+351912345678'],
+    ['internacional cortado em 15 dígitos', '+1234567890123456789', '+123456789012345'],
+    ['+ sozinho entra na via internacional', '+', '+'],
+    ['+5 pode ser +51, +52 ou +55', '+5', '+5'],
+    ['+55 é o vazio do campo brasileiro', '+55', ''],
+    ['+55 com espaço', '+55 ', ''],
+    ['+55 e dígitos nacionais voltam à máscara BR', '+5564', '(64'],
+    ['letras descartadas', '(6a4) abc9', '(64) 9'],
+    ['espaço à esquerda', '  64', '(64'],
+  ])('%s', (_case, input, expected) => {
+    expect(maskPhoneInput(input)).toBe(expected);
+  });
+
+  it('o vazio do campo brasileiro é blank', () => {
+    expect(isBlankPhone(maskPhoneInput('+55'))).toBe(true);
+  });
+});
+
+describe('caretAfterDigits', () => {
+  it('zero dígitos: início', () => expect(caretAfterDigits('(64) 9', 0)).toBe(0));
+  it('no meio: logo depois do dígito', () => expect(caretAfterDigits('(64) 99999-0000', 3)).toBe(6));
+  it('depois do 2º dígito, antes do separador', () => expect(caretAfterDigits('(64) 9', 2)).toBe(3));
+  it('no fim', () => expect(caretAfterDigits('(64) 99999-0000', 11)).toBe(15));
+  it('além dos dígitos: fim dos dígitos', () => expect(caretAfterDigits('(64', 9)).toBe(3));
+  it('com +: o + é posição fixa', () => {
+    expect(caretAfterDigits('+351912', 0)).toBe(1);
+    expect(caretAfterDigits('+351912', 3)).toBe(4);
+  });
 });

@@ -85,3 +85,55 @@ export const telUrl = (phone: string): string => `tel:+${digitsOf(phone)}`;
 
 /** Link de e-mail (`mailto:`). */
 export const mailtoUrl = (email: string): string => `mailto:${email}`;
+
+const BRAZIL_MAX_NATIONAL_DIGITS = 11;
+
+/** Máscara progressiva do número nacional (até 11 dígitos), sem separador sobrando no fim. */
+function maskBrazilianNational(digits: string): string {
+  const d = digits.slice(0, BRAZIL_MAX_NATIONAL_DIGITS);
+  if (d.length === 0) return '';
+  if (d.length <= 2) return `(${d}`;
+  const area = d.slice(0, 2);
+  const rest = d.slice(2);
+  if (rest.length <= 4) return `(${area}) ${rest}`;
+  // celular (11 dígitos): hífen após 5; senão o padrão fixo, hífen após 4
+  const split = d.length === BRAZIL_MAX_NATIONAL_DIGITS ? 5 : 4;
+  return `(${area}) ${rest.slice(0, split)}-${rest.slice(split)}`;
+}
+
+/**
+ * Máscara de digitação do campo de telefone, pura e idempotente. Via brasileira:
+ * `(64) 99999-0000`, no máximo 11 dígitos (um `55` na frente de mais de 11 é
+ * descartado, como ao colar `55 64 99999 0000`). Começando por `+`, o número é
+ * internacional: só os dígitos, até 15, sem máscara. `+55` seguido de dígitos
+ * nacionais volta à via brasileira; `+55` sozinho é o vazio do campo brasileiro.
+ */
+export function maskPhoneInput(text: string): string {
+  const t = text.trimStart();
+  const digits = t.replace(/\D/g, '');
+  if (t.startsWith('+')) {
+    if (digits.startsWith(BRAZIL_COUNTRY_CODE)) return maskBrazilianNational(digits.slice(BRAZIL_COUNTRY_CODE.length));
+    return `+${digits.slice(0, INTERNATIONAL_MAX_DIGITS)}`;
+  }
+  const national =
+    digits.length > BRAZIL_MAX_NATIONAL_DIGITS && digits.startsWith(BRAZIL_COUNTRY_CODE)
+      ? digits.slice(BRAZIL_COUNTRY_CODE.length)
+      : digits;
+  return maskBrazilianNational(national);
+}
+
+/**
+ * Posição do cursor logo depois do `count`-ésimo dígito de `text`. O `+` inicial
+ * é posição fixa: o cursor nunca fica antes dele.
+ */
+export function caretAfterDigits(text: string, count: number): number {
+  let position = text.startsWith('+') ? 1 : 0;
+  let seen = 0;
+  for (let i = 0; i < text.length && seen < count; i++) {
+    if (/\d/.test(text[i] as string)) {
+      seen++;
+      position = i + 1;
+    }
+  }
+  return position;
+}
