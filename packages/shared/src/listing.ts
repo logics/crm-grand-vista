@@ -3,6 +3,13 @@
 // URL pelo mesmo — um link copiado reabre a mesma lista.
 import { z } from 'zod';
 
+/**
+ * Fuso do dia de negócio (Brasília, sem horário de verão desde 2019): filtros de
+ * intervalo de datas e datas exibidas em listas usam o dia do corretor, não o do
+ * servidor nem o do navegador.
+ */
+export const BUSINESS_TIME_ZONE = 'America/Sao_Paulo';
+
 /** Tamanhos de página aceitos. Outro valor é recusado, não arredondado. */
 export const PAGE_SIZES = [25, 50, 100] as const;
 

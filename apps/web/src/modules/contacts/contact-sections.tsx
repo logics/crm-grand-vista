@@ -1,10 +1,10 @@
-import { CONTACT_ROLES_LABEL, hasClassification, type VocabularyKey, CONTACT_ROLE_LABELS, FIELD_REGISTRY, PERSON_TYPE_LABELS, contactNameLabel, formatPhone, formatTaxId, hasLegalName, type Contact } from '@crm/shared';
+import { CONTACT_ROLES_LABEL, hasClassification, CONTACT_ROLE_LABELS, FIELD_REGISTRY, PERSON_TYPE_LABELS, contactNameLabel, formatPhone, formatTaxId, hasLegalName, type Contact } from '@crm/shared';
 import { SpecList } from '@crm/ui';
 import { RecordHistory } from '../../history/record-history.js';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
-import { useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
-import { resolveVocabularyOptions } from '../settings/vocabulary-source.js';
+import { useTenantSlug } from '../../shell/tenant-query.js';
 import { fetchContactHistory } from './contacts-api.js';
+import { useVocabularyName } from './vocabulary-name.js';
 
 // Seções da ficha do contato. Cada spec que pendura algo na ficha (perfil de
 // compra, fazendas do proprietário, cadeia de indicação) registra a sua aqui,
@@ -13,14 +13,6 @@ import { fetchContactHistory } from './contacts-api.js';
 export const contactSections = createRecordSectionRegistry<Contact>();
 
 const fields = FIELD_REGISTRY.contacts.fields;
-
-/** Nome da entrada do cadastro auxiliar que o contato guarda por id; vazio enquanto carrega. */
-function useVocabularyName(vocabulary: VocabularyKey, id: string | null): string | null {
-  const entry = useTenantQuery(['vocabulary-entry', vocabulary, id ?? 'none'], async (slug) =>
-    id ? ((await resolveVocabularyOptions(slug, vocabulary)([id]))[0] ?? null) : null,
-  );
-  return entry.data?.name ?? null;
-}
 
 function DataSection({ record }: { record: Contact }) {
   const classification = useVocabularyName('contact-classifications', record.classificationId);

@@ -13,6 +13,7 @@ import {
   type Transaction,
 } from '@crm/db';
 import {
+  BUSINESS_TIME_ZONE,
   CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
   CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE,
   CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE,
@@ -29,6 +30,7 @@ import {
   hasClassification,
   hasLegalName,
   normalizePhone,
+  normalizeTaxId,
   taxIdIssue,
   type CreateContactInput,
   type ListPage,
@@ -36,7 +38,7 @@ import {
 } from '@crm/shared';
 import { and, eq, getTableColumns, getTableName, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
-import { defineList, paginatedQuery } from '../../listing/query.js';
+import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
 type ContactRow = typeof contacts.$inferSelect;
@@ -46,7 +48,7 @@ export const contactList = defineList({
   table: contacts,
   sortable: { name: sql`${contacts.name} collate "pt-BR-x-icu"`, createdAt: contacts.createdAt },
   defaultSort: 'name',
-  searchable: [contacts.name, contacts.legalName, contacts.email],
+  searchable: [contacts.name, contacts.legalName, contacts.taxId, contacts.email],
 });
 
 const roleOrder = (roles: readonly string[]): ContactRole[] => CONTACT_ROLES.filter((role) => roles.includes(role));
@@ -87,9 +89,55 @@ export async function contactExists(tx: Transaction, id: string): Promise<boolea
   return row !== undefined;
 }
 
+const registeredDay = sql`(${contacts.createdAt} at time zone ${BUSINESS_TIME_ZONE})::date`;
+
+/** Só dígitos e a pontuação de telefone: "(64) 99999-1234", "+55 64 99999 1234". Letra faz o termo ser texto ("Fazenda 2"). */
+const PHONE_TERM = /^[\d\s()+.\-/]+$/;
+
+const onlyDigits = (text: string) => text.replace(/\D/g, '');
+
+/**
+ * Além das colunas de texto de `contactList`, `q` acha o documento pelo termo
+ * normalizado ("529.982.247-25" acha "52998224725") e telefone/WhatsApp pelos
+ * dígitos, com ou sem DDI. Termo com letra não vira busca de telefone.
+ */
+function searchByNormalizedTerms(q: string | undefined): (SQL | undefined)[] {
+  if (q === undefined) return [];
+  const clauses: (SQL | undefined)[] = [];
+  const taxId = normalizeTaxId(q);
+  if (taxId) clauses.push(sql`${contacts.taxId} like ${`%${escapeLike(taxId)}%`}`);
+  const digits = PHONE_TERM.test(q) ? onlyDigits(q) : '';
+  if (digits) {
+    const pattern = `%${digits}%`;
+    clauses.push(
+      sql`regexp_replace(${contacts.phone}, '\\D', '', 'g') like ${pattern}`,
+      sql`regexp_replace(${contacts.whatsapp}, '\\D', '', 'g') like ${pattern}`,
+    );
+  }
+  return clauses;
+}
+
+function contactFilters(query: ContactListQuery): (SQL | undefined)[] {
+  const { role, personType, classificationId, leadSourceId, createdFrom, createdTo } = query;
+  return [
+    role
+      ? sql`exists (select 1 from ${contactRoles} where ${contactRoles.contactId} = ${contacts.id} and ${inArray(contactRoles.role, role)})`
+      : undefined,
+    personType ? eq(contacts.personType, personType) : undefined,
+    classificationId ? eq(contacts.classificationId, classificationId) : undefined,
+    leadSourceId ? eq(contacts.leadSourceId, leadSourceId) : undefined,
+    createdFrom ? sql`${registeredDay} >= ${createdFrom}::date` : undefined,
+    createdTo ? sql`${registeredDay} <= ${createdTo}::date` : undefined,
+  ];
+}
+
 export async function listContacts(tx: Transaction, query: ContactListQuery): Promise<ListPage<Contact>> {
   // Base compartilhada: sem cláusula de escopo de dados.
-  const page = await paginatedQuery(tx, contactList, query, { scope: withoutDataScope });
+  const page = await paginatedQuery(tx, contactList, query, {
+    scope: withoutDataScope,
+    filters: contactFilters(query),
+    searchAlso: searchByNormalizedTerms(query.q),
+  });
   const roles = await rolesByContact(tx, page.items.map((item) => item.id));
   return { ...page, items: page.items.map((item) => serialize(item, roles.get(item.id) ?? [])) };
 }
