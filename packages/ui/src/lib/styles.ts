@@ -130,3 +130,6 @@ export const mobileTouchTarget = {
  */
 export const reorderableRow =
   'border-b border-border-subtle py-4 transition-control last:border-b-0 data-moving:bg-surface-sunken';
+
+/** Faixa de aviso (não bloqueia): fundo e texto do status de atenção, com o respiro dos avisos de formulário. */
+export const warningBanner = 'flex flex-col gap-4 rounded-input bg-status-warning-bg px-6 py-5 text-sm text-status-warning-fg';

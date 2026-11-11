@@ -26,7 +26,7 @@ import { tenantPath } from '../../shell/tenant-path.js';
 import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
 import { TaxIdTakenError, createContact, fetchContact, fetchDuplicates, updateContact } from './contacts-api.js';
-import { DuplicateWarning } from './duplicate-warning.js';
+import { ContactDuplicateWarning } from './contact-duplicate-warning.js';
 
 const FORM_ID = 'contact-form';
 
@@ -143,7 +143,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   return (
     <div className="flex flex-col gap-gap-shell">
       <PageHeader title={contact ? 'Editar contato' : 'Novo contato'} />
-      <DuplicateWarning
+      <ContactDuplicateWarning
         matches={matches}
         form={FORM_ID}
         onSaveAnyway={() => {
