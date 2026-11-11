@@ -64,7 +64,7 @@ Mais `id`, `tenant_id`, timestamps e RLS, pelas convenções. Saem do desenho an
 - `'brl'` → `asking_price` preenchido; os quatro de sacas nulos
 - `'bags'` → `valuation_bags`, `valuation_bags_unit` e `valuation_crop_id` preenchidos; `asking_price` nulo; `valuation_bags_alqueire_type` preenchido **se e somente se** a unidade é `per_alqueire`
 
-Índices: `(tenant_id, responsible_user_id)` (escopo `own`), `(tenant_id, commercial_status_id)`, `(tenant_id, municipality_ibge_code)`, `(tenant_id, created_at DESC, id)` (ordem padrão). FKs com nome explícito na migration.
+Índices: `(tenant_id, responsible_user_id)` (escopo `own`), `(tenant_id, commercial_status_id)`, `(tenant_id, municipality_ibge_code)`, `(tenant_id, created_at DESC, id)` (ordem padrão).
 
 ### Junções
 
@@ -96,6 +96,12 @@ Uma migration **renomeia** `normalize_vocabulary_name` para `normalize_text` (`A
 
 **Nome, município, corretor responsável e área total.** Proprietários, praça, preço, culturas, aptidões e todos os campos técnicos são opcionais — a captação é preenchida aos poucos.
 
+### Referências
+
+- Toda referência gravada tem de existir **na empresa ativa**: contato, cultura, aptidão, praça, status comercial, cultura de referência. A FK não passa pelo RLS, então o serviço confere antes de gravar — referência inexistente ou de outra empresa é **400** no campo, nunca 500 nem vazamento (precedente: classificação e origem do lead em contatos).
+- O corretor responsável tem de ter **vínculo** com a empresa ativa (400).
+- Referência que **muda** tem de apontar para entrada **ativa** (cadastro auxiliar) ou município ativo (400). A entrada ou o município que ficou inativo depois de gravado **continua** na fazenda e é exibido pela hidratação por id — salvar sem tocar no campo não o recusa.
+
 ### Áreas
 
 - Gravadas em hectares, 4 casas. A área útil, se informada, é ≤ área total (400).
@@ -125,7 +131,8 @@ Uma migration **renomeia** `normalize_vocabulary_name` para `normalize_text` (`A
   4. marca o novo principal entre os que ficam;
   5. insere os novos — o que entra já como principal vai com `is_primary = true`, porque o passo 3 liberou o índice.
 - Rede de segurança: violação (`23505`) do índice parcial vira **409**, nunca 500.
-- Cada contato incluído recebe o papel proprietário por `ensureContactRole`, na mesma transação.
+- Cada contato incluído recebe o papel proprietário por `ensureContactRole`, na mesma transação. Garantir o papel é efeito do save da fazenda: exige `fazendas.criar`/`editar`, não `contatos.editar`.
+- Escolher proprietário usa o `ContactField` com papel `owner`: a busca exige `contatos.ver`; sem ela o campo fica somente leitura, com os nomes hidratados por `/contacts/options?ids=` (que responde a qualquer vínculo). O cadastro rápido exige `contatos.criar`.
 - **Uso declarado:** `declareRoleUsage('owner', { table: 'farm_owners', column: 'contact_id', label: { singular: 'fazenda', plural: 'fazendas' }, inUsePhrase: 'é proprietário de fazenda' })`. A `RoleUsage` ganha o campo opcional `inUsePhrase`: a mensagem de exclusão de contato barrada pela FK `RESTRICT` usa a frase quando a tabela a declarou — "Este contato é proprietário de fazenda. Remova-o das fazendas antes de excluir." — e cai no rótulo da entidade quando não. O mapeamento continua **pela tabela** que o erro do Postgres traz; nada de mapear pelo nome da constraint.
 - "Proprietário ou responsável", do escopo: só o proprietário. Procurador ou gerente da fazenda vai em observação (ver Fora de escopo).
 
@@ -149,6 +156,8 @@ Uma migration **renomeia** `normalize_vocabulary_name` para `normalize_text` (`A
 ### Desativadas na listagem
 
 O filtro padrão de status é **"todos menos desativadas"**, aplicado **na API** quando o parâmetro de status não vem — busca e `total` batem com a tela. Vendida, suspensa e as demais aparecem por padrão. O filtro mostra o que está aplicado, e "limpar filtros" volta a esse padrão, não a "todos".
+
+Nos seletores (`/options`), as desativadas também ficam fora da busca, mas a hidratação por `ids` as devolve — uma cadeia de indicação ou oportunidade que já aponta para elas continua exibindo.
 
 ### Aviso de duplicata
 
@@ -212,7 +221,7 @@ DELETE /:id             → 204                                                 
   - Colunas: nome, município — UF, área total (unidade de exibição), preço (ou avaliação em sacas, ou "Preço não informado"), status (`Badge`), potencial de venda, prioridade, corretor responsável. Proprietário principal com "+N" quando há mais. Cartão do mobile: `FarmCard`. Botão "Nova fazenda" com `fazendas.criar`.
 - **Formulário** (`/farms/new` e `/farms/:id/edit`, sobre `EntityForm`): **uma página** com seções ancoradas — Identificação (nome, município, praça com sugestão, corretor responsável), Proprietários (lista de `ContactField` com papel `owner` e a marca de principal), Áreas (`AreaInput`), Precificação (modo; `MoneyInput` ou sacas + unidade + tipo de alqueire + cultura), Comercial (status, potencial, prioridade), Técnico (aptidões, culturas, níveis, distâncias, situação documental e observação, textos livres, latitude/longitude). Sem wizard. Aviso de duplicata antes de salvar; confirmação ao trocar de modo de precificação com valor preenchido.
 - **Ficha** em `/e/<tenant>/farms/:id`, sobre as **seções registráveis** de contatos (o mecanismo passa a servir às duas fichas): esta spec registra **Dados** (os mesmos blocos do formulário, com `SpecList`, e os derivados de preço) e **Histórico de alterações**. Ações editar e excluir conforme as permissões; excluir abre o diálogo de confirmação digitada, ou explica que a fazenda precisa estar desativada.
-- **Seção "Fazendas" na ficha do contato**, registrada por este módulo: condicionada ao papel proprietário e a `fazendas.ver`, lista as fazendas do contato **respeitando o escopo** (lista e contagem).
+- **Seção "Fazendas" na ficha do contato**, registrada por este módulo: condicionada ao papel proprietário e a `fazendas.ver`, lista as fazendas de que o contato é proprietário (principal ou não, marcado) **respeitando o escopo** (lista e contagem). Mostra também as desativadas, com o status em `Badge`: é o registro do que o contato tem ou teve na carteira.
 - **`FarmField`**: o `FarmPicker` ligado a `/farms/options` da empresa ativa, para os consumidores seguintes (cadeia de indicação, oportunidades).
 - **`useUnsavedChangesGuard(isDirty)`**, hook único em `apps/web`: `useBlocker` do react-router (o app usa o data router, `createBrowserRouter`) abre o `ConfirmDialog` "Sair sem salvar?" na navegação interna; `beforeunload` cobre fechar e recarregar a aba (aviso nativo, sem texto próprio). Desligado pelo próprio save bem-sucedido, para o redirecionamento não disparar o aviso. Aplicado ao formulário de fazenda **e** ao de contatos.
 
@@ -223,6 +232,16 @@ DELETE /:id             → 204                                                 
 - Nenhuma aparência fora das receitas de `styles.ts`.
 
 ## Critérios de aceite
+
+**Costuras de teste.** Três, todas já existentes — nenhuma nova:
+
+- **Rotas HTTP contra Postgres real** (projeto `integration`), como `apps/api/test/modules/contacts/*.integration.test.ts`: é onde se provam RLS, escopo de dados, permissões, auditoria, `CHECK`s, concorrência e migrations. A costura mais alta, e a da maioria dos critérios.
+- **Funções puras de `packages/shared`** (projeto `unit`), como os testes de `tax-id` e `phone`: `levelCheck`, conversão de área, derivados de preço.
+- **Telas com API falsa**, como `apps/web/test/modules/contacts/*.test.tsx`, mais as stories de `packages/ui` em `test/stories.test.tsx`.
+
+Teste exercita comportamento externo — resposta da rota, linha no banco, texto na tela —, nunca a ordem interna das escritas: os passos da diferença ordenada de proprietários são provados pelos casos que quebrariam sem eles (critérios 9 e 10), não por espiar as queries.
+
+Numeração estável: critérios acrescentados depois vão para o fim.
 
 **Cadastro e precificação**
 
@@ -273,6 +292,11 @@ DELETE /:id             → 204                                                 
 30. Stories de `DuplicateWarning` e `LevelSelect` passando em `test/stories.test.tsx`.
 31. Teste de cobertura de metadados verde com `farms` e as três junções; teste de schema de FK `RESTRICT` dos cadastros auxiliares verde com as FKs novas; `tsc --noEmit` limpo; migrations aplicam de banco zerado; `pnpm lint` verde.
 32. No navegador (`pnpm dev`): cadastrar uma fazenda em alqueire com dois proprietários e avaliação em sacas por alqueire; filtrar por UF e aptidão; trocar o principal; desativar e excluir; entrar como Corretor e não ver a fazenda de um colega.
+
+**Referências**
+
+33. **Integração:** contato, cultura, aptidão, praça, status ou cultura de referência de outra empresa é 400; corretor responsável sem vínculo na empresa é 400; trocar para entrada inativa é 400, e salvar sem tocar numa entrada que ficou inativa passa.
+34. **Integração:** `/options` não traz desativadas na busca e as devolve por `ids`.
 
 ## Fora de escopo
 
