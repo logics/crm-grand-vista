@@ -2,7 +2,7 @@
 
 Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumuláveis (comprador, proprietário, corretor externo).
 
-- **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente), #129 (avisos de duplicata) e #130 (opções do seletor)
+- **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente), #129 (avisos de duplicata), #128 (busca, filtros e colunas da lista) e #130 (opções do seletor)
 - **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato)
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/history`, `src/listing`
 
@@ -17,6 +17,7 @@ Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumulávei
 - **Uso declarado** (`role-usage.ts`): `declareRoleUsage(papel, { table, column, label })` é o ponto de extensão; nasce vazio. A spec consumidora declara o seu uso no módulo que cria a tabela. Retirar papel com linhas declaradas é 409 (`RoleInUseError`, mensagem com contagem), antes de qualquer escrita.
 - **Exclusão** apaga os papéis (auditados) e o contato; a FK `RESTRICT` das consumidoras vira 409 na rota (SQLSTATE 23001/23503), com o rótulo plural da declaração da tabela, senão o rótulo dos metadados de campo, senão o nome da tabela.
 - **`ensureContactRole(tx, actor, contactId, role)`**: garantir papel, idempotente e auditada, na transação de quem chama (devolve se acrescentou).
+- Lista (`GET /`): `q` soma às colunas de texto (nome, razão social, documento, e-mail; `unaccent` + `ILIKE`) o documento pelo termo normalizado e telefone/WhatsApp pelos dígitos (`regexp_replace(…,'\D','')`), esta só quando o termo não tem letra ("Fazenda 2" não vira busca de telefone). Filtros `role` (lista separada por vírgula, qualquer um dos papéis, `EXISTS` em `contact_roles`), `personType`, `classificationId`, `leadSourceId`, `createdFrom`/`createdTo` (dias inclusivos, no fuso de Brasília). Schema único em `@crm/shared` (`contactListQuerySchema`), o mesmo da URL do front. Ordenação por nome (collation pt-BR) ou `createdAt`, sempre terminada em `id` crescente.
 - `GET /duplicates` (`contatos.ver`): coincidência por telefone/WhatsApp (cruzados), e-mail e nome sem caixa nem acento (`lower(unaccent())`), com os `reasons`; `excludeId` tira o próprio contato; telefone passa por `normalizePhone`. Registrada antes de `/:id`. É aviso, nunca bloqueio.
 - `GET /options` (`options.ts`, declarada `noPermissionRequired` e checada na rota): `role` **ordena** (quem tem o papel, depois os demais, cada grupo por nome e `id`), não filtra; `q` busca em nome, razão social, e-mail, documento e telefone/WhatsApp pelos dígitos; cursor = deslocamento. `ids` hidrata qualquer vínculo; sem `contatos.ver` devolve só `id` e `name` (`personType` e `taxId` nulos, `roles` vazio) e a busca por termo é 403 antes do banco. Registrada antes de `/:id`.
 - Ainda sem API: `custom_fields` — de issue seguinte da spec.

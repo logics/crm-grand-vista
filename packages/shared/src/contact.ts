@@ -206,7 +206,28 @@ export type Contact = z.infer<typeof contactSchema>;
 
 export const CONTACT_SORT_FIELDS = ['name', 'createdAt'] as const;
 
-export const contactListQuerySchema = listQuerySchema({ sortable: CONTACT_SORT_FIELDS });
+/**
+ * `role` na URL e na API é uma lista separada por vírgula (`role=buyer,owner`),
+ * que o schema entrega como conjunto na ordem canônica, sem repetição. Um papel
+ * desconhecido recusa o parâmetro todo.
+ */
+const roleFilterSchema = z
+  .string()
+  .transform((value) => value.split(',').map((role) => role.trim()))
+  .pipe(z.array(z.enum(CONTACT_ROLES, { error: 'Papel inválido.' })).min(1, 'Informe ao menos um papel.'))
+  .transform((roles) => CONTACT_ROLES.filter((role) => roles.includes(role)));
+
+/** Filtros da listagem: papel (qualquer um dos escolhidos), tipo de pessoa, classificação, origem do lead e intervalo de cadastro (dias `aaaa-mm-dd`, pontas inclusas). */
+export const contactListFilters = {
+  role: roleFilterSchema.optional(),
+  personType: z.enum(PERSON_TYPES, { error: 'Tipo de pessoa inválido.' }).optional(),
+  classificationId: z.uuid({ error: 'Classificação do cliente inválida.' }).optional(),
+  leadSourceId: z.uuid({ error: 'Origem do lead inválida.' }).optional(),
+  createdFrom: z.iso.date({ error: 'Data inicial inválida.' }).optional(),
+  createdTo: z.iso.date({ error: 'Data final inválida.' }).optional(),
+};
+
+export const contactListQuerySchema = listQuerySchema({ sortable: CONTACT_SORT_FIELDS, filters: contactListFilters });
 export type ContactListQuery = z.output<typeof contactListQuerySchema>;
 
 export const contactPageSchema = listPageSchema(contactSchema);

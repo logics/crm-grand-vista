@@ -52,6 +52,12 @@ export async function fetchContacts(slug: string, query: ContactListQuery): Prom
       pageSize: String(query.pageSize),
       ...(query.q ? { q: query.q } : {}),
       ...(query.sort ? { sort: query.sort } : {}),
+      ...(query.role ? { role: query.role.join(',') } : {}),
+      ...(query.personType ? { personType: query.personType } : {}),
+      ...(query.classificationId ? { classificationId: query.classificationId } : {}),
+      ...(query.leadSourceId ? { leadSourceId: query.leadSourceId } : {}),
+      ...(query.createdFrom ? { createdFrom: query.createdFrom } : {}),
+      ...(query.createdTo ? { createdTo: query.createdTo } : {}),
     },
   });
   if (!response.ok) throw new Error(`Falha ao listar os contatos: HTTP ${response.status}.`);

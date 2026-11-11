@@ -5,6 +5,7 @@ import {
   TAX_ID_CNPJ_MESSAGE,
   TAX_ID_CPF_MESSAGE,
   abbreviateTaxId,
+  contactListQuerySchema,
   contactOptionSchema,
   createContactSchema,
   updateContactSchema,
@@ -149,5 +150,27 @@ describe('documento nos schemas de contato', () => {
   it('a edição confere o documento contra o tipo de pessoa enviado junto', () => {
     expect(updateContactSchema.safeParse({ personType: 'pj', taxId: '52998224725' }).success).toBe(false);
     expect(updateContactSchema.safeParse({ taxId: '52998224725' }).success).toBe(true);
+  });
+});
+
+describe('contactListQuerySchema', () => {
+  const parse = (query: Record<string, string>) => contactListQuerySchema.safeParse(query);
+
+  it('role entrega os papéis na ordem canônica, sem repetição', () => {
+    expect(parse({ role: 'owner,buyer,owner' }).data?.role).toEqual(['buyer', 'owner']);
+  });
+
+  it('papel desconhecido ou vazio recusa o parâmetro', () => {
+    expect(parse({ role: 'buyer,comprador' }).success).toBe(false);
+    expect(parse({ role: '' }).success).toBe(false);
+  });
+
+  it('aceita os demais filtros e recusa valor inválido', () => {
+    const id = '0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e6f';
+    expect(parse({ personType: 'pj', classificationId: id, leadSourceId: id, createdFrom: '2026-01-31', createdTo: '2026-02-28' }).success).toBe(true);
+    const invalid: Record<string, string>[] = [{ personType: 'xx' }, { classificationId: '1' }, { createdFrom: '31/01/2026' }, { createdTo: '2026-02-30' }];
+    for (const bad of invalid) {
+      expect(parse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
   });
 });

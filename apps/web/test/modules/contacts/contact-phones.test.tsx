@@ -66,11 +66,9 @@ describe('lista de contatos: telefone e atalhos', () => {
     const whatsapp = within(row).getByRole('link', { name: 'WhatsApp de Sebastião' });
     expect(whatsapp).toHaveAttribute('href', 'https://wa.me/351912345678');
     expect(whatsapp).toHaveAttribute('target', '_blank');
-    expect(within(row).getByRole('link', { name: 'Ligar para Sebastião' })).toHaveAttribute('href', 'tel:+5564999990000');
-    expect(within(row).getByRole('link', { name: 'Enviar e-mail para Sebastião' })).toHaveAttribute(
-      'href',
-      'mailto:sebastiao@exemplo.com',
-    );
+    // a lista só tem o atalho de WhatsApp (#128); ligar e e-mail ficam na ficha
+    expect(within(row).queryByRole('link', { name: 'Ligar para Sebastião' })).not.toBeInTheDocument();
+    expect(within(row).queryByRole('link', { name: 'Enviar e-mail para Sebastião' })).not.toBeInTheDocument();
 
     whatsapp.addEventListener('click', (event) => event.preventDefault());
     await user.click(whatsapp);
