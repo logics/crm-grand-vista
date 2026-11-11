@@ -83,10 +83,27 @@ Nota atribuída à fazenda na captação, indicando quão promissora ela é como
 _Avoid_: Classificação da oportunidade, classificação (quando o assunto é a fazenda em si)
 
 **Status comercial**:
-Situação da fazenda na carteira — disponível, em negociação, vendida, suspensa. Resume o conjunto de negociações da fazenda; uma fazenda "em negociação" pode ter várias oportunidades em etapas diferentes.
+Situação da fazenda na carteira — disponível, em negociação, vendida, suspensa, desativada. Resume o conjunto de negociações da fazenda; uma fazenda "em negociação" pode ter várias oportunidades em etapas diferentes.
+
+**Fazenda suspensa**:
+Fora do mercado temporariamente — o proprietário pediu um tempo —, mas ainda na carteira e esperada de volta.
+
+**Fazenda desativada**:
+Saiu da carteira: captação perdida, proprietário desistiu, cadastro errado. Some da listagem por padrão, mas continua consultável com o histórico intacto. É o único estado a partir do qual uma fazenda pode ser excluída.
+_Avoid_: confundir com **fazenda suspensa**; "arquivada", "inativa"
 
 **Prioridade**:
 Urgência com que a equipe deve trabalhar aquela captação.
+
+**Aptidão**:
+Vocação produtiva da fazenda — agricultura, pecuária, reflorestamento… Uma fazenda pode ter várias (a de dupla aptidão tem as duas), e uma demanda casa com ela quando a aptidão procurada está entre as da fazenda.
+_Avoid_: "dupla aptidão" como entrada do cadastro — são duas aptidões
+
+**Culturas da fazenda**:
+As culturas que a fazenda produz ou comporta, das mesmas entradas que o comprador marca como culturas de interesse. Distintas da **cultura de referência** da avaliação, que é só a unidade em que a avaliação em sacas é expressa.
+
+**Situação documental**:
+Resumo do estado da documentação do imóvel — regular, com pendências ou irregular —, com o detalhe em texto. Não substitui os checklists da due diligence, que aprofundam a documentação dentro de uma oportunidade.
 
 ### Oportunidade e funil
 
@@ -127,8 +144,12 @@ Contato com o papel de comprador. O escopo fala em "compradores e investidores";
 _Avoid_: investidor (como papel), lead
 
 **Proprietário**:
-Contato com o papel de proprietário: o dono de uma ou mais fazendas captadas.
+Contato com o papel de proprietário: o dono de uma ou mais fazendas captadas. Uma fazenda pode ter vários (herdeiros, irmãos, sócios) ou nenhum ainda identificado.
 _Avoid_: vendedor
+
+**Proprietário principal**:
+Entre os proprietários de uma fazenda, aquele com quem a corretora conversa — exatamente um sempre que a fazenda tem algum proprietário.
+_Avoid_: "responsável" para o proprietário — responsável é o corretor responsável
 
 **Documento do contato**:
 CPF para pessoa física, CNPJ (numérico ou alfanumérico) para pessoa jurídica. Opcional — muitos contatos ainda não o informaram, e o comprador estrangeiro não tem.
@@ -203,7 +224,7 @@ Valor em reais que o proprietário pede pela fazenda. É estático: só muda qua
 Precificação da fazenda em sacas por unidade de área (ex.: 7.000 sacas por alqueire), com cultura de referência. Diferente do preço pedido, é um valor **móvel** — o equivalente em reais muda junto com a cotação, sem ninguém tocar no cadastro. O histórico de alterações registra mudança na quantidade de sacas, não a variação diária da cotação.
 
 **Modo de precificação**:
-Qual das duas naturezas acima a fazenda usa — reais ou sacas. Determina o que é digitado e o que é calculado; o equivalente em reais de uma avaliação nunca é persistido.
+Qual das duas naturezas acima a fazenda usa — reais ou sacas. Determina o que é digitado e o que é calculado; o equivalente em reais de uma avaliação nunca é persistido. A fazenda pode não ter modo nenhum: captada antes de o proprietário dizer quanto quer, ela fica **sem preço** até alguém informar.
 
 **Praça**:
 Praça de comercialização que serve de referência para a cotação. Não existe cotação nacional única, então cultura + praça + data é o que identifica uma cotação. Cada praça atende uma lista de municípios, e a fazenda recebe como sugestão a praça que atende o seu município — sobrescrevível, porque a praça de comercialização nem sempre é a do município onde a fazenda está. A sugestão vale só no momento da escolha: depois de salva, a praça é dado da fazenda, e mudar os municípios que uma praça atende não reatribui fazendas existentes. Um município é atendido por no máximo uma praça da empresa.

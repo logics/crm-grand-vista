@@ -11,7 +11,7 @@ import { sql } from 'drizzle-orm';
 export interface RoleUsage {
   /** Nome da tabela no banco (`farms`). */
   table: string;
-  /** Coluna que aponta para o contato (`owner_contact_id`). */
+  /** Coluna que aponta para o contato (`contact_id`). */
   column: string;
   /** Rótulos da entidade que usa o contato: "fazenda" / "fazendas". */
   label: { singular: string; plural: string };
