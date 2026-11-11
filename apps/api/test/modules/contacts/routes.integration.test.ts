@@ -1,6 +1,7 @@
 // Contatos por HTTP, contra o Postgres real: cadastro mínimo, papéis, histórico,
 // acesso (base compartilhada, 403 antes do banco) e isolamento entre empresas.
-import { auditedWrites, contactClassifications, createDatabase, createPool, leadSources, userProfiles } from '@crm/db';
+import { auditedWrites, contactClassifications, contacts, createDatabase, createPool, leadSources, userProfiles } from '@crm/db';
+import { eq, inArray } from 'drizzle-orm';
 import { loadApiEnv } from '@crm/shared/env';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../../src/app.js';
@@ -331,6 +332,179 @@ describe('contatos', () => {
       await created({ personType: 'pf', name: 'Conceição Buscável', roles: ['buyer'] });
       const page = (await (await read('?q=conceicao%20buscavel')).json()) as { total: number };
       expect(page.total).toBe(1);
+    });
+
+    /** Marca única por teste: isola o que ele cadastrou do resto da empresa de teste. */
+    const mark = () => `L${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`;
+    const list = async (query: Record<string, string>) => {
+      const response = await read(`?${new URLSearchParams(query)}`);
+      expect(response.status).toBe(200);
+      return (await response.json()) as { items: ContactBody[]; total: number; page: number; pageSize: number };
+    };
+    const names = (page: { items: ContactBody[] }, tag: string) => page.items.map((item) => item.name.replace(`${tag} `, ''));
+
+    it('pagina com o total de todas as páginas', async () => {
+      const tag = mark();
+      for (let i = 0; i < 27; i++) await created({ personType: 'pf', name: `${tag} ${String(i).padStart(2, '0')}`, roles: ['buyer'] });
+
+      const first = await list({ q: tag, pageSize: '25' });
+      const second = await list({ q: tag, pageSize: '25', page: '2' });
+      const beyond = await list({ q: tag, pageSize: '25', page: '3' });
+
+      expect([first.items.length, second.items.length, beyond.items.length]).toEqual([25, 2, 0]);
+      expect([first.total, second.total, beyond.total]).toEqual([27, 27, 27]);
+      expect(second).toMatchObject({ page: 2, pageSize: 25 });
+    });
+
+    describe('busca', () => {
+      it('acha pela razão social e pelo e-mail, sem caixa nem acento', async () => {
+        const tag = mark();
+        await created({ personType: 'pj', name: `${tag} Fantasia`, legalName: 'Agropecuária São João Ltda', roles: ['owner'] });
+        await created({ personType: 'pf', name: `${tag} Com e-mail`, email: 'Contato.Rural@Exemplo.com.br', roles: ['buyer'] });
+
+        expect((await list({ q: 'agropecuaria sao joao' })).items.map((item) => item.name)).toContain(`${tag} Fantasia`);
+        expect((await list({ q: 'AGROPECUÁRIA' })).items.map((item) => item.name)).toContain(`${tag} Fantasia`);
+        expect((await list({ q: 'contato.rural@exemplo' })).items.map((item) => item.name)).toEqual([`${tag} Com e-mail`]);
+      });
+
+      it('acha pelo documento digitado com ou sem pontuação, inteiro ou em parte', async () => {
+        const tag = mark();
+        const cpf = await created({ personType: 'pf', name: `${tag} CPF`, taxId: '168.995.350-09', roles: ['buyer'] });
+        const cnpj = await created({ personType: 'pj', name: `${tag} CNPJ`, taxId: '34028316000103', roles: ['owner'] });
+
+        for (const q of ['168.995.350-09', '16899535009', '995.350', '99535']) {
+          expect((await list({ q })).items.map((item) => item.id), q).toEqual([cpf.id]);
+        }
+        for (const q of ['34.028.316/0001-03', '34028316000103', '028.316/0001']) {
+          expect((await list({ q })).items.map((item) => item.id), q).toEqual([cnpj.id]);
+        }
+      });
+
+      it('acha pelo telefone e pelo WhatsApp, digitados de qualquer jeito', async () => {
+        const digits = `64${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+        const phone = `+55${digits}`;
+        const tag = mark();
+        const withPhone = await created({ personType: 'pf', name: `${tag} Fone`, phone, roles: ['buyer'] });
+        const withWhatsapp = await created({ personType: 'pf', name: `${tag} Zap`, whatsapp: `+5511${digits.slice(2)}`, roles: ['buyer'] });
+
+        const typed = [`(${digits.slice(0, 2)}) ${digits.slice(2)}`, `${digits.slice(0, 2)}-${digits.slice(2)}`, `+55 ${digits.slice(0, 2)} ${digits.slice(2)}`, digits.slice(2)];
+        for (const q of typed) expect((await list({ q })).items.map((item) => item.id), q).toContain(withPhone.id);
+        expect((await list({ q: `(11) ${digits.slice(2)}` })).items.map((item) => item.id)).toEqual([withWhatsapp.id]);
+      });
+
+      it('texto com letras não vira busca por dígitos', async () => {
+        const tag = mark();
+        await created({ personType: 'pf', name: `${tag} Fazenda 2`, phone: '+5562999990002', roles: ['buyer'] });
+        await created({ personType: 'pf', name: `${tag} Outro`, phone: '+5562999990022', roles: ['buyer'] });
+
+        expect(names(await list({ q: `${tag} Fazenda 2` }), tag)).toEqual(['Fazenda 2']);
+      });
+
+      it('curingas do LIKE na busca valem como texto', async () => {
+        const tag = mark();
+        await created({ personType: 'pf', name: `${tag} Cem por cento 100%`, roles: ['buyer'] });
+        await created({ personType: 'pf', name: `${tag} Cem 1000`, roles: ['buyer'] });
+
+        expect(names(await list({ q: `${tag} Cem por cento 100%` }), tag)).toEqual(['Cem por cento 100%']);
+      });
+    });
+
+    describe('filtros', () => {
+      it('role é "qualquer um dos papéis escolhidos"', async () => {
+        const tag = mark();
+        await created({ personType: 'pf', name: `${tag} Comprador`, roles: ['buyer'] });
+        await created({ personType: 'pf', name: `${tag} Dono`, roles: ['owner'] });
+        await created({ personType: 'pf', name: `${tag} Corretor`, roles: ['external_broker'] });
+        await created({ personType: 'pf', name: `${tag} Dono comprador`, roles: ['buyer', 'owner'] });
+
+        expect(names(await list({ q: tag, role: 'owner' }), tag)).toEqual(['Dono', 'Dono comprador']);
+        const either = await list({ q: tag, role: 'buyer,external_broker' });
+        expect(names(either, tag)).toEqual(['Comprador', 'Corretor', 'Dono comprador']);
+        expect(either.total).toBe(3);
+        expect(either.items.find((item) => item.name.endsWith('Dono comprador'))?.roles).toEqual(['buyer', 'owner']);
+      });
+
+      it('personType, classificação e origem do lead', async () => {
+        const tag = mark();
+        await created({ personType: 'pf', name: `${tag} PF A`, roles: ['buyer'], classificationId: classA, leadSourceId: referral });
+        await created({ personType: 'pj', name: `${tag} PJ A`, roles: ['buyer'], classificationId: classA });
+        await created({ personType: 'pf', name: `${tag} PF sem`, roles: ['owner'], leadSourceId: referral });
+
+        expect(names(await list({ q: tag, personType: 'pj' }), tag)).toEqual(['PJ A']);
+        expect(names(await list({ q: tag, classificationId: classA }), tag)).toEqual(['PF A', 'PJ A']);
+        expect(names(await list({ q: tag, leadSourceId: referral }), tag)).toEqual(['PF A', 'PF sem']);
+        expect(names(await list({ q: tag, role: 'buyer', personType: 'pf', classificationId: classA, leadSourceId: referral }), tag)).toEqual(['PF A']);
+      });
+
+      it('intervalo de cadastro inclui o dia inicial e o final inteiros', async () => {
+        const tag = mark();
+        const stamps: Record<string, string> = {
+          antes: '2024-03-09T23:59:59-03:00',
+          inicio: '2024-03-10T00:00:00-03:00',
+          meio: '2024-03-12T12:00:00-03:00',
+          fim: '2024-03-14T23:59:59-03:00',
+          depois: '2024-03-15T00:00:00-03:00',
+        };
+        for (const [label, at] of Object.entries(stamps)) {
+          const contact = await created({ personType: 'pf', name: `${tag} ${label}`, roles: ['buyer'] });
+          await db.withTenant(tenant.id, (tx) =>
+            tx.update(contacts).set({ createdAt: new Date(at) }).where(eq(contacts.id, contact.id)),
+          );
+        }
+
+        const sorted = (page: { items: ContactBody[] }) => names(page, tag).sort();
+        expect(sorted(await list({ q: tag, createdFrom: '2024-03-10', createdTo: '2024-03-14' }))).toEqual(['fim', 'inicio', 'meio']);
+        expect(sorted(await list({ q: tag, createdFrom: '2024-03-12' }))).toEqual(['depois', 'fim', 'meio']);
+        expect(sorted(await list({ q: tag, createdTo: '2024-03-10' }))).toEqual(['antes', 'inicio']);
+      });
+
+      it('valores inválidos são 400', async () => {
+        for (const query of ['role=comprador', 'personType=xx', 'classificationId=1', 'leadSourceId=abc', 'createdFrom=ontem', 'createdTo=2024-13-40']) {
+          expect((await read(`?${query}`)).status, query).toBe(400);
+        }
+      });
+
+      it('classificação de outra empresa não acha nada', async () => {
+        const [foreign] = await db.withTenant(other.id, (tx) =>
+          tx.insert(contactClassifications).values({ tenantId: other.id, name: 'A' }).returning(),
+        );
+        expect((await list({ classificationId: foreign!.id })).total).toBe(0);
+      });
+    });
+
+    describe('ordenação', () => {
+      it('por nome, nos dois sentidos, e o padrão é por nome', async () => {
+        const tag = mark();
+        for (const name of ['Zélia', 'Beto', 'Ana', 'Álvaro']) await created({ personType: 'pf', name: `${tag} ${name}`, roles: ['buyer'] });
+
+        expect(names(await list({ q: tag }), tag)).toEqual(['Álvaro', 'Ana', 'Beto', 'Zélia']);
+        expect(names(await list({ q: tag, sort: 'name' }), tag)).toEqual(['Álvaro', 'Ana', 'Beto', 'Zélia']);
+        expect(names(await list({ q: tag, sort: '-name' }), tag)).toEqual(['Zélia', 'Beto', 'Ana', 'Álvaro']);
+      });
+
+      it('por data de cadastro, e o empate cai no id nos dois sentidos', async () => {
+        const tag = mark();
+        const at = new Date('2024-05-01T12:00:00Z');
+        const later = new Date('2024-05-02T12:00:00Z');
+        const made: ContactBody[] = [];
+        for (const name of ['c', 'a', 'b']) made.push(await created({ personType: 'pf', name: `${tag} ${name}`, roles: ['buyer'] }));
+        const newest = await created({ personType: 'pf', name: `${tag} novo`, roles: ['buyer'] });
+        await db.withTenant(tenant.id, async (tx) => {
+          await tx.update(contacts).set({ createdAt: at }).where(inArray(contacts.id, made.map((contact) => contact.id)));
+          await tx.update(contacts).set({ createdAt: later }).where(eq(contacts.id, newest.id));
+        });
+        const idsAsc = made.map((contact) => contact.id).sort();
+
+        const asc = await list({ q: tag, sort: 'createdAt' });
+        const desc = await list({ q: tag, sort: '-createdAt' });
+
+        expect(asc.items.map((item) => item.id)).toEqual([...idsAsc, newest.id]);
+        expect(desc.items.map((item) => item.id)).toEqual([newest.id, ...idsAsc]);
+      });
+
+      it('campo que não é ordenável é 400', async () => {
+        expect((await read('?sort=email')).status).toBe(400);
+      });
     });
   });
 

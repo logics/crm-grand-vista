@@ -43,8 +43,8 @@ interface FakeApiOptions {
 export type FakeResponse = () => Response | Promise<Response>;
 
 export interface FakeApi {
-  /** Requisições recebidas, na ordem: método, caminho e o `RequestInit`. */
-  requests: { method: string; path: string; init: RequestInit | undefined }[];
+  /** Requisições recebidas, na ordem: método, caminho, query string e o `RequestInit`. */
+  requests: { method: string; path: string; search?: string; init: RequestInit | undefined }[];
 }
 
 export function session(overrides: Partial<Session> = {}): Session {
@@ -83,7 +83,7 @@ export function stubFakeApi({
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input);
       const method = init?.method ?? 'GET';
-      api.requests.push({ method, path: url.pathname, init });
+      api.requests.push({ method, path: url.pathname, search: url.search, init });
 
       if (method === 'GET' && url.pathname === '/auth/session') {
         return current

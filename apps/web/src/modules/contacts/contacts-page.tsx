@@ -14,7 +14,9 @@ import { PageHeader } from '../../shell/page-header.js';
 import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { useTenantSlug } from '../../shell/tenant-query.js';
+import { ContactFilters } from './contact-filters.js';
 import { fetchContacts } from './contacts-api.js';
+import { useVocabularyName } from './vocabulary-name.js';
 
 const roleBadges = (contact: Contact) => (
   <span className="flex flex-wrap gap-2">
@@ -26,13 +28,27 @@ const roleBadges = (contact: Contact) => (
   </span>
 );
 
-const shortcuts = (contact: Contact) => (
-  <ContactShortcuts name={contact.name} phone={contact.phone} whatsapp={contact.whatsapp} email={contact.email} />
+// Na lista o atalho é o do WhatsApp; ligar e e-mail ficam na ficha.
+const whatsappShortcut = (contact: Contact) => <ContactShortcuts name={contact.name} whatsapp={contact.whatsapp} />;
+
+/** Nome do contato; em pessoa jurídica, a razão social aparece abaixo. */
+const nameWithLegalName = (contact: Contact) => (
+  <span className="flex flex-col">
+    <span>{contact.name}</span>
+    {contact.personType === 'pj' && contact.legalName && (
+      <span className="text-sm font-normal text-text-muted">{contact.legalName}</span>
+    )}
+  </span>
 );
+
+function ClassificationName({ contact }: { contact: Contact }) {
+  const name = useVocabularyName('contact-classifications', contact.classificationId);
+  return <>{name ?? '—'}</>;
+}
 
 const registeredAt = (contact: Contact) => new Date(contact.createdAt).toLocaleDateString('pt-BR');
 
-/** Lista de contatos: nome, papéis, telefone, data de cadastro e os atalhos de contato. */
+/** Lista de contatos: busca, filtros, nome, papéis, documento, telefone, classificação, data de cadastro e o atalho de WhatsApp. */
 export function ContactsPage() {
   const slug = useTenantSlug();
   const navigate = useNavigate();
@@ -58,7 +74,7 @@ export function ContactsPage() {
         onRowClick={open}
         searchPlaceholder="Buscar contato"
         columns={[
-          { key: 'name', label: FIELD_REGISTRY.contacts.fields.name.label, strong: true, sortable: true },
+          { key: 'name', label: FIELD_REGISTRY.contacts.fields.name.label, strong: true, sortable: true, render: nameWithLegalName },
           { key: 'roles', label: CONTACT_ROLES_LABEL, render: roleBadges },
           {
             key: 'taxId',
@@ -66,11 +82,16 @@ export function ContactsPage() {
             render: (contact) => abbreviateTaxId(contact.taxId) ?? '—',
           },
           { key: 'phone', label: FIELD_REGISTRY.contacts.fields.phone.label, render: (contact) => formatPhone(contact.phone) },
+          {
+            key: 'classification',
+            label: FIELD_REGISTRY.contacts.fields.classification_id.label,
+            render: (contact) => <ClassificationName contact={contact} />,
+          },
           { key: 'createdAt', label: 'Cadastrado em', sortable: true, render: registeredAt },
-          { key: 'shortcuts', label: 'Atalhos', render: shortcuts },
+          { key: 'whatsapp', label: 'WhatsApp', render: whatsappShortcut },
         ]}
         renderCard={(contact) => (
-          <Card title={contact.name} subtitle={roleBadges(contact)} action={shortcuts(contact)} interactive onClick={() => open(contact)}>
+          <Card title={contact.name} subtitle={roleBadges(contact)} action={whatsappShortcut(contact)} interactive onClick={() => open(contact)}>
             {contact.phone && <p className="text-sm text-text-body">{formatPhone(contact.phone)}</p>}
           </Card>
         )}
@@ -79,7 +100,9 @@ export function ContactsPage() {
           title: 'Nenhum contato cadastrado',
           description: 'Compradores, proprietários e corretores externos aparecem aqui.',
         }}
-      />
+      >
+        {(list) => <ContactFilters {...list} />}
+      </ListPage>
     </div>
   );
 }

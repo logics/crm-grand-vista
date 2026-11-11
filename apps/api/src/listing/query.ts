@@ -79,9 +79,12 @@ export async function paginatedQuery<TTable extends ListTable, TSortField extend
   tx: Transaction,
   list: ListDefinition<TTable, TSortField>,
   query: ListPageQuery<TSortField>,
-  options: { scope: SQL; filters?: readonly (SQL | undefined)[] },
+  options: { scope: SQL; filters?: readonly (SQL | undefined)[]; searchAlso?: readonly (SQL | undefined)[] },
 ): Promise<ListPage<InferSelectModel<TTable>>> {
-  const where = and(options.scope, searchClause(list, query.q), ...(options.filters ?? []));
+  // `searchAlso`: outras maneiras de a mesma busca `q` achar o registro (dígitos
+  // de telefone, documento normalizado…), somadas às colunas de `searchable`.
+  const search = or(searchClause(list, query.q), ...(options.searchAlso ?? []));
+  const where = and(options.scope, search, ...(options.filters ?? []));
 
   const items = (await tx
     .select()
