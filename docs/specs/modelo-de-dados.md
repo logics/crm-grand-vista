@@ -79,7 +79,7 @@ Forma comum: `name` text, `display_order` int NOT NULL DEFAULT 0, `active` boole
 | `aptitudes`, `crops`, `lead_sources`, `document_categories`, `trading_posts`, `payment_methods`, `contact_classifications`, `purchase_profiles` | 1 | Forma comum, sem significado de sistema, ordem alfabética |
 | `trading_post_municipalities` | 1 | `trading_post_id` → `trading_posts` ON DELETE CASCADE, `municipality_ibge_code` → `municipalities`. UNIQUE `(tenant_id, municipality_ibge_code)`: um município é atendido por no máximo uma praça da empresa. É de onde a fazenda recebe a **sugestão** de praça |
 | `activity_types` | 3 | Forma comum, ordem alfabética. Nasce com a agenda |
-| `commercial_statuses` | 1 | `system_meaning` NOT NULL CHECK `('available','negotiating','sold','suspended')`. Ordem manual |
+| `commercial_statuses` | 1 | `system_meaning` NOT NULL CHECK `('available','negotiating','sold','suspended','inactive')`. Ordem manual. `inactive` ("Desativada") entra com `fase-1-fazendas`: só fazenda desativada pode ser excluída |
 | `pipeline_stages` | 2 | `system_meaning` NOT NULL CHECK `('open','won','lost')`. Ordem manual. As 10 etapas do escopo entram semeadas |
 | `sale_statuses` | 2 | `system_meaning` NOT NULL CHECK `('in_progress','completed','cancelled')`. Ordem manual |
 
@@ -114,20 +114,22 @@ Modela "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda vei
 
 ### `farms`
 
-**Identificação e responsabilidade:** `name`, `municipality_ibge_code`, `owner_contact_id` **nulo** (proprietário é opcional — muitas vezes só é identificado depois), `responsible_user_id` (corretor responsável), `trading_post_id` (praça de referência: sugerida pela praça que atende o município — `trading_post_municipalities` — no momento da escolha, sobrescrevível, e nunca reatribuída quando a lista da praça muda).
+**Identificação e responsabilidade:** `name`, `municipality_ibge_code`, `responsible_user_id` (corretor responsável), `trading_post_id` nulo (praça de referência: sugerida pela praça que atende o município — `trading_post_municipalities` — no momento da escolha, sobrescrevível, e nunca reatribuída quando a lista da praça muda). Proprietários em `farm_owners` (zero ou mais — muitas vezes só são identificados depois).
 
-**Áreas:** `total_area_ha`, `usable_area_ha`. Sempre hectares.
+**Áreas:** `total_area_ha` NOT NULL, `usable_area_ha` nulo, ≤ total. Sempre hectares.
 
-**Técnico:** `aptitude_id`, `soil`, `topography`, `water`, `water_availability`, `irrigation_potential`, `distance_to_highway_km`, `distance_to_warehouse_km`, `historical_productivity`, `productive_potential`, `infrastructure`, `document_status`, `technical_summary`, `differentials`, `latitude`, `longitude`.
+**Técnico:** `soil`, `topography`, `water` (descrição), `historical_productivity`, `infrastructure`, `technical_summary`, `differentials` — texto livre; `water_availability`, `irrigation_potential`, `productive_potential` — nível; `distance_to_highway_km`, `distance_to_warehouse_km`; `document_status` CHECK `('regular','pending','irregular')` e `document_notes`; `latitude`, `longitude` (as duas ou nenhuma). Aptidões e culturas em junções (`farm_aptitudes`, `farm_crops`).
 
-**Comercial:** `commercial_status_id`, `sales_potential` CHECK `('high','medium','low')`, `priority` CHECK `('high','medium','low')`.
+**Comercial:** `commercial_status_id`, `sales_potential` e `priority` — nível.
 
-**Precificação**, com discriminador:
+**Nível** é um tipo único — `LEVELS = ('high','medium','low')` em `packages/shared` —, com o `CHECK` de cada coluna gerado a partir da constante.
 
-- `pricing_mode` NOT NULL CHECK `('brl','bags')`
+**Precificação**, com discriminador **opcional** — a fazenda pode ser captada sem preço:
+
+- `pricing_mode` **nulo** CHECK `('brl','bags')`; nulo = sem preço, e todos os campos abaixo nulos
 - modo `brl`: `asking_price`
 - modo `bags`: `valuation_bags` numeric(14,4), `valuation_bags_unit` CHECK `('per_hectare','per_alqueire')`, `valuation_bags_alqueire_type` CHECK `('goiano','paulista','norte')` — obrigatório quando a unidade é `per_alqueire`, nulo caso contrário: a avaliação congela o próprio tipo de alqueire, e trocar o padrão da empresa não a reinterpreta —, `valuation_crop_id`
-- `CHECK` garantindo que o conjunto do modo escolhido está preenchido
+- `CHECK` garantindo que o conjunto do modo escolhido está preenchido **e o do outro modo vazio**
 
 **Derivados, nunca colunas:** valor por hectare, valor por hectare útil, valor em sacas, faixa de valor, e o equivalente em reais de uma avaliação em sacas. Uma avaliação é valor **móvel** — muda todo dia com a cotação, sem ninguém tocar no cadastro —, então persistir o equivalente seria guardar um número que envelhece em silêncio. O histórico de alterações registra mudança na quantidade de sacas, não a variação diária da cotação.
 
@@ -135,6 +137,9 @@ Modela "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda vei
 
 | Tabela | Colunas distintivas |
 |---|---|
+| `farm_owners` | `farm_id` (CASCADE), `contact_id` (RESTRICT), `is_primary`. UNIQUE `(farm_id, contact_id)`; índice único parcial `(farm_id) WHERE is_primary` — com ao menos um proprietário, exatamente um é o **principal** |
+| `farm_crops` | `farm_id` (CASCADE), `crop_id`. UNIQUE `(farm_id, crop_id)` — mesmas `crops` de `buyer_crops`/`opportunity_crops`, para o matching casar por interseção |
+| `farm_aptitudes` | `farm_id` (CASCADE), `aptitude_id`. UNIQUE `(farm_id, aptitude_id)` — a demanda casa quando a aptidão procurada está entre as da fazenda |
 | `farm_galleries` | `farm_id`, `name`, `display_order`. Sem tipo: a galeria é identificada só pelo nome |
 | `farm_media` | `farm_id`, `gallery_id`, `kind` CHECK `('photo','video')`, `r2_key`, `filename`, `content_type`, `size_bytes`, `width`, `height`, `duration_seconds`, `display_order` |
 | `farm_documents` | `farm_id`, `document_category_id`, `r2_key`, `filename`, `content_type`, `size_bytes`, `notes` |

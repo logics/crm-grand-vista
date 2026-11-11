@@ -108,7 +108,7 @@ Além do bloqueio por documento, o formulário (completo e rápido) consulta, an
 
 ### Uso declarado — o ponto de extensão
 
-Um registro no módulo de contatos declara, por papel, onde ele está em uso: a tabela, a coluna que aponta para o contato, e os rótulos singular/plural da entidade ("fazenda"/"fazendas"). O serviço conta as linhas de cada declaração do papel retirado, dentro da transação do save. **Nesta spec o registro nasce vazio**: a primeira declaração é a de `fase-1-fazendas` (`owner` → `farms.owner_contact_id`); seguem `cadeia-de-indicacao` (`external_broker` → `referral_links.referrer_contact_id`), oportunidades (`buyer` → `opportunities.contact_id`) e comissão (`external_broker` → `commission_members.party_contact_id`). Declarar o uso é parte do critério de aceite de cada uma dessas specs.
+Um registro no módulo de contatos declara, por papel, onde ele está em uso: a tabela, a coluna que aponta para o contato, e os rótulos singular/plural da entidade ("fazenda"/"fazendas"). O serviço conta as linhas de cada declaração do papel retirado, dentro da transação do save. **Nesta spec o registro nasce vazio**: a primeira declaração é a de `fase-1-fazendas` (`owner` → `farm_owners.contact_id`); seguem `cadeia-de-indicacao` (`external_broker` → `referral_links.referrer_contact_id`), oportunidades (`buyer` → `opportunities.contact_id`) e comissão (`external_broker` → `commission_members.party_contact_id`). Declarar o uso é parte do critério de aceite de cada uma dessas specs.
 
 ### Acesso
 
