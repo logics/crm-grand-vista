@@ -74,6 +74,8 @@ export type EntityFormProps<TSchema extends FormSchema> = Omit<
   onCancel: () => void;
   /** Rótulo do envio, começando pelo verbo. */
   submitLabel?: string;
+  /** Avisa quando o formulário passa a ter (ou deixa de ter) alterações não salvas. */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 const colSpanClass = { 1: '', 2: 'col-span-2 max-mobile:col-span-1' } as const;
@@ -89,6 +91,7 @@ export function EntityForm<TSchema extends FormSchema>({
   onSubmit,
   onCancel,
   submitLabel = 'Salvar',
+  onDirtyChange,
   ...props
 }: EntityFormProps<TSchema>) {
   type Input = z.input<TSchema>;
@@ -110,6 +113,10 @@ export function EntityForm<TSchema extends FormSchema>({
   });
   const { isSubmitting, isDirty } = form.formState;
   const fieldNames = sections.flatMap((section) => section.fields.map((field) => field.name));
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   useEffect(() => {
     if (serverError?.focus) alertRef.current?.focus();
