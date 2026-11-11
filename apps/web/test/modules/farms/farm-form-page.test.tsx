@@ -1,0 +1,176 @@
+// @vitest-environment jsdom
+import '../../support/dom.js';
+import { screen, waitFor } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { session, stubFakeApi } from '../../support/fake-api.js';
+import { renderApp } from '../../support/render-app.js';
+
+const southPost = { id: '0197c000-0000-7000-8000-0000000000a1', name: 'Praça Sul', active: true };
+const northPost = { id: '0197c000-0000-7000-8000-0000000000a2', name: 'Praça Norte', active: true };
+const rioVerde = { ibgeCode: '5218805', name: 'Rio Verde', uf: 'GO', active: true };
+const me = session().user;
+
+const SUGGESTION = '/e/grand-vista/settings/trading-posts/suggestion';
+
+/** A API falsa de sempre, mais o que o formulário de fazenda consulta ao ser aberto. */
+function openForm({ scope }: { scope: 'own' | 'all' }) {
+  const api = stubFakeApi({
+    session: session(),
+    permissions: ['fazendas.ver', 'fazendas.criar'],
+    dataScopes: { fazendas: scope },
+    records: {
+      '/e/grand-vista/municipalities': { items: [rioVerde] },
+      '/e/grand-vista/settings/vocabularies/trading-posts/options': { items: [southPost, northPost] },
+      [SUGGESTION]: { tradingPost: { id: southPost.id, name: southPost.name } },
+      '/e/grand-vista/users': { users: [{ ...me, profiles: [] }] },
+      '/e/grand-vista/settings': { defaultAlqueireType: 'goiano', areaDisplayUnit: 'hectare' },
+    },
+  });
+  renderApp('/e/grand-vista/farms/new');
+  return api;
+}
+
+const suggestionRequests = (api: ReturnType<typeof openForm>) => api.requests.filter((request) => request.path === SUGGESTION);
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('formulário de fazenda: praça sugerida pelo município', () => {
+  it('escolher o município sugere a praça', async () => {
+    openForm({ scope: 'all' });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('combobox', { name: /Município/ }));
+    await user.click(await screen.findByRole('option', { name: /Rio Verde/ }));
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /Praça/ })).toHaveTextContent('Praça Sul'));
+  });
+
+  it('escolher a praça à mão e depois trocar o município não a sobrescreve', async () => {
+    const api = openForm({ scope: 'all' });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('combobox', { name: /Praça/ }));
+    await user.click(await screen.findByRole('option', { name: 'Praça Norte' }));
+    await user.click(await screen.findByRole('combobox', { name: /Município/ }));
+    await user.click(await screen.findByRole('option', { name: /Rio Verde/ }));
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /Município/ })).toHaveTextContent('Rio Verde'));
+    expect(screen.getByRole('combobox', { name: /Praça/ })).toHaveTextContent('Praça Norte');
+    expect(suggestionRequests(api)).toHaveLength(0);
+  });
+});
+
+describe('formulário de fazenda: corretor responsável', () => {
+  it('com escopo own, o campo vem travado no próprio usuário', async () => {
+    openForm({ scope: 'own' });
+
+    const field = await screen.findByRole('textbox', { name: /Corretor responsável/ });
+
+    expect(field).toHaveAttribute('readonly');
+    expect(field).toHaveValue(me.name);
+    expect(screen.queryByRole('combobox', { name: /Corretor responsável/ })).not.toBeInTheDocument();
+  });
+
+  it('com escopo all, o campo é um seletor de usuários da empresa', async () => {
+    openForm({ scope: 'all' });
+
+    expect(await screen.findByRole('combobox', { name: /Corretor responsável/ })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /Corretor responsável/ })).toHaveTextContent(me.name));
+  });
+});
+
+const farm = {
+  id: 'f1',
+  name: 'Fazenda Boa Vista',
+  municipality: { ibgeCode: rioVerde.ibgeCode, name: rioVerde.name, uf: rioVerde.uf },
+  responsible: { id: me.id, name: me.name },
+  tradingPost: null,
+  commercialStatus: { id: '0197c000-0000-7000-8000-0000000000c1', name: 'Disponível' },
+  totalAreaHa: '48.4000',
+  usableAreaHa: null,
+  createdAt: '2026-01-02T10:00:00.000Z',
+};
+
+/** Escritas de fazenda não são GET: o teste as intercepta e devolve a fazenda salva. */
+function openWithWrites(path: string, settings: { areaDisplayUnit: 'hectare' | 'alqueire' }) {
+  const writes: { method: string; path: string; body: unknown }[] = [];
+  const api = stubFakeApi({
+    session: session(),
+    permissions: ['fazendas.ver', 'fazendas.criar', 'fazendas.editar'],
+    dataScopes: { fazendas: 'all' },
+    records: {
+      '/e/grand-vista/farms/f1': farm,
+      '/e/grand-vista/municipalities': { items: [rioVerde] },
+      '/e/grand-vista/settings/vocabularies/trading-posts/options': { items: [southPost] },
+      '/e/grand-vista/users': { users: [{ ...me, profiles: [] }] },
+      '/e/grand-vista/settings': { defaultAlqueireType: 'goiano', ...settings },
+    },
+  });
+  const fallback = globalThis.fetch;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') {
+        writes.push({ method, path: new URL(input instanceof Request ? input.url : input).pathname, body: JSON.parse(String(init?.body)) });
+        return new Response(JSON.stringify(farm), { status: method === 'POST' ? 201 : 200, headers: { 'content-type': 'application/json' } });
+      }
+      return fallback(input, init);
+    }),
+  );
+  renderApp(path);
+  return { ...api, writes };
+}
+
+describe('formulário de fazenda: envio', () => {
+  it('cria com o mínimo: nome, município, corretor responsável (o logado) e área total', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: /Nome/ }), 'Fazenda Boa Vista');
+    await user.click(screen.getByRole('combobox', { name: /Município/ }));
+    await user.click(await screen.findByRole('option', { name: /Rio Verde/ }));
+    await user.type(screen.getByRole('textbox', { name: /Área total/ }), '1000');
+    await user.click(screen.getByRole('button', { name: 'Cadastrar fazenda' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]).toMatchObject({
+      method: 'POST',
+      path: '/e/grand-vista/farms',
+      body: { name: 'Fazenda Boa Vista', municipalityIbgeCode: rioVerde.ibgeCode, totalAreaHa: '1000', responsibleUserId: me.id },
+    });
+  });
+
+  it('editar sem tocar na área, exibida em alqueire, não envia a área', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'alqueire' });
+    const user = userEvent.setup();
+
+    const name = await screen.findByRole('textbox', { name: /Nome/ });
+    await user.clear(name);
+    await user.type(name, 'Boa Vista II');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]).toMatchObject({ method: 'PATCH', path: '/e/grand-vista/farms/f1', body: { name: 'Boa Vista II' } });
+    expect(api.writes[0]!.body).not.toHaveProperty('totalAreaHa');
+    expect(api.writes[0]!.body).not.toHaveProperty('usableAreaHa');
+  });
+
+  it('digitada em alqueire, a área é enviada em hectares', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'alqueire' });
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: /Nome/ }), 'Fazenda em Alqueire');
+    await user.click(screen.getByRole('combobox', { name: /Município/ }));
+    await user.click(await screen.findByRole('option', { name: /Rio Verde/ }));
+    await user.type(screen.getByRole('textbox', { name: /Área total/ }), '10');
+    await user.click(screen.getByRole('button', { name: 'Cadastrar fazenda' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    // 10 alqueires goianos = 48,4 hectares
+    expect(api.writes[0]!.body).toMatchObject({ totalAreaHa: '48.4' });
+  });
+});

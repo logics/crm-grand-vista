@@ -130,8 +130,47 @@ export type {
   PersonType,
 } from './contact.js';
 export { DEFAULT_COUNTRY_PREFIX, INVALID_PHONE_MESSAGE, caretAfterDigits, formatPhone, isBlankPhone, mailtoUrl, maskPhoneInput, normalizePhone, telUrl, whatsappUrl } from './phone.js';
-export { farmOptionSchema, formatAlqueires, formatHectares } from './farm.js';
-export type { FarmOption } from './farm.js';
+export {
+  DOCUMENT_STATUSES,
+  DOCUMENT_STATUS_LABELS,
+  FARM_NAME_MAX_LENGTH,
+  FARM_MUNICIPALITY_UNKNOWN_MESSAGE,
+  FARM_NO_DEFAULT_STATUS_MESSAGE,
+  FARM_NOT_FOUND_MESSAGE,
+  FARM_RESPONSIBLE_FORBIDDEN_MESSAGE,
+  FARM_RESPONSIBLE_UNKNOWN_MESSAGE,
+  FARM_SORT_FIELDS,
+  FARM_STATUS_UNKNOWN_MESSAGE,
+  FARM_TRADING_POST_UNKNOWN_MESSAGE,
+  FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE,
+  LEVELS,
+  LEVEL_LABELS,
+  PRICING_MODES,
+  PRICING_MODE_LABELS,
+  VALUATION_BAGS_UNITS,
+  VALUATION_BAGS_UNIT_LABELS,
+  createFarmSchema,
+  farmListQuerySchema,
+  farmOptionSchema,
+  farmPageSchema,
+  farmSchema,
+  formatAlqueires,
+  formatHectares,
+  levelSchema,
+  updateFarmSchema,
+  usableExceedsTotal,
+} from './farm.js';
+export type {
+  CreateFarmInput,
+  DocumentStatus,
+  Farm,
+  FarmListQuery,
+  FarmOption,
+  Level,
+  PricingMode,
+  UpdateFarmInput,
+  ValuationBagsUnit,
+} from './farm.js';
 export { describeCommissionIssue, splitCommission, validateCommission } from './commission.js';
 export type {
   CommissionGroup,

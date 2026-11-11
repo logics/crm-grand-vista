@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { farmOptionSchema, formatHectares } from '../src/farm.js';
+import { LEVELS, LEVEL_LABELS, createFarmSchema, farmOptionSchema, formatHectares, updateFarmSchema } from '../src/farm.js';
 
 describe('farmOptionSchema', () => {
   const farm = {
@@ -26,5 +26,42 @@ describe('formatHectares', () => {
     ['0.1234', '0,1234 ha'],
   ])('%s vira %s', (area, expected) => {
     expect(formatHectares(area)).toBe(expected);
+  });
+});
+
+describe('createFarmSchema', () => {
+  const base = { name: 'Boa Vista', municipalityIbgeCode: '5218805', totalAreaHa: '1000' };
+
+  it('aceita o mínimo e apara o nome', () => {
+    expect(createFarmSchema.parse({ ...base, name: '  Boa Vista  ' })).toEqual(base);
+  });
+
+  it.each([
+    ['sem nome', { name: '' }],
+    ['sem município', { municipalityIbgeCode: undefined }],
+    ['município fora do formato IBGE', { municipalityIbgeCode: '52' }],
+    ['sem área total', { totalAreaHa: undefined }],
+    ['área total zero', { totalAreaHa: '0' }],
+    ['área com mais de 4 casas', { totalAreaHa: '10.12345' }],
+    ['área útil maior que a total', { usableAreaHa: '1000.0001' }],
+  ])('recusa %s', (_label, overrides) => {
+    expect(createFarmSchema.safeParse({ ...base, ...overrides }).success).toBe(false);
+  });
+
+  it('aceita área útil igual à total', () => {
+    expect(createFarmSchema.safeParse({ ...base, usableAreaHa: '1000' }).success).toBe(true);
+  });
+});
+
+describe('updateFarmSchema', () => {
+  it('aceita só o que muda e confere o par de áreas enviado junto', () => {
+    expect(updateFarmSchema.safeParse({ name: 'Nova' }).success).toBe(true);
+    expect(updateFarmSchema.safeParse({ totalAreaHa: '10', usableAreaHa: '11' }).success).toBe(false);
+  });
+});
+
+describe('LEVELS', () => {
+  it('tem rótulo para cada nível', () => {
+    expect(LEVELS.map((level) => LEVEL_LABELS[level])).toEqual(['Alta', 'Média', 'Baixa']);
   });
 });

@@ -3,7 +3,7 @@ import { Card } from '@crm/ui';
 import type { ComponentType, ReactNode } from 'react';
 import { useCan } from '../shell/tenant-access.js';
 
-// Seções registráveis de uma ficha (contato hoje, fazenda depois). Cada seção
+// Seções registráveis de uma ficha (contato e fazenda). Cada seção
 // declara chave, título, ordem, a condição de exibição e o componente, que
 // recebe o registro. Uma spec acrescenta a sua seção registrando-a no módulo da
 // ficha, sem editar a página. Fica fora de `packages/ui` porque depende da

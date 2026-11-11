@@ -10,6 +10,7 @@ import {
   contactClassifications,
   contactRoles,
   contacts,
+  farms,
   commercialStatuses,
   crops,
   documentCategories,
@@ -99,13 +100,24 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(userProfiles).values({ tenantId, userId, profileId });
     await tx.insert(crops).values({ tenantId, name: 'Soja' });
     await tx.insert(tenantSettings).values({ tenantId });
-    await tx.insert(commercialStatuses).values({ tenantId, name: 'Exemplo', systemMeaning: 'available' });
+    const [status] = await tx
+      .insert(commercialStatuses)
+      .values({ tenantId, name: 'Exemplo', systemMeaning: 'available' })
+      .returning();
     const [post] = await tx.insert(tradingPosts).values({ tenantId, name: 'Exemplo' }).returning();
     await tx
       .insert(tradingPostMunicipalities)
       .values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
     const [contact] = await tx.insert(contacts).values({ tenantId, personType: 'pf', name: 'Exemplo' }).returning();
     await tx.insert(contactRoles).values({ tenantId, contactId: contact!.id, role: 'buyer' });
+    await tx.insert(farms).values({
+      tenantId,
+      name: 'Exemplo',
+      municipalityIbgeCode: '5218805',
+      responsibleUserId: userId,
+      commercialStatusId: status!.id,
+      totalAreaHa: '100',
+    });
     for (const table of [
       aptitudes,
       contactClassifications,
