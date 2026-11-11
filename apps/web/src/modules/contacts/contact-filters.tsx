@@ -1,4 +1,5 @@
 import {
+  CONTACT_ROLES_LABEL,
   CONTACT_ROLE_LABELS,
   CONTACT_ROLES,
   FIELD_REGISTRY,
@@ -48,7 +49,7 @@ export function ContactFilters({ query, update }: ListQueryState<typeof contactL
     <>
       <AsyncCombobox
         multiple
-        aria-label="Papel"
+        aria-label={CONTACT_ROLES_LABEL}
         size="sm"
         className="w-56"
         getKey={(option: RoleOption) => option.id}
@@ -64,7 +65,7 @@ export function ContactFilters({ query, update }: ListQueryState<typeof contactL
         value={query.personType ?? ANY}
         onValueChange={(value) => update({ personType: value === ANY ? undefined : (value as PersonType) })}
       >
-        <SelectTrigger aria-label="Tipo de pessoa" size="sm" className="w-40">
+        <SelectTrigger aria-label={fields.person_type.label} size="sm" className="w-40">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

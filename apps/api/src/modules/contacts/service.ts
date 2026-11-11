@@ -13,6 +13,7 @@ import {
   type Transaction,
 } from '@crm/db';
 import {
+  BUSINESS_TIME_ZONE,
   CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
   CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE,
   CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE,
@@ -88,10 +89,7 @@ export async function contactExists(tx: Transaction, id: string): Promise<boolea
   return row !== undefined;
 }
 
-/** O dia do filtro de cadastro é o dia do corretor (Brasília, sem horário de verão desde 2019), não o do servidor. */
-const BUSINESS_TIME_ZONE = 'America/Sao_Paulo';
-
-const registeredDay = sql`(${contacts.createdAt} at time zone ${sql.raw(`'${BUSINESS_TIME_ZONE}'`)})::date`;
+const registeredDay = sql`(${contacts.createdAt} at time zone ${BUSINESS_TIME_ZONE})::date`;
 
 /** Só dígitos e a pontuação de telefone: "(64) 99999-1234", "+55 64 99999 1234". Letra faz o termo ser texto ("Fazenda 2"). */
 const PHONE_TERM = /^[\d\s()+.\-/]+$/;

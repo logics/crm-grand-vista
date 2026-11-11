@@ -1,4 +1,5 @@
 import {
+  BUSINESS_TIME_ZONE,
   CONTACT_ROLES_LABEL,
   CONTACT_ROLE_LABELS,
   FIELD_REGISTRY,
@@ -46,7 +47,7 @@ function ClassificationName({ contact }: { contact: Contact }) {
   return <>{name ?? '—'}</>;
 }
 
-const registeredAt = (contact: Contact) => new Date(contact.createdAt).toLocaleDateString('pt-BR');
+const registeredAt = (contact: Contact) => new Date(contact.createdAt).toLocaleDateString('pt-BR', { timeZone: BUSINESS_TIME_ZONE });
 
 /** Lista de contatos: busca, filtros, nome, papéis, documento, telefone, classificação, data de cadastro e o atalho de WhatsApp. */
 export function ContactsPage() {

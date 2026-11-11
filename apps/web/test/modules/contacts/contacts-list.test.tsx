@@ -74,7 +74,7 @@ describe('lista de contatos: filtros pela URL', () => {
       sort: '-createdAt',
     });
     expect(screen.getByRole('searchbox')).toHaveValue('rio verde');
-    expect(await screen.findByRole('combobox', { name: 'Papel' })).toHaveTextContent(/Comprador.*Proprietário/s);
+    expect(await screen.findByRole('combobox', { name: 'Papéis' })).toHaveTextContent(/Comprador.*Proprietário/s);
     expect(screen.getByRole('combobox', { name: 'Tipo de pessoa' })).toHaveTextContent('PF');
     expect(await screen.findByRole('combobox', { name: /Classificação/ })).toHaveTextContent('A');
     expect(await screen.findByRole('combobox', { name: /Origem do lead/ })).toHaveTextContent('Indicação');
@@ -100,7 +100,7 @@ describe('lista de contatos: filtros pela URL', () => {
     const user = userEvent.setup();
     await screen.findByRole('table');
 
-    await user.click(screen.getByRole('combobox', { name: 'Papel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Papéis' }));
     await user.click(await screen.findByRole('option', { name: 'Comprador' }));
 
     await waitFor(() => expect(router.state.location.search).toBe('?role=buyer'));
@@ -147,6 +147,13 @@ describe('lista de contatos: colunas', () => {
     const row = within(await screen.findByRole('row', { name: /Fazenda Boa Vista/ }));
     expect(row.getByText('Boa Vista Agropecuária Ltda')).toBeInTheDocument();
     expect(row.getByText('34.028.316/0001-03')).toBeInTheDocument();
+  });
+
+  it('a data de cadastro é o dia de Brasília, o mesmo do filtro', async () => {
+    // 01:00 UTC do dia 2 ainda é noite do dia 1 em Brasília
+    open('', { items: [contact({ createdAt: '2026-01-02T01:00:00.000Z' })] });
+
+    expect(within(await screen.findByRole('row', { name: /Sebastião Prado/ })).getByText('01/01/2026')).toBeInTheDocument();
   });
 
   it('ordena por nome e por data de cadastro ao clicar no cabeçalho', async () => {
