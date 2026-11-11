@@ -10,7 +10,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MIGRATIONS_FOLDER } from '../src/migrate.js';
 
 const owner = new pg.Client({ connectionString: loadMigrationEnv().MIGRATION_DATABASE_URL });
-const seedSql = readFileSync(join(MIGRATIONS_FOLDER, '0019_contacts_seed.sql'), 'utf8');
+// A 0019 roda aqui sobre o schema final, em que a 0020 já renomeou a função de
+// normalização; o texto da migration fica como foi aplicada.
+const seedSql = readFileSync(join(MIGRATIONS_FOLDER, '0019_contacts_seed.sql'), 'utf8').replaceAll(
+  'normalize_vocabulary_name',
+  'normalize_text',
+);
 
 describe('migration da semente de contatos em empresa existente', () => {
   const tenantId = '0197c000-0000-7000-8000-000000000019';

@@ -6,6 +6,7 @@ import {
   contactClassifications,
   contactRoles,
   contacts,
+  normalizedText,
   diffRecords,
   leadSources,
   uuidv7,
@@ -310,8 +311,6 @@ export async function updateContact(
   return serialize(row, finalRoles);
 }
 
-/** Nome para comparar: sem caixa nem acento. */
-const foldedName = (column: SQL | typeof contacts.name) => sql`lower(unaccent(${column}))`;
 
 /**
  * Contatos que coincidem com o que está sendo cadastrado: telefone e WhatsApp
@@ -329,7 +328,7 @@ export async function findDuplicates(tx: Transaction, query: ContactDuplicatesQu
     phone: phone ? or(eq(contacts.phone, phone), eq(contacts.whatsapp, phone))! : null,
     whatsapp: whatsapp ? or(eq(contacts.phone, whatsapp), eq(contacts.whatsapp, whatsapp))! : null,
     email: email ? sql`lower(${contacts.email}) = ${email}` : null,
-    name: name ? sql`${foldedName(contacts.name)} = ${foldedName(sql`${name}`)}` : null,
+    name: name ? sql`${normalizedText(contacts.name)} = ${normalizedText(name)}` : null,
   };
   const reasons = (Object.keys(matchers) as DuplicateReason[]).filter((reason) => matchers[reason]);
   if (reasons.length === 0) return [];

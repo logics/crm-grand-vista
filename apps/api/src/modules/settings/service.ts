@@ -11,7 +11,7 @@ import {
   paymentMethods,
   purchaseProfiles,
   tradingPosts,
-  normalizedVocabularyName,
+  normalizedText,
   type AuditActor,
   type Transaction,
   type VocabularyTable,
@@ -164,7 +164,7 @@ export async function listOptions(
       and(
         query.includeInactive ? undefined : eq(table.active, true),
         query.q
-          ? sql`${normalizedVocabularyName(table.name)} like '%' || ${normalizedVocabularyName(escapeLike(query.q))} || '%'`
+          ? sql`${normalizedText(table.name)} like '%' || ${normalizedText(escapeLike(query.q))} || '%'`
           : undefined,
       ),
     )
@@ -183,7 +183,7 @@ async function findNameConflict(tx: Transaction, table: Table, name: string, exc
     .from(table)
     .where(
       and(
-        sql`${normalizedVocabularyName(table.name)} = ${normalizedVocabularyName(name)}`,
+        sql`${normalizedText(table.name)} = ${normalizedText(name)}`,
         exceptId ? ne(table.id, exceptId) : undefined,
       ),
     );

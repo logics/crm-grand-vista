@@ -1,6 +1,6 @@
 // Busca de municípios: dado de referência fora do RLS, lido na transação da
 // empresa ativa só para que a rota viva sob `/e/:tenant`.
-import { municipalities, type Transaction } from '@crm/db';
+import { municipalities, normalizedText, type Transaction } from '@crm/db';
 import { UF_NAMES, UFS, type Uf, type UfOption } from '@crm/shared';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { escapeLike } from '../../listing/query.js';
@@ -97,7 +97,7 @@ const findMatchingUfs = (term: string): UfOption[] => {
 export async function searchMunicipalities(tx: Transaction, search: MunicipalitySearch) {
   const { term, uf: ufFromText } = splitSearch(search.q, search.uf);
   const uf = search.uf ?? ufFromText;
-  const name = sql`unaccent(${municipalities.name})`;
+  const name = normalizedText(municipalities.name);
   const pattern = escapeLike(term);
 
   const rows = await tx
@@ -107,12 +107,12 @@ export async function searchMunicipalities(tx: Transaction, search: Municipality
       and(
         eq(municipalities.active, true),
         uf ? eq(municipalities.uf, uf) : undefined,
-        term ? sql`${name} ilike unaccent(${`%${pattern}%`})` : undefined,
+        term ? sql`${name} like ${normalizedText(`%${pattern}%`)}` : undefined,
       ),
     )
     .orderBy(
       // Constante inteira no ORDER BY seria posição de coluna: sem termo, nenhum grupo.
-      ...(term ? [sql`case when ${name} ilike unaccent(${`${pattern}%`}) then 0 else 1 end`] : []),
+      ...(term ? [sql`case when ${name} like ${normalizedText(`${pattern}%`)} then 0 else 1 end`] : []),
       sql`${municipalities.name} collate "pt-BR-x-icu"`,
       asc(municipalities.uf),
       asc(municipalities.ibgeCode),
