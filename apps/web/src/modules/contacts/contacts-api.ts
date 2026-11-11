@@ -1,4 +1,16 @@
-import type { Contact, ContactDuplicate, ContactDuplicatesQuery, ContactListQuery, CreateContactInput, ListPage, UpdateContactInput } from '@crm/shared';
+import {
+  contactOptionsPageSchema,
+  type Contact,
+  type ContactDuplicate,
+  type ContactDuplicatesQuery,
+  type ContactListQuery,
+  type ContactOption,
+  type ContactOptionsPage,
+  type ContactRole,
+  type CreateContactInput,
+  type ListPage,
+  type UpdateContactInput,
+} from '@crm/shared';
 import { FormSubmitError } from '@crm/ui';
 import { api } from '../../lib/api.js';
 import { ResourceNotFoundError } from '../../shell/tenant-query.js';
@@ -83,4 +95,34 @@ export async function fetchDuplicates(slug: string, query: ContactDuplicatesQuer
   const response = await api.e[':tenant'].contacts.duplicates.$get({ param: { tenant: slug }, query: params });
   if (!response.ok) throw new Error(`Falha ao consultar duplicatas: HTTP ${response.status}.`);
   return ((await response.json()) as { items: ContactDuplicate[] }).items;
+}
+
+type OptionSearchOptions = { signal: AbortSignal; cursor?: string; role?: ContactRole };
+
+async function readOptions(response: Response): Promise<ContactOptionsPage> {
+  if (!response.ok) throw new Error(`Falha ao buscar os contatos: HTTP ${response.status}.`);
+  return contactOptionsPageSchema.parse(await response.json());
+}
+
+/** Busca do `ContactPicker` em `GET /contacts/options`: o papel pedido ordena, não filtra. */
+export function searchContactOptions(slug: string) {
+  return async (term: string, { signal, cursor, role }: OptionSearchOptions): Promise<ContactOptionsPage> => {
+    const response = await api.e[':tenant'].contacts.options.$get(
+      {
+        param: { tenant: slug },
+        query: { ...(term ? { q: term } : {}), ...(cursor ? { cursor } : {}), ...(role ? { role } : {}) },
+      },
+      { init: { signal } },
+    );
+    return readOptions(response);
+  };
+}
+
+/** Hidrata os ids gravados; sem `contatos.ver`, a API devolve só id e nome. */
+export function resolveContactOptions(slug: string) {
+  return async (ids: string[]): Promise<ContactOption[]> => {
+    if (ids.length === 0) return [];
+    const response = await api.e[':tenant'].contacts.options.$get({ param: { tenant: slug }, query: { ids: ids.join(',') } });
+    return (await readOptions(response)).items;
+  };
 }

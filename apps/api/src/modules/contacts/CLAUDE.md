@@ -2,7 +2,7 @@
 
 Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumuláveis (comprador, proprietário, corretor externo).
 
-- **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente) e #129 (avisos de duplicata)
+- **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente), #129 (avisos de duplicata) e #130 (opções do seletor)
 - **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato)
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/history`, `src/listing`
 
@@ -18,4 +18,5 @@ Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumulávei
 - **Exclusão** apaga os papéis (auditados) e o contato; a FK `RESTRICT` das consumidoras vira 409 na rota (SQLSTATE 23001/23503), com o rótulo plural da declaração da tabela, senão o rótulo dos metadados de campo, senão o nome da tabela.
 - **`ensureContactRole(tx, actor, contactId, role)`**: garantir papel, idempotente e auditada, na transação de quem chama (devolve se acrescentou).
 - `GET /duplicates` (`contatos.ver`): coincidência por telefone/WhatsApp (cruzados), e-mail e nome sem caixa nem acento (`lower(unaccent())`), com os `reasons`; `excludeId` tira o próprio contato; telefone passa por `normalizePhone`. Registrada antes de `/:id`. É aviso, nunca bloqueio.
-- Ainda sem API: `custom_fields` e `/options` — das issues seguintes da spec.
+- `GET /options` (`options.ts`, declarada `noPermissionRequired` e checada na rota): `role` **ordena** (quem tem o papel, depois os demais, cada grupo por nome e `id`), não filtra; `q` busca em nome, razão social, e-mail, documento e telefone/WhatsApp pelos dígitos; cursor = deslocamento. `ids` hidrata qualquer vínculo; sem `contatos.ver` devolve só `id` e `name` (`personType` e `taxId` nulos, `roles` vazio) e a busca por termo é 403 antes do banco. Registrada antes de `/:id`.
+- Ainda sem API: `custom_fields` — de issue seguinte da spec.
