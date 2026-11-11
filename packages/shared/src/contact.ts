@@ -23,7 +23,8 @@ export const CONTACT_ROLE_LABELS: Record<ContactRole, string> = {
 export const contactOptionSchema = z.object({
   id: z.uuid(),
   name: z.string(),
-  personType: z.enum(PERSON_TYPES),
+  /** `null` na hidratação sem `contatos.ver`, que devolve só id e nome. */
+  personType: z.enum(PERSON_TYPES).nullable(),
   /** CPF ou CNPJ, só os dígitos ou formatado; muitos contatos ainda não o têm. */
   taxId: z.string().nullable(),
   roles: z.array(z.enum(CONTACT_ROLES)),
@@ -262,3 +263,29 @@ export const contactDuplicateSchema = z.object({
   reasons: z.array(z.enum(DUPLICATE_REASONS)),
 });
 export type ContactDuplicate = z.infer<typeof contactDuplicateSchema>;
+
+export const CONTACT_OPTIONS_PAGE_SIZE = 20;
+export const CONTACT_OPTIONS_MAX_PAGE_SIZE = 50;
+
+/**
+ * Parâmetros de `/options`: busca, paginação por cursor opaco, papel pedido e
+ * hidratação por ids (lista separada por vírgula). `role` ordena, não filtra.
+ */
+export const contactOptionsQuerySchema = z.object({
+  q: z.string().trim().max(CONTACT_NAME_MAX_LENGTH).optional(),
+  cursor: z.string().regex(/^\d{1,9}$/, 'Cursor inválido.').optional(),
+  limit: z.coerce.number().int().min(1).max(CONTACT_OPTIONS_MAX_PAGE_SIZE).default(CONTACT_OPTIONS_PAGE_SIZE),
+  role: z.enum(CONTACT_ROLES).optional(),
+  ids: z
+    .string()
+    .optional()
+    .transform((value) => (value ? value.split(',').filter((id) => id !== '') : []))
+    .pipe(z.array(z.uuid()).max(CONTACT_OPTIONS_MAX_PAGE_SIZE)),
+});
+export type ContactOptionsQuery = z.output<typeof contactOptionsQuerySchema>;
+
+export const contactOptionsPageSchema = z.object({
+  items: z.array(contactOptionSchema),
+  nextCursor: z.string().optional(),
+});
+export type ContactOptionsPage = z.infer<typeof contactOptionsPageSchema>;

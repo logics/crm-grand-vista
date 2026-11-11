@@ -5,14 +5,17 @@ import {
   TAX_ID_TAKEN_MESSAGE,
   contactDuplicatesQuerySchema,
   contactListQuerySchema,
+  contactOptionsQuerySchema,
+  FORBIDDEN_MESSAGE,
   createContactSchema,
   updateContactSchema,
 } from '@crm/shared';
 import { zValidator } from '@hono/zod-validator';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { requirePermission } from '../../authorization/route-access.js';
+import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
 import { createHistoryRoutes } from '../../history/routes.js';
+import { hydrateContactNames, listContactOptions } from './options.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import {
   RoleInUseError,
@@ -110,6 +113,20 @@ export function createContactsRoutes() {
       if (!result.ok) return result.response;
       return isRejection(result.value) ? c.json(invalid(result.value.rejected), 400) : c.json(result.value, 201);
     })
+    .get(
+      '/options',
+      // Hidratar por `ids` vale a qualquer vínculo; a busca exige `contatos.ver` (checado abaixo, antes do banco).
+      noPermissionRequired,
+      zValidator('query', contactOptionsQuerySchema),
+      async (c) => {
+        const query = c.req.valid('query');
+        if (c.var.access.permissions.has('contatos.ver')) {
+          return c.json(await c.var.withTenant((tx) => listContactOptions(tx, query)), 200);
+        }
+        if (query.ids.length === 0) return c.json({ error: { code: 'forbidden', message: FORBIDDEN_MESSAGE } }, 403);
+        return c.json(await c.var.withTenant((tx) => hydrateContactNames(tx, query.ids)), 200);
+      },
+    )
     .get('/duplicates', canView(), zValidator('query', contactDuplicatesQuerySchema), async (c) => {
       const query = c.req.valid('query');
       return c.json({ items: await c.var.withTenant((tx) => findDuplicates(tx, query)) }, 200);

@@ -50,10 +50,12 @@ const contacts: ContactOption[] = [
   },
 ];
 
-/** Busca simulada pelo nome; o papel filtra antes de paginar, como na API. */
+/** Busca simulada pelo nome; o papel ordena (quem o tem primeiro) e não filtra, como na API. */
 const searchContacts: ContactPickerSearch = (term, options) =>
   simulatedSearch(
-    contacts.filter((contact) => !options.role || contact.roles.includes(options.role)),
+    options.role
+      ? [...contacts].sort((a, b) => Number(b.roles.includes(options.role!)) - Number(a.roles.includes(options.role!)))
+      : contacts,
     (contact) => contact.name,
   )(term, options);
 
@@ -112,6 +114,11 @@ export const PorPapel: Story = {
       ))}
     </Stack>
   ),
+};
+
+export const ForaDoPapel: Story = {
+  name: 'Fora do papel',
+  args: { role: 'owner', label: 'Proprietário', defaultOpen: true },
 };
 
 export const CorretorExternoAberto: Story = {
