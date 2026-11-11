@@ -111,6 +111,39 @@ describe('ContactPicker', () => {
     expect(search).toHaveBeenLastCalledWith('car', expect.objectContaining({ role: 'external_broker' }));
   });
 
+  it('marca "vira <papel> ao salvar" na opção que não tem o papel pedido', async () => {
+    const user = setup();
+    const { search, calls } = contactSearch();
+    render(<Contact search={search} role="owner" />);
+    await open(user, 'Contato');
+    const comprador: ContactOption = { ...joao, id: '0199c1d2-7a4b-7c3e-9f10-000000000003', name: 'Maria Compradora', roles: ['buyer'] };
+    await answer(calls[0], { items: [agropecuaria, comprador] });
+
+    const [withRole, withoutRole] = screen.getAllByRole('option');
+    expect(withRole).not.toHaveTextContent('vira');
+    expect(withoutRole).toHaveTextContent('vira proprietário ao salvar');
+  });
+
+  it('sem papel pedido, nenhuma opção é marcada', async () => {
+    const user = setup();
+    const { search, calls } = contactSearch();
+    render(<Contact search={search} />);
+    await open(user, 'Contato');
+    await answer(calls[0], { items: [{ ...joao, roles: ['buyer'] }] });
+
+    expect(screen.getByRole('option')).not.toHaveTextContent('vira');
+  });
+
+  it('contato hidratado sem tipo de pessoa não mostra o selo PF/PJ', async () => {
+    const user = setup();
+    const { search, calls } = contactSearch();
+    render(<Contact search={search} />);
+    await open(user, 'Contato');
+    await answer(calls[0], { items: [{ ...joao, personType: null, taxId: null, roles: [] }] });
+
+    expect(screen.getByRole('option')).not.toHaveTextContent(/PF|PJ/);
+  });
+
   it('sem papel, a busca não recebe filtro', async () => {
     const user = setup();
     const { search } = contactSearch();
