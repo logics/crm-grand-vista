@@ -82,9 +82,10 @@ function stubContacts({
   return calls;
 }
 
-function Host({ initial = null }: { initial?: ContactOption | string | null }) {
+/** `onParentSubmit` simula o formulário da ficha que contém o campo: o diálogo não pode vazar o submit para ele. */
+function Host({ initial = null, onParentSubmit }: { initial?: ContactOption | string | null; onParentSubmit?: () => void }) {
   const [value, setValue] = useState<ContactOption | string | null>(initial);
-  return (
+  const content = (
     <>
       <Field label="Proprietário">
         <ContactField role="owner" value={value} onChange={setValue} />
@@ -92,10 +93,13 @@ function Host({ initial = null }: { initial?: ContactOption | string | null }) {
       <output data-testid="chosen">{typeof value === 'object' && value ? value.id : ''}</output>
     </>
   );
+  return onParentSubmit ? <form onSubmit={onParentSubmit}>{content}</form> : content;
 }
 
-const mount = (initial?: ContactOption | string | null) =>
-  renderApp('/e/grand-vista/field-host', { tenantPages: [{ path: 'field-host', element: <Host initial={initial} /> }] });
+const mount = (initial?: ContactOption | string | null, onParentSubmit?: () => void) =>
+  renderApp('/e/grand-vista/field-host', {
+    tenantPages: [{ path: 'field-host', element: <Host initial={initial} onParentSubmit={onParentSubmit} /> }],
+  });
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -157,6 +161,30 @@ describe('ContactField', () => {
     await waitFor(() => expect(calls.writes).toHaveLength(1));
     await waitFor(() => expect(screen.getByTestId('chosen')).toHaveTextContent(created.id));
     expect(calls.duplicates).toHaveLength(1);
+  });
+
+  it('o submit do diálogo não vaza para o formulário da ficha, nem ao cadastrar nem em "Salvar mesmo assim"', async () => {
+    const parentSubmit = vi.fn();
+    const calls = stubContacts({
+      items: [],
+      duplicates: [{ id: 'c9', name: 'Sebastião Antigo', roles: ['buyer'], reasons: ['name'] }],
+    });
+    mount(null, parentSubmit);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Proprietário' }));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastião Novo');
+    await screen.findByText('Nenhum resultado para “Sebastião Novo”');
+    await user.click(screen.getByRole('button', { name: 'Cadastrar contato' }));
+    const dialog = await screen.findByRole('dialog');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cadastrar contato' }));
+    await within(dialog).findByRole('link', { name: 'Sebastião Antigo' });
+    expect(parentSubmit).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar mesmo assim' }));
+    await waitFor(() => expect(calls.writes).toHaveLength(1));
+    await waitFor(() => expect(screen.getByTestId('chosen')).toHaveTextContent(created.id));
+    expect(parentSubmit).not.toHaveBeenCalled();
   });
 
   it('o 409 do documento aparece no campo com o link para o existente, sem fechar nem perder o digitado', async () => {

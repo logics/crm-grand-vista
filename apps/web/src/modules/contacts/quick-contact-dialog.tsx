@@ -130,7 +130,16 @@ function QuickContactForm({
         <DialogDescription>O contato novo volta selecionado. Os demais dados você completa depois, na ficha.</DialogDescription>
       </DialogHeader>
       <DialogBody>
-        <form id={FORM_ID} noValidate onSubmit={(event) => void form.handleSubmit(save)(event)} className="flex flex-col gap-6">
+        <form
+          id={FORM_ID}
+          noValidate
+          onSubmit={(event) => {
+            // O diálogo abre num portal, mas na árvore React é filho do ContactField: sem isto o submit sobe até o formulário da ficha.
+            event.stopPropagation();
+            void form.handleSubmit(save)(event);
+          }}
+          className="flex flex-col gap-6"
+        >
           {failure && (
             <p role="alert" className="rounded-input bg-status-danger-bg px-6 py-5 text-sm text-status-danger-fg">
               {failure}
