@@ -1,7 +1,16 @@
-import { FIELD_REGISTRY, compareDecimal, farmFormSchema, type Farm, type FarmOwnerInput, type MunicipalityOption, type UpdateFarmInput } from '@crm/shared';
+import {
+  FIELD_REGISTRY,
+  compareDecimal,
+  farmFormSchema,
+  type Farm,
+  type FarmDuplicate,
+  type FarmOwnerInput,
+  type MunicipalityOption,
+  type UpdateFarmInput,
+} from '@crm/shared';
 import { AreaInput, EntityForm, Input, MunicipalityPicker } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { z } from 'zod';
 import { useSession } from '../auth/session.js';
@@ -15,8 +24,9 @@ import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { useDataScope } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
+import { FarmDuplicateWarning } from './farm-duplicate-warning.js';
 import { FarmOwnersField } from './farm-owners-field.js';
-import { createFarm, fetchFarm, updateFarm } from './farms-api.js';
+import { createFarm, fetchFarm, fetchFarmDuplicates, updateFarm } from './farms-api.js';
 
 const FORM_ID = 'farm-form';
 
@@ -84,7 +94,23 @@ function FarmForm({ farm }: { farm: Farm | null }) {
     if (tradingPost && !tradingPostChosenByHand.current) setTradingPost.current(tradingPost.id);
   };
 
+  const [matches, setMatches] = useState<FarmDuplicate[]>([]);
+  const skipDuplicateCheck = useRef(false);
+
   const save = async (values: z.output<typeof farmFormSchema>) => {
+    const confirmed = skipDuplicateCheck.current;
+    skipDuplicateCheck.current = false;
+    if (!confirmed) {
+      // O aviso é conselho: se a consulta falha, o cadastro segue.
+      const found = await fetchFarmDuplicates(slug, {
+        name: values.name,
+        municipalityIbgeCode: values.municipalityIbgeCode,
+        ...(farm ? { excludeId: farm.id } : {}),
+      }).catch((): FarmDuplicate[] => []);
+      setMatches(found);
+      if (found.length > 0) return;
+    }
+    setMatches([]);
     let saved: Farm;
     if (farm) {
       const changes = changesOf(farm, values);
@@ -99,6 +125,13 @@ function FarmForm({ farm }: { farm: Farm | null }) {
   return (
     <div className="flex flex-col gap-gap-shell">
       <PageHeader title={farm ? 'Editar fazenda' : 'Nova fazenda'} />
+      <FarmDuplicateWarning
+        matches={matches}
+        form={FORM_ID}
+        onSaveAnyway={() => {
+          skipDuplicateCheck.current = true;
+        }}
+      />
       <EntityForm
         id={FORM_ID}
         schema={farmFormSchema}

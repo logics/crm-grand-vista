@@ -4,7 +4,9 @@
 import {
   FARM_NOT_FOUND_MESSAGE,
   FARM_OWNER_CONFLICT_MESSAGE,
-  createFarmSchema,   farmListQuerySchema,
+  createFarmSchema,
+  farmDuplicatesQuerySchema,
+  farmListQuerySchema,
   updateFarmSchema,
 } from '@crm/shared';
 import { zValidator } from '@hono/zod-validator';
@@ -18,6 +20,7 @@ import { declareRoleUsage } from '../contacts/role-usage.js';
 import {
   createFarm,
   farmVisible,
+  findFarmDuplicates,
   getFarm,
   isForbidden,
   isRejection,
@@ -79,6 +82,11 @@ export function createFarmsRoutes() {
       // Contato malformado, inexistente ou de outra empresa: lista vazia, sem revelar.
       if (!idSchema.safeParse(contactId).success) return c.json({ items: [], total: 0, page: query.page, pageSize: query.pageSize }, 200);
       return c.json(await c.var.withTenant((tx) => listFarmsOfOwner(tx, c.var.access, contactId, query)), 200);
+    })
+    // Antes de `/:id`, senão "duplicates" seria lido como id.
+    .get('/duplicates', canView(), zValidator('query', farmDuplicatesQuerySchema), async (c) => {
+      const query = c.req.valid('query');
+      return c.json({ items: await c.var.withTenant((tx) => findFarmDuplicates(tx, c.var.access, query)) }, 200);
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);

@@ -228,3 +228,30 @@ export const formatHectares = (area: string) => `${formatDecimal(area, AREA_FORM
 /** Área em hectares exibida em alqueires do tipo dado: `"48.4"` vira `"10 alq. goiano"`. */
 export const formatAlqueires = (hectares: string, type: AlqueireType) =>
   `${formatDecimal(hectaresToAlqueires(hectares, type), AREA_FORMAT)} ${ALQUEIRE_LABELS[type]}`;
+
+/** Por que uma fazenda é possível duplicata de outra. Vocabulário próprio de fazendas, separado do de contatos. */
+export const FARM_DUPLICATE_REASONS = ['name_municipality'] as const;
+export type FarmDuplicateReason = (typeof FARM_DUPLICATE_REASONS)[number];
+
+export const FARM_DUPLICATE_REASON_LABELS: Record<FarmDuplicateReason, string> = {
+  name_municipality: 'mesmo nome no mesmo município',
+};
+
+/**
+ * Consulta do aviso de duplicata. Nome ou município ausentes não casam com nada
+ * (lista vazia, nunca 400); o município não exige os 7 dígitos: código estranho só não acha nada.
+ */
+export const farmDuplicatesQuerySchema = z.object({
+  name: z.string().trim().optional(),
+  municipalityIbgeCode: z.string().trim().optional(),
+  excludeId: z.uuid().optional(),
+});
+export type FarmDuplicatesQuery = z.infer<typeof farmDuplicatesQuerySchema>;
+
+export const farmDuplicateSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  municipality: municipalityOptionSchema,
+  reasons: z.array(z.enum(FARM_DUPLICATE_REASONS)),
+});
+export type FarmDuplicate = z.infer<typeof farmDuplicateSchema>;

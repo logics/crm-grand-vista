@@ -9,6 +9,7 @@ import {
   farms,
   memberships,
   municipalities,
+  normalizedText,
   tradingPosts,
   users,
   type AuditActor,
@@ -29,11 +30,13 @@ import {
   type CreateFarmInput,
   type FarmOwnerInput,
   type Farm,
+  type FarmDuplicate,
+  type FarmDuplicatesQuery,
   type FarmListQuery,
   type ListPage,
   type UpdateFarmInput,
 } from '@crm/shared';
-import { and, asc, eq, exists, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, ne, sql, type SQL } from 'drizzle-orm';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
@@ -141,6 +144,43 @@ async function findRow(tx: Transaction, access: EffectiveAccess, id: string, loc
 }
 
 /** Se o leitor vê a fazenda (existe na empresa e está no escopo dele); é o `isVisible` do histórico. */
+const DUPLICATES_LIMIT = 20;
+
+/**
+ * Possíveis duplicatas: mesmo nome (sem caixa nem acento) no mesmo município,
+ * dentro do escopo de dados de quem consulta. Igualdade, não substring. Sem
+ * nome ou sem município não há o que comparar: lista vazia.
+ */
+export async function findFarmDuplicates(tx: Transaction, access: EffectiveAccess, query: FarmDuplicatesQuery): Promise<FarmDuplicate[]> {
+  const { name, municipalityIbgeCode, excludeId } = query;
+  if (!name || !municipalityIbgeCode) return [];
+  const rows = await tx
+    .select({ id: farms.id, name: farms.name })
+    .from(farms)
+    .where(
+      and(
+        sql`${normalizedText(farms.name)} = ${normalizedText(name)}`,
+        eq(farms.municipalityIbgeCode, municipalityIbgeCode),
+        scopeOf(access),
+        excludeId ? ne(farms.id, excludeId) : undefined,
+      ),
+    )
+    .orderBy(sql`${farms.name} collate "pt-BR-x-icu"`, farms.id)
+    .limit(DUPLICATES_LIMIT);
+  if (rows.length === 0) return [];
+  // Todas as linhas estão no mesmo município: uma consulta basta (a tabela é de referência, sem RLS).
+  const [municipality] = await tx
+    .select({ ibgeCode: municipalities.ibgeCode, name: municipalities.name, uf: municipalities.uf })
+    .from(municipalities)
+    .where(eq(municipalities.ibgeCode, municipalityIbgeCode));
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    municipality: municipality! as FarmDuplicate['municipality'],
+    reasons: ['name_municipality'],
+  }));
+}
+
 export async function farmVisible(tx: Transaction, access: EffectiveAccess, id: string): Promise<boolean> {
   const [row] = await tx.select({ id: farms.id }).from(farms).where(and(eq(farms.id, id), scopeOf(access)));
   return row !== undefined;
