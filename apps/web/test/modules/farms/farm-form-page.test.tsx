@@ -63,7 +63,36 @@ describe('formulário de fazenda: praça sugerida pelo município', () => {
   });
 });
 
+describe('formulário de fazenda: praça', () => {
+  it('o seletor lista as praças cadastradas da empresa', async () => {
+    openForm({ scope: 'all' });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('combobox', { name: /Praça/ }));
+
+    expect(await screen.findByRole('option', { name: 'Praça Sul' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Praça Norte' })).toBeInTheDocument();
+  });
+});
+
 describe('formulário de fazenda: corretor responsável', () => {
+  it('limpar o corretor não trava o seletor: dá para escolher de novo', async () => {
+    openForm({ scope: 'all' });
+    const user = userEvent.setup();
+
+    const field = await screen.findByRole('combobox', { name: /Corretor responsável/ });
+    await waitFor(() => expect(field).toHaveTextContent(me.name));
+    // escolher o próprio usuário já marcado o desmarca: o campo fica vazio
+    await user.click(field);
+    await user.click(await screen.findByRole('option', { name: new RegExp(me.name) }));
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /Corretor responsável/ })).not.toHaveTextContent('Carregando'));
+    await user.click(screen.getByRole('combobox', { name: /Corretor responsável/ }));
+    await user.click(await screen.findByRole('option', { name: new RegExp(me.name) }));
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /Corretor responsável/ })).toHaveTextContent(me.name));
+  });
+
   it('com escopo own, o campo vem travado no próprio usuário', async () => {
     openForm({ scope: 'own' });
 
@@ -172,5 +201,48 @@ describe('formulário de fazenda: envio', () => {
     await waitFor(() => expect(api.writes).toHaveLength(1));
     // 10 alqueires goianos = 48,4 hectares
     expect(api.writes[0]!.body).toMatchObject({ totalAreaHa: '48.4' });
+  });
+});
+
+describe('formulário de fazenda: validação', () => {
+  it('enviar vazio aponta os obrigatórios e não grava', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Cadastrar fazenda' }));
+
+    expect(await screen.findByText('Informe o nome.')).toBeInTheDocument();
+    expect(screen.getByText('Informe o município.')).toBeInTheDocument();
+    expect(screen.getByText('Informe a área total.')).toBeInTheDocument();
+    expect(api.writes).toHaveLength(0);
+  });
+
+  it('corretor responsável limpo é campo obrigatório', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    const field = await screen.findByRole('combobox', { name: /Corretor responsável/ });
+    await waitFor(() => expect(field).toHaveTextContent(me.name));
+    await user.click(field);
+    await user.click(await screen.findByRole('option', { name: new RegExp(me.name) }));
+    await user.click(screen.getByRole('button', { name: 'Cadastrar fazenda' }));
+
+    expect(await screen.findByText('Informe o corretor responsável.')).toBeInTheDocument();
+    expect(api.writes).toHaveLength(0);
+  });
+
+  it('área útil maior que a total é recusada', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: /Nome/ }), 'Fazenda Boa Vista');
+    await user.click(screen.getByRole('combobox', { name: /Município/ }));
+    await user.click(await screen.findByRole('option', { name: /Rio Verde/ }));
+    await user.type(screen.getByRole('textbox', { name: /Área total/ }), '100');
+    await user.type(screen.getByRole('textbox', { name: /Área útil/ }), '200');
+    await user.click(screen.getByRole('button', { name: 'Cadastrar fazenda' }));
+
+    expect(await screen.findByText('A área útil não pode ser maior que a área total.')).toBeInTheDocument();
+    expect(api.writes).toHaveLength(0);
   });
 });

@@ -1,4 +1,4 @@
-import { FIELD_REGISTRY, compareDecimal, createFarmSchema, type Farm, type MunicipalityOption, type UpdateFarmInput } from '@crm/shared';
+import { FIELD_REGISTRY, compareDecimal, farmFormSchema, type Farm, type MunicipalityOption, type UpdateFarmInput } from '@crm/shared';
 import { AreaInput, EntityForm, Input, MunicipalityPicker } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef } from 'react';
@@ -34,7 +34,7 @@ export function FarmFormPage() {
 }
 
 /** O que mudou em relação à fazenda salva: a área só vai se foi editada (sem deriva na ida e volta por alqueire). */
-function changesOf(farm: Farm, values: z.output<typeof createFarmSchema>): UpdateFarmInput {
+function changesOf(farm: Farm, values: z.output<typeof farmFormSchema>): UpdateFarmInput {
   const sameArea = (a: string | null | undefined, b: string | null | undefined) =>
     a == null || b == null ? (a ?? null) === (b ?? null) : compareDecimal(a, b) === 0;
   const changes: UpdateFarmInput = {};
@@ -74,7 +74,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
     if (tradingPost && !tradingPostChosenByHand.current) setTradingPost.current(tradingPost.id);
   };
 
-  const save = async (values: z.output<typeof createFarmSchema>) => {
+  const save = async (values: z.output<typeof farmFormSchema>) => {
     let saved: Farm;
     if (farm) {
       const changes = changesOf(farm, values);
@@ -91,7 +91,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
       <PageHeader title={farm ? 'Editar fazenda' : 'Nova fazenda'} />
       <EntityForm
         id={FORM_ID}
-        schema={createFarmSchema}
+        schema={farmFormSchema}
         defaultValues={{
           name: farm?.name ?? '',
           municipalityIbgeCode: farm?.municipality.ibgeCode ?? '',
@@ -164,7 +164,8 @@ function FarmForm({ farm }: { farm: Farm | null }) {
                   ) : (
                     <UserField
                       aria-label={fields.responsible_user_id.label}
-                      value={field.value ?? null}
+                      // '' (campo limpo) é vazio, não um ID a hidratar: senão o seletor trava em "Carregando…"
+                      value={field.value || null}
                       onChange={(user) => field.onChange(user?.id ?? '')}
                       onBlur={field.onBlur}
                     />

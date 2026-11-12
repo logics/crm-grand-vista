@@ -16,3 +16,7 @@ export const twoTenantUser = {
     { slug: 'fazendas-norte', name: 'Fazendas Norte', isDefault: false },
   ],
 } as const;
+
+/** Município e praça semeados na primeira empresa, para o formulário de fazenda. */
+export const RIO_VERDE_IBGE = '5218805';
+export const TRADING_POST_NAME = 'Praça Sudoeste';

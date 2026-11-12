@@ -58,13 +58,17 @@ export const FARM_RESPONSIBLE_FORBIDDEN_MESSAGE = 'Você só pode atribuir fazen
 export const FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE = 'A área útil não pode ser maior que a área total.';
 export const FARM_NO_DEFAULT_STATUS_MESSAGE = 'Cadastre um status comercial ativo com o significado "Disponível" antes de cadastrar fazendas.';
 
+const AREA_PATTERN = new RegExp(`^\\d{1,8}(\\.\\d{1,${AREA_SCALE}})?$`);
+
 /** Hectares como o `numeric(12,4)` aceita: decimal canônico, até 8 inteiros e 4 casas, maior que zero. */
 const areaSchema = (label: 'Área total' | 'Área útil') =>
   z
     .string({ error: `Informe a ${label.toLowerCase()}.` })
     .trim()
-    .regex(new RegExp(`^\\d{1,8}(\\.\\d{1,${AREA_SCALE}})?$`), `${label} inválida.`)
-    .refine((value) => compareDecimal(value, '0') > 0, `${label} deve ser maior que zero.`);
+    .min(1, `Informe a ${label.toLowerCase()}.`)
+    .regex(AREA_PATTERN, `${label} inválida.`)
+    // o `refine` roda mesmo com o formato recusado: texto fora do padrão não é comparável
+    .refine((value) => !AREA_PATTERN.test(value) || compareDecimal(value, '0') > 0, `${label} deve ser maior que zero.`);
 
 const farmNameSchema = z
   .string({ error: 'Informe o nome.' })
@@ -72,11 +76,15 @@ const farmNameSchema = z
   .min(1, 'Informe o nome.')
   .max(FARM_NAME_MAX_LENGTH, `O nome aceita até ${FARM_NAME_MAX_LENGTH} caracteres.`);
 
-const ibgeCodeSchema = z.string({ error: 'Informe o município.' }).regex(/^\d{7}$/, FARM_MUNICIPALITY_UNKNOWN_MESSAGE);
+const ibgeCodeSchema = z.string({ error: 'Informe o município.' }).min(1, 'Informe o município.').regex(/^\d{7}$/, FARM_MUNICIPALITY_UNKNOWN_MESSAGE);
 
 /** Área útil acima da total, quando as duas vêm juntas. */
 export const usableExceedsTotal = (totalAreaHa: string | undefined, usableAreaHa: string | null | undefined): boolean =>
-  totalAreaHa !== undefined && usableAreaHa != null && compareDecimal(usableAreaHa, totalAreaHa) > 0;
+  totalAreaHa !== undefined &&
+  usableAreaHa != null &&
+  AREA_PATTERN.test(totalAreaHa) &&
+  AREA_PATTERN.test(usableAreaHa) &&
+  compareDecimal(usableAreaHa, totalAreaHa) > 0;
 
 const checkAreas = (
   value: { totalAreaHa?: string | undefined; usableAreaHa?: string | null | undefined },
@@ -106,6 +114,24 @@ export const createFarmSchema = z
   .object({
     ...farmEditableShape,
     responsibleUserId: farmEditableShape.responsibleUserId.optional(),
+    tradingPostId: farmEditableShape.tradingPostId.optional(),
+    commercialStatusId: farmEditableShape.commercialStatusId.optional(),
+    usableAreaHa: farmEditableShape.usableAreaHa.optional(),
+  })
+  .superRefine(checkAreas);
+
+/**
+ * O mesmo mínimo, como o formulário o valida: lá o corretor responsável é
+ * sempre preenchido (padrão: o usuário logado) e limpar o campo é erro de
+ * campo obrigatório, não um envio sem ele.
+ */
+export const farmFormSchema = z
+  .object({
+    ...farmEditableShape,
+    responsibleUserId: z
+      .string({ error: 'Informe o corretor responsável.' })
+      .min(1, 'Informe o corretor responsável.')
+      .pipe(farmEditableShape.responsibleUserId),
     tradingPostId: farmEditableShape.tradingPostId.optional(),
     commercialStatusId: farmEditableShape.commercialStatusId.optional(),
     usableAreaHa: farmEditableShape.usableAreaHa.optional(),
