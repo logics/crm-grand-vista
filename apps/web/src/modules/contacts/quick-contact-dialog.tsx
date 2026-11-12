@@ -41,7 +41,7 @@ import { tenantPath } from '../../shell/tenant-path.js';
 import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantSlug } from '../../shell/tenant-query.js';
 import { TaxIdTakenError, createContact, fetchDuplicates } from './contacts-api.js';
-import { DuplicateWarning } from './duplicate-warning.js';
+import { ContactDuplicateWarning } from './contact-duplicate-warning.js';
 
 const FORM_ID = 'quick-contact-form';
 
@@ -145,7 +145,7 @@ function QuickContactForm({
               {failure}
             </p>
           )}
-          <DuplicateWarning
+          <ContactDuplicateWarning
             matches={matches}
             form={FORM_ID}
             onSaveAnyway={() => {
