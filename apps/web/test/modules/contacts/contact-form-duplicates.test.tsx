@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../../support/dom.js';
 import type { PermissionCode } from '@crm/shared';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { session, stubFakeApi } from '../../support/fake-api.js';
@@ -75,6 +75,7 @@ describe('aviso de duplicata no formulário de contato', () => {
     const link = await screen.findByRole('link', { name: 'Sebastião' });
     expect(link).toHaveAttribute('href', '/e/grand-vista/contacts/c9');
     expect(screen.getByText('mesmo telefone, mesmo WhatsApp')).toBeInTheDocument();
+    expect(within(link.closest('li')!).getByText('Comprador')).toBeInTheDocument();
     expect(calls.writes).toEqual([]);
     expect(calls.duplicates[0]!.searchParams.get('phone')).toBe('+5564999990000');
     expect(calls.duplicates[0]!.searchParams.get('name')).toBe('Maria Souza');

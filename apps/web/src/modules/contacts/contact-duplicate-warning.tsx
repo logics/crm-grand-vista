@@ -1,4 +1,4 @@
-import { DUPLICATE_REASON_LABELS, type ContactDuplicate } from '@crm/shared';
+import { CONTACT_ROLE_LABELS, DUPLICATE_REASON_LABELS, type ContactDuplicate } from '@crm/shared';
 import { DuplicateWarning, type DuplicateWarningLink } from '@crm/ui';
 import { Link } from 'react-router';
 import { tenantPath } from '../../shell/tenant-path.js';
@@ -32,6 +32,7 @@ export function ContactDuplicateWarning({ matches, ...rest }: ContactDuplicateWa
         label: match.name,
         reasons: match.reasons.map((reason) => DUPLICATE_REASON_LABELS[reason]),
         href: tenantPath(slug, `contacts/${match.id}`),
+        detail: match.roles.map((role) => CONTACT_ROLE_LABELS[role]).join(', '),
       }))}
     />
   );
