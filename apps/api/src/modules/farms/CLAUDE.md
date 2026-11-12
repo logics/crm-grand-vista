@@ -8,7 +8,8 @@ Fazendas da empresa ativa: o imóvel captado. Cadastro mínimo (#145) e ficha t�
 
 ## Convenções locais
 
-- Rotas sob `/e/:tenant/farms`: `GET /`, `POST /`, `GET|PATCH /:id`, `GET /:id/history`. `fazendas.ver|criar|editar` recusam com 403 antes do banco. Ainda sem `DELETE`, `/options`, `/duplicates`, `q` e filtros.
+- Rotas sob `/e/:tenant/farms`: `GET /`, `POST /`, `GET /duplicates`, `GET|PATCH /:id`, `GET /:id/history`. `fazendas.ver|criar|editar` recusam com 403 antes do banco. Ainda sem `DELETE`, `/options`, `q` e filtros.
+- `GET /duplicates?name&municipalityIbgeCode&excludeId` (`fazendas.ver`): mesmo nome sem caixa nem acento (`normalize_text`) **e** mesmo município, por igualdade; motivo único `name_municipality`. Respeita o escopo de dados (`own` não descobre fazenda alheia) e o RLS; qualquer status entra. Sem nome ou sem município devolve `items: []`; `excludeId` não uuid é 400. Registrada **antes** de `/:id`, senão "duplicates" seria lido como id. Máximo de 20, sem índice novo.
 - **Escopo de dados** (`dataScopeClause(access, 'fazendas', farms.responsibleUserId)`) em lista, `total`, detalhe, histórico e `PATCH`: fora dele é 404, nunca 403. O 403 é só para quem tem escopo `own` e tenta atribuir a fazenda a outro corretor, e só depois de a fazenda ter sido encontrada no escopo (não revela fazenda alheia).
 - Corretor responsável: padrão o usuário logado; precisa de vínculo na empresa (`memberships`, fora do RLS) — senão 400.
 - Referências (município, praça, status, corretor) são conferidas pelo serviço antes de gravar (a FK não passa pelo RLS): inexistente ou de outra empresa é 400 no campo. As que **mudam** têm de apontar para entrada ativa; a que já estava gravada e ficou inativa continua valendo ao salvar sem tocá-la.

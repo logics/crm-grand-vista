@@ -15,3 +15,4 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comer
 - No `PATCH` só vai o que mudou: aptidões e culturas só se o **conjunto** mudou (comparado ordenado); latitude e longitude sempre em par; distância e coordenada aceitam vírgula (viram ponto).
 - Adota `useUnsavedChangesGuard`: `guard.release()` antes do `navigate` no save e no cancelar (o `EntityForm` já confirmou o descarte), `{guard.dialog}` no JSX.
 - A ficha (aba Dados) mostra os mesmos blocos, na mesma ordem.
+- Aviso de duplicata: `save` consulta `fetchFarmDuplicates` (nome + município; `excludeId` na edição) antes de gravar e mostra `FarmDuplicateWarning` (sobre o `DuplicateWarning` do DS) sem remontar o formulário. "Salvar mesmo assim" pula a consulta uma vez; consulta que falha não barra o cadastro.
