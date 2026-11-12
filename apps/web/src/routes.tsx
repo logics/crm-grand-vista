@@ -6,6 +6,9 @@ import { RequireSession, useAuthenticatedSession } from './modules/auth/require-
 import { ContactFormPage } from './modules/contacts/contact-form-page.js';
 import { ContactPage } from './modules/contacts/contact-page.js';
 import { ContactsPage } from './modules/contacts/contacts-page.js';
+import { FarmFormPage } from './modules/farms/farm-form-page.js';
+import { FarmPage } from './modules/farms/farm-page.js';
+import { FarmsPage } from './modules/farms/farms-page.js';
 import { ParametersPage } from './modules/settings/parameters-page.js';
 import { SettingsLayout } from './modules/settings/settings-layout.js';
 import { VocabularyPage } from './modules/settings/vocabulary-page.js';
@@ -43,6 +46,10 @@ export const routes: RouteObject[] = [
               { path: 'contacts/new', element: <ContactFormPage /> },
               { path: 'contacts/:id', element: <ContactPage /> },
               { path: 'contacts/:id/edit', element: <ContactFormPage /> },
+              { path: 'farms', element: <FarmsPage /> },
+              { path: 'farms/new', element: <FarmFormPage /> },
+              { path: 'farms/:id', element: <FarmPage /> },
+              { path: 'farms/:id/edit', element: <FarmFormPage /> },
               {
                 path: 'settings',
                 element: <SettingsLayout />,

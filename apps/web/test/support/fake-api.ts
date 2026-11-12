@@ -5,7 +5,9 @@
 // contratos de `@crm/shared`.
 import {
   INVALID_CREDENTIALS_MESSAGE,
+  type DataScope,
   type PermissionCode,
+  type PermissionModule,
   TENANT_BLOCKED_MESSAGE,
   TENANT_NOT_FOUND_MESSAGE,
   type LoginInput,
@@ -30,6 +32,8 @@ interface FakeApiOptions {
   extraTenants?: string[];
   /** Permissões efetivas do usuário em toda empresa em que entra. */
   permissions?: PermissionCode[];
+  /** Escopo de dados por módulo; o que não consta vale `own`. */
+  dataScopes?: Partial<Record<PermissionModule, DataScope>>;
   /**
    * Registros de empresa por caminho (`/e/norte/farms/1`), ou por caminho e
    * query quando ela importa (`/e/norte/users/1/history?cursor=c2`): GET
@@ -73,6 +77,7 @@ export function stubFakeApi({
   logoutFails = false,
   extraTenants = [],
   permissions = [],
+  dataScopes = {},
   records = {},
 }: FakeApiOptions = {}): FakeApi {
   let current = initial;
@@ -113,7 +118,7 @@ export function stubFakeApi({
           return json({ error: { code: 'tenant_not_found', message: TENANT_NOT_FOUND_MESSAGE } }, 404);
         }
         if (linked?.blocked) return json({ error: { code: 'tenant_blocked', message: TENANT_BLOCKED_MESSAGE } }, 403);
-        if (tenantPath[2] === '/permissions/effective') return json({ permissions, dataScopes: {} });
+        if (tenantPath[2] === '/permissions/effective') return json({ permissions, dataScopes });
         const key = [url.pathname + url.search, url.pathname].find((candidate) => candidate in records);
         if (key !== undefined) {
           const record = records[key];

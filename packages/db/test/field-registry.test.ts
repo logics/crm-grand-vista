@@ -30,19 +30,19 @@ describe('cobertura dos metadados de campo', () => {
   });
 
   it('falha com coluna sem metadado', () => {
-    const farms = pgTable('farms', { id: id(), name: text('name'), waterAvailability: text('water_availability') });
+    const silos = pgTable('silos', { id: id(), name: text('name'), waterAvailability: text('water_availability') });
     const gaps = findFieldCoverageGaps({
       ...realInput,
-      schema: { ...schema, farms },
-      registry: { ...FIELD_REGISTRY, farms: { fields: { id: {}, name: {} } } },
+      schema: { ...schema, silos },
+      registry: { ...FIELD_REGISTRY, silos: { fields: { id: {}, name: {} } } },
     });
-    expect(gaps).toEqual(['farms.water_availability: sem metadado (coluna que não aparece é declarada como HIDDEN)']);
+    expect(gaps).toEqual(['silos.water_availability: sem metadado (coluna que não aparece é declarada como HIDDEN)']);
   });
 
   it('falha com tabela fora das exclusões e sem registro', () => {
-    const farms = pgTable('farms', { id: id(), ...timestamps });
-    expect(findFieldCoverageGaps({ ...realInput, schema: { ...schema, farms } })).toEqual([
-      'farms: sem registro de metadados de campo',
+    const silos = pgTable('silos', { id: id(), ...timestamps });
+    expect(findFieldCoverageGaps({ ...realInput, schema: { ...schema, silos } })).toEqual([
+      'silos: sem registro de metadados de campo',
     ]);
   });
 
@@ -52,10 +52,10 @@ describe('cobertura dos metadados de campo', () => {
       registry: {
         ...FIELD_REGISTRY,
         users: { fields: { ...FIELD_REGISTRY.users.fields, nickname: {} } },
-        farms: { fields: {} },
+        silos: { fields: {} },
       },
     });
-    expect(gaps).toEqual(['users.nickname: metadado de coluna que não existe', 'farms: registrada, mas não existe no schema']);
+    expect(gaps).toEqual(['users.nickname: metadado de coluna que não existe', 'silos: registrada, mas não existe no schema']);
   });
 
   it('a lista de exclusões não guarda tabela que deixou de existir nem tabela registrada', () => {

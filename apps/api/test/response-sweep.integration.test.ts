@@ -2,7 +2,7 @@
 // de usuário, e nenhuma resposta pode trazer a flag de super admin — nem no
 // corpo, nem nos cabeçalhos. A lista de rotas vem do próprio app, não deste
 // arquivo: rota nova sem amostra aqui falha a suíte.
-import { contacts, createDatabase, createPool, crops } from '@crm/db';
+import { commercialStatuses, contacts, createDatabase, createPool, crops, farms } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
@@ -44,6 +44,9 @@ const FLAG_PROBE = { is_super_admin: true, isSuperAdmin: true };
  * registra. Rota nova entra aqui com um corpo que a faça responder 2xx. As
  * rotas de empresa usam o slug da empresa da varredura.
  */
+/** Fazenda e o status comercial da empresa da varredura. */
+const sweepFarm = { id: '', status: '' };
+
 const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'GET /health': () => ({ path: '/health' }),
   'POST /auth/login': ({ credentials }) => ({
@@ -107,9 +110,22 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
     path: `/e/${tenantSlug}/settings/vocabularies/crops/${sweepCrops.delete}`,
   }),
   'PUT /e/:tenant/settings/vocabularies/:vocabulary/order': (_actor, tenantSlug) => ({
-    // A empresa da varredura não tem status comercial: a lista vazia é a completa.
+    // A empresa da varredura tem um só status comercial (o das fazendas): a lista dele é a completa.
     path: `/e/${tenantSlug}/settings/vocabularies/commercial-statuses/order`,
-    body: { ids: [], ...FLAG_PROBE },
+    body: { ids: [sweepFarm.status], ...FLAG_PROBE },
+  }),
+  'GET /e/:tenant/farms': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/farms` }),
+  'POST /e/:tenant/farms': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/farms`,
+    body: { name: 'Fazenda da varredura', municipalityIbgeCode: '5218805', totalAreaHa: '100', ...FLAG_PROBE },
+  }),
+  'GET /e/:tenant/farms/:id': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/farms/${sweepFarm.id}` }),
+  'PATCH /e/:tenant/farms/:id': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/farms/${sweepFarm.id}`,
+    body: { name: 'Fazenda da varredura (editada)', ...FLAG_PROBE },
+  }),
+  'GET /e/:tenant/farms/:id/history': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/farms/${sweepFarm.id}/history`,
   }),
   'GET /e/:tenant/users': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/users` }),
   'PATCH /e/:tenant/users/:id': ({ credentials }, tenantSlug) => ({
@@ -169,6 +185,23 @@ describe('varredura das respostas da API', () => {
         .returning({ id: contacts.id });
       sweepContact.id = sweptContacts[0]!.id;
       sweepContact.delete = sweptContacts[1]!.id;
+      const [status] = await tx
+        .insert(commercialStatuses)
+        .values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available' })
+        .returning({ id: commercialStatuses.id });
+      sweepFarm.status = status!.id;
+      const [farm] = await tx
+        .insert(farms)
+        .values({
+          tenantId: tenant.id,
+          name: 'Fazenda da varredura',
+          municipalityIbgeCode: '5218805',
+          responsibleUserId: commonUser.id,
+          commercialStatusId: status!.id,
+          totalAreaHa: '100',
+        })
+        .returning({ id: farms.id });
+      sweepFarm.id = farm!.id;
     });
 
     for (const user of [commonUser, superAdmin]) {
