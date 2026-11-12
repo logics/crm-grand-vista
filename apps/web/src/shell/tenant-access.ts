@@ -2,7 +2,7 @@
 // lista de empresas da sessão — o super admin entra numa empresa sem vínculo.
 // A mesma resposta traz as permissões efetivas, que a casca usa para esconder
 // item de menu e botão que levariam a 403.
-import type { PermissionCode } from '@crm/shared';
+import type { DataScope, PermissionCode, PermissionModule } from '@crm/shared';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { tenantQueryKey, useTenantSlug } from './tenant-query.js';
@@ -10,8 +10,10 @@ import { tenantQueryKey, useTenantSlug } from './tenant-query.js';
 /** `not_found`: slug inexistente ou sem vínculo, indistinguíveis. `blocked`: tem vínculo, mas a empresa está bloqueada. */
 export type TenantRefusal = 'not_found' | 'blocked';
 
-/** `open`: entra, com as permissões efetivas na empresa. */
-export type TenantAccess = { status: 'open'; permissions: ReadonlySet<PermissionCode> } | { status: TenantRefusal };
+/** `open`: entra, com as permissões e o escopo de dados por módulo efetivos na empresa. */
+export type TenantAccess =
+  | { status: 'open'; permissions: ReadonlySet<PermissionCode>; dataScopes: Partial<Record<PermissionModule, DataScope>> }
+  | { status: TenantRefusal };
 
 async function errorCode(response: Response): Promise<unknown> {
   const body: unknown = await response.json().catch(() => null);
@@ -30,8 +32,8 @@ export function useTenantAccess(slug: string) {
       if (status === 404) return { status: 'not_found' };
       if (status === 403 && (await errorCode(response)) === 'tenant_blocked') return { status: 'blocked' };
       if (!response.ok) throw new Error(`Falha ao entrar na empresa: HTTP ${status}.`);
-      const { permissions } = await response.json();
-      return { status: 'open', permissions: new Set(permissions) };
+      const { permissions, dataScopes } = await response.json();
+      return { status: 'open', permissions: new Set(permissions), dataScopes };
     },
   });
 }
@@ -49,4 +51,13 @@ export const canIn =
  */
 export function useCan(permission: PermissionCode): boolean {
   return canIn(useTenantAccess(useTenantSlug()).data)(permission);
+}
+
+/**
+ * O escopo de dados do usuário num módulo. Módulo sem escopo declarado vale
+ * `own`, como na API: na dúvida, o mais restrito.
+ */
+export function useDataScope(module: PermissionModule): DataScope {
+  const access = useTenantAccess(useTenantSlug()).data;
+  return (access?.status === 'open' && access.dataScopes[module]) || 'own';
 }
