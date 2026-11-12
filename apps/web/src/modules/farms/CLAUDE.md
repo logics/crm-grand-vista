@@ -12,3 +12,4 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, issue #145).
 - Formulário: `createFarmSchema` de `@crm/shared`, o mesmo da API; seções Identificação e Áreas. Área pelo `AreaInput` na unidade da empresa, entregando hectares. Na edição só vai ao `PATCH` o que mudou — a área não editada não é reenviada, para a exibição em alqueire não gerar deriva nem histórico.
 - Praça: sugerida pelo município (`fetchTradingPostSuggestion`) só enquanto a pessoa não a escolheu à mão nesta edição.
 - Corretor responsável: com escopo `own` (`useDataScope('fazendas')`) o campo é somente leitura no próprio usuário; com `all`, `UserField` (equipe da empresa).
+- Aviso de duplicata: `save` consulta `fetchFarmDuplicates` (nome + município; `excludeId` na edição) antes de gravar e mostra `FarmDuplicateWarning` (sobre o `DuplicateWarning` do DS) sem remontar o formulário. "Salvar mesmo assim" pula a consulta uma vez; consulta que falha não barra o cadastro.
