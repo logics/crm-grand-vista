@@ -16,3 +16,12 @@ Fazendas da empresa ativa: o imóvel captado. Esta issue (#145) entrega o cadast
 - A API grava a praça que recebe; a sugestão pelo município é só do front.
 - Área útil ≤ total: o schema confere o par enviado junto, o serviço confere contra o cadastro (edição de um só lado) e o `CHECK` da tabela é a rede final.
 - Resposta traz as referências com o nome de hoje (ativas ou não), hidratadas em lote por `serialize`.
+
+## Proprietários (issue #148)
+
+- Tabela `farm_owners` (migration `0022_farm_owners.sql`): `contact_id` `RESTRICT`, índice único parcial de um principal por fazenda. `owners: [{ contactId, isPrimary }]` em `POST`/`PATCH` substitui o conjunto; ausente no `PATCH` não mexe.
+- `updateFarm` lê a fazenda com `FOR UPDATE` no início; `applyOwners` aplica a diferença em ordem fixa (apaga os retirados, desmarca o principal antigo, marca o novo entre os que ficam, insere os novos) com um único `auditedWrites` por save. Nunca delete + insert. `23505` em `farm_owners` vira 409 na rota.
+- Contato de outra empresa é 400 no campo `owners` (`ownerRejection`): a FK não passa pelo RLS. `ensureContactRole(…, 'owner')` roda para cada contato novo, na mesma transação.
+- `declareRoleUsage('owner', …)` fica em `routes.ts`, com `inUsePhrase` e `label.gender`.
+- `GET /by-owner/:contactId` (seção "Fazendas" da ficha do contato): escopo na lista e no total, sem filtro de status, contato inexistente ou malformado é lista vazia. Registrada antes de `/:id`.
+- Histórico: `farm_owners` é filho com `primaryFlag`; a troca vira "Proprietário principal: João → Maria" na entrada.

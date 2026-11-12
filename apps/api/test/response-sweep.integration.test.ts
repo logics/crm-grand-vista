@@ -119,6 +119,9 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
     path: `/e/${tenantSlug}/farms`,
     body: { name: 'Fazenda da varredura', municipalityIbgeCode: '5218805', totalAreaHa: '100', ...FLAG_PROBE },
   }),
+  'GET /e/:tenant/farms/by-owner/:contactId': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/farms/by-owner/${sweepContact.id}`,
+  }),
   'GET /e/:tenant/farms/:id': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/farms/${sweepFarm.id}` }),
   'PATCH /e/:tenant/farms/:id': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/farms/${sweepFarm.id}`,

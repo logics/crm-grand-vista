@@ -10,6 +10,7 @@ import {
   contactClassifications,
   contactRoles,
   contacts,
+  farmOwners,
   farms,
   commercialStatuses,
   crops,
@@ -110,14 +111,18 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
       .values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
     const [contact] = await tx.insert(contacts).values({ tenantId, personType: 'pf', name: 'Exemplo' }).returning();
     await tx.insert(contactRoles).values({ tenantId, contactId: contact!.id, role: 'buyer' });
-    await tx.insert(farms).values({
-      tenantId,
-      name: 'Exemplo',
-      municipalityIbgeCode: '5218805',
-      responsibleUserId: userId,
-      commercialStatusId: status!.id,
-      totalAreaHa: '100',
-    });
+    const [farm] = await tx
+      .insert(farms)
+      .values({
+        tenantId,
+        name: 'Exemplo',
+        municipalityIbgeCode: '5218805',
+        responsibleUserId: userId,
+        commercialStatusId: status!.id,
+        totalAreaHa: '100',
+      })
+      .returning();
+    await tx.insert(farmOwners).values({ tenantId, farmId: farm!.id, contactId: contact!.id, isPrimary: true });
     for (const table of [
       aptitudes,
       contactClassifications,

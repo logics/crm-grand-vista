@@ -14,6 +14,10 @@ export const farmSections = createRecordSectionRegistry<Farm>();
 
 const fields = FIELD_REGISTRY.farms.fields;
 
+/** "Maria (principal), João": o principal marcado. */
+const ownersText = (owners: Farm['owners']) =>
+  owners.length === 0 ? null : owners.map((owner) => (owner.isPrimary ? `${owner.name} (principal)` : owner.name)).join(', ');
+
 function DataSection({ record }: { record: Farm }) {
   const formatArea = useAreaFormatter();
   return (
@@ -24,6 +28,7 @@ function DataSection({ record }: { record: Farm }) {
         { label: fields.trading_post_id.label, value: record.tradingPost?.name ?? null },
         { label: fields.responsible_user_id.label, value: record.responsible.name },
         { label: fields.commercial_status_id.label, value: record.commercialStatus.name },
+        { label: 'Proprietários', value: ownersText(record.owners) },
         { label: fields.total_area_ha.label, value: formatArea(record.totalAreaHa) },
         { label: fields.usable_area_ha.label, value: record.usableAreaHa ? formatArea(record.usableAreaHa) : null },
       ]}

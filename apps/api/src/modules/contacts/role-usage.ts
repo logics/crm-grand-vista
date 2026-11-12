@@ -14,7 +14,9 @@ export interface RoleUsage {
   /** Coluna que aponta para o contato (`contact_id`). */
   column: string;
   /** Rótulos da entidade que usa o contato: "fazenda" / "fazendas". */
-  label: { singular: string; plural: string };
+  label: { singular: string; plural: string; gender?: 'f' | 'm' };
+  /** Frase da exclusão barrada pela FK: "é proprietário de fazenda". Sem ela, a mensagem cita o rótulo da entidade. */
+  inUsePhrase?: string;
 }
 
 const declarations: { role: ContactRole; usage: RoleUsage }[] = [];
@@ -35,6 +37,10 @@ export const roleUsagesOf = (role: ContactRole): RoleUsage[] =>
 /** Rótulo plural da entidade que declarou a tabela, ou nada se ninguém a declarou. */
 export const pluralLabelOfTable = (table: string): string | undefined =>
   declarations.find((entry) => entry.usage.table === table)?.usage.label.plural;
+
+/** A declaração da tabela, ou nada se ninguém a declarou. */
+export const usageOfTable = (table: string): RoleUsage | undefined =>
+  declarations.find((entry) => entry.usage.table === table)?.usage;
 
 export interface RoleUsageCount {
   usage: RoleUsage;

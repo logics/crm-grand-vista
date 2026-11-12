@@ -1,4 +1,4 @@
-import { FIELD_REGISTRY, compareDecimal, farmFormSchema, type Farm, type MunicipalityOption, type UpdateFarmInput } from '@crm/shared';
+import { FIELD_REGISTRY, compareDecimal, farmFormSchema, type Farm, type FarmOwnerInput, type MunicipalityOption, type UpdateFarmInput } from '@crm/shared';
 import { AreaInput, EntityForm, Input, MunicipalityPicker } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef } from 'react';
@@ -15,11 +15,13 @@ import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { useDataScope } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
+import { FarmOwnersField } from './farm-owners-field.js';
 import { createFarm, fetchFarm, updateFarm } from './farms-api.js';
 
 const FORM_ID = 'farm-form';
 
 const fields = FIELD_REGISTRY.farms.fields;
+const ownersField = { label: 'Proprietários' };
 
 /** Formulário de criação (`/farms/new`) e edição (`/farms/:id/edit`). */
 export function FarmFormPage() {
@@ -46,7 +48,15 @@ function changesOf(farm: Farm, values: z.output<typeof farmFormSchema>): UpdateF
   if ((values.tradingPostId ?? null) !== (farm.tradingPost?.id ?? null)) changes.tradingPostId = values.tradingPostId ?? null;
   if (!sameArea(values.totalAreaHa, farm.totalAreaHa)) changes.totalAreaHa = values.totalAreaHa;
   if (!sameArea(values.usableAreaHa, farm.usableAreaHa)) changes.usableAreaHa = values.usableAreaHa ?? null;
+  if (ownersChanged(farm.owners, values.owners)) changes.owners = values.owners;
   return changes;
+}
+
+/** Se o conjunto ou o principal mudou, sem olhar a ordem. */
+function ownersChanged(saved: Farm['owners'], desired: readonly FarmOwnerInput[]): boolean {
+  if (saved.length !== desired.length) return true;
+  const primaryByContact = new Map(saved.map((owner) => [owner.contactId, owner.isPrimary]));
+  return desired.some((owner) => primaryByContact.get(owner.contactId) !== owner.isPrimary);
 }
 
 function FarmForm({ farm }: { farm: Farm | null }) {
@@ -99,6 +109,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
           responsibleUserId: farm?.responsible.id ?? me?.id ?? '',
           totalAreaHa: farm?.totalAreaHa ?? '',
           usableAreaHa: farm?.usableAreaHa ?? null,
+          owners: farm?.owners.map(({ contactId, isPrimary }) => ({ contactId, isPrimary })) ?? [],
         }}
         onCancel={() => navigate(back)}
         onSubmit={save}
@@ -170,6 +181,23 @@ function FarmForm({ farm }: { farm: Farm | null }) {
                       onBlur={field.onBlur}
                     />
                   ),
+              },
+            ],
+          },
+          {
+            title: 'Proprietários',
+            fields: [
+              {
+                name: 'owners',
+                label: ownersField.label,
+                colSpan: 2,
+                render: (field) => (
+                  <FarmOwnersField
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    names={new Map(farm?.owners.map((owner) => [owner.contactId, owner.name]))}
+                  />
+                ),
               },
             ],
           },

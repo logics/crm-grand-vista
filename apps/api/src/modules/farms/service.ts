@@ -4,15 +4,19 @@
 import {
   auditedWrites,
   commercialStatuses,
+  contacts,
+  farmOwners,
   farms,
   memberships,
   municipalities,
   tradingPosts,
   users,
   type AuditActor,
+  type AuditedWrites,
   type Transaction,
 } from '@crm/db';
 import {
+  FARM_OWNER_UNKNOWN_MESSAGE,
   FARM_MUNICIPALITY_UNKNOWN_MESSAGE,
   FARM_NO_DEFAULT_STATUS_MESSAGE,
   FARM_RESPONSIBLE_FORBIDDEN_MESSAGE,
@@ -21,16 +25,19 @@ import {
   FARM_TRADING_POST_UNKNOWN_MESSAGE,
   FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE,
   usableExceedsTotal,
+  type ContactFarm,
   type CreateFarmInput,
+  type FarmOwnerInput,
   type Farm,
   type FarmListQuery,
   type ListPage,
   type UpdateFarmInput,
 } from '@crm/shared';
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, sql, type SQL } from 'drizzle-orm';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
+import { ensureContactRole } from '../contacts/service.js';
 import { defaultEntries } from '../settings/service.js';
 
 type FarmRow = typeof farms.$inferSelect;
@@ -72,7 +79,7 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
   if (rows.length === 0) return [];
   const unique = <T>(values: readonly (T | null)[]) => [...new Set(values.filter((value): value is T => value !== null))];
 
-  const [municipalityRows, statusRows, userRows, postRows] = await Promise.all([
+  const [municipalityRows, statusRows, userRows, postRows, ownerRows] = await Promise.all([
     tx
       .select({ ibgeCode: municipalities.ibgeCode, name: municipalities.name, uf: municipalities.uf })
       .from(municipalities)
@@ -89,7 +96,20 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
       .select({ id: tradingPosts.id, name: tradingPosts.name })
       .from(tradingPosts)
       .where(inArray(tradingPosts.id, unique(rows.map((row) => row.tradingPostId)))),
+    tx
+      .select({
+        farmId: farmOwners.farmId,
+        contactId: farmOwners.contactId,
+        name: contacts.name,
+        isPrimary: farmOwners.isPrimary,
+      })
+      .from(farmOwners)
+      .innerJoin(contacts, eq(contacts.id, farmOwners.contactId))
+      .where(inArray(farmOwners.farmId, rows.map((row) => row.id)))
+      .orderBy(asc(farmOwners.id)),
   ]);
+  const ownersByFarm = new Map<string, Farm['owners']>();
+  for (const { farmId, ...owner } of ownerRows) ownersByFarm.set(farmId, [...(ownersByFarm.get(farmId) ?? []), owner]);
   const municipalityByCode = new Map(municipalityRows.map((row) => [row.ibgeCode, row]));
   const statusById = new Map(statusRows.map((row) => [row.id, row]));
   const userById = new Map(userRows.map((row) => [row.id, row]));
@@ -104,6 +124,7 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
     commercialStatus: statusById.get(row.commercialStatusId)!,
     totalAreaHa: row.totalAreaHa,
     usableAreaHa: row.usableAreaHa,
+    owners: ownersByFarm.get(row.id) ?? [],
     createdAt: row.createdAt.toISOString(),
   }));
 }
@@ -113,8 +134,9 @@ export async function listFarms(tx: Transaction, access: EffectiveAccess, query:
   return { ...page, items: await serialize(tx, page.items) };
 }
 
-async function findRow(tx: Transaction, access: EffectiveAccess, id: string): Promise<FarmRow | null> {
-  const [row] = await tx.select().from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+async function findRow(tx: Transaction, access: EffectiveAccess, id: string, lock = false): Promise<FarmRow | null> {
+  const query = tx.select().from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+  const [row] = await (lock ? query.for('update') : query);
   return row ?? null;
 }
 
@@ -196,8 +218,11 @@ export async function createFarm(
 
   const refused = await referenceRejection(tx, actor.tenantId, { ...input, responsibleUserId, commercialStatusId });
   if (refused) return refused;
+  const ownerRefused = await ownerRejection(tx, input.owners ?? []);
+  if (ownerRefused) return ownerRefused;
 
-  const row = await auditedWrites(tx, actor).insert(farms, {
+  const writes = auditedWrites(tx, actor);
+  const row = await writes.insert(farms, {
     tenantId: actor.tenantId,
     name: input.name,
     municipalityIbgeCode: input.municipalityIbgeCode,
@@ -207,6 +232,7 @@ export async function createFarm(
     usableAreaHa: input.usableAreaHa ?? null,
     commercialStatusId,
   });
+  await applyOwners(tx, writes, actor, row.id, input.owners ?? []);
   return (await serialize(tx, [row]))[0]!;
 }
 
@@ -218,7 +244,9 @@ export async function updateFarm(
   id: string,
   input: UpdateFarmInput,
 ): Promise<Farm | FarmRejection | FarmForbidden | null> {
-  const current = await findRow(tx, access, id);
+  // Trava a fazenda no início do save: saves concorrentes são serializados, e os
+  // proprietários lidos depois do lock já refletem o save que terminou antes.
+  const current = await findRow(tx, access, id, true);
   if (!current) return null;
 
   if (input.responsibleUserId !== undefined && !mayAssign(access, input.responsibleUserId)) {
@@ -233,8 +261,103 @@ export async function updateFarm(
   const refused = await referenceRejection(tx, actor.tenantId, input, current);
   if (refused) return refused;
 
-  const set: Partial<typeof farms.$inferInsert> = { ...input };
-  if (Object.keys(set).length === 0) return (await serialize(tx, [current]))[0]!;
-  const [row] = await auditedWrites(tx, actor).update(farms, set, eq(farms.id, id));
-  return row ? (await serialize(tx, [row]))[0]! : null;
+  if (input.owners !== undefined) {
+    const ownerRefused = await ownerRejection(tx, input.owners);
+    if (ownerRefused) return ownerRefused;
+  }
+
+  const { owners, ...fields } = input;
+  const set: Partial<typeof farms.$inferInsert> = { ...fields };
+  const writes = auditedWrites(tx, actor);
+  let row: FarmRow | undefined = current;
+  if (Object.keys(set).length > 0) [row] = await writes.update(farms, set, eq(farms.id, id));
+  if (!row) return null;
+  if (owners !== undefined) await applyOwners(tx, writes, actor, id, owners);
+  return (await serialize(tx, [row]))[0]!;
+}
+
+/** Os contatos existem na empresa ativa (a FK não passa pelo RLS e o papel seria gravado em contato alheio). */
+async function ownerRejection(tx: Transaction, owners: readonly FarmOwnerInput[]): Promise<FarmRejection | null> {
+  if (owners.length === 0) return null;
+  const ids = owners.map((owner) => owner.contactId);
+  const found = await tx.select({ id: contacts.id }).from(contacts).where(inArray(contacts.id, ids));
+  return found.length === new Set(ids).size ? null : { rejected: FARM_OWNER_UNKNOWN_MESSAGE, field: 'owners' };
+}
+
+/**
+ * Substitui o conjunto de proprietários por diferença, em ordem fixa (nunca
+ * delete + insert): apaga os retirados; tira a marca do principal antigo; marca o
+ * novo principal entre os que ficam; insere os novos (já com a marca, porque o
+ * passo anterior liberou o índice parcial). Quem não mudou não é regravado. A
+ * fazenda já está travada por quem chama.
+ */
+async function applyOwners(
+  tx: Transaction,
+  writes: AuditedWrites,
+  actor: AuditActor & { tenantId: string },
+  farmId: string,
+  desired: readonly FarmOwnerInput[],
+): Promise<void> {
+  const current = await tx.select().from(farmOwners).where(eq(farmOwners.farmId, farmId));
+  const currentByContact = new Map(current.map((owner) => [owner.contactId, owner]));
+  const desiredIds = new Set(desired.map((owner) => owner.contactId));
+
+  const removed = current.filter((owner) => !desiredIds.has(owner.contactId));
+  if (removed.length > 0) {
+    await writes.delete(
+      farmOwners,
+      and(
+        eq(farmOwners.farmId, farmId),
+        inArray(
+          farmOwners.contactId,
+          removed.map((owner) => owner.contactId),
+        ),
+      )!,
+    );
+  }
+
+  const newPrimary = desired.find((owner) => owner.isPrimary);
+  const oldPrimary = current.find((owner) => owner.isPrimary && desiredIds.has(owner.contactId));
+  if (oldPrimary && newPrimary && oldPrimary.contactId !== newPrimary.contactId) {
+    await writes.update(farmOwners, { isPrimary: false }, eq(farmOwners.id, oldPrimary.id));
+  }
+  const promoted = newPrimary && currentByContact.get(newPrimary.contactId);
+  if (promoted && !promoted.isPrimary) {
+    await writes.update(farmOwners, { isPrimary: true }, eq(farmOwners.id, promoted.id));
+  }
+
+  for (const owner of desired) {
+    if (currentByContact.has(owner.contactId)) continue;
+    await writes.insert(farmOwners, {
+      tenantId: actor.tenantId,
+      farmId,
+      contactId: owner.contactId,
+      isPrimary: owner.isPrimary,
+    });
+    await ensureContactRole(tx, actor, owner.contactId, 'owner');
+  }
+}
+
+/** Fazendas de que o contato é proprietário, no escopo do leitor e em qualquer status (a lista e o total). */
+export async function listFarmsOfOwner(
+  tx: Transaction,
+  access: EffectiveAccess,
+  contactId: string,
+  query: FarmListQuery,
+): Promise<ListPage<ContactFarm>> {
+  const owned = exists(
+    tx
+      .select({ one: sql`1` })
+      .from(farmOwners)
+      .where(and(eq(farmOwners.farmId, farms.id), eq(farmOwners.contactId, contactId))),
+  );
+  const page = await paginatedQuery(tx, farmList, query, { scope: scopeOf(access), filters: [owned] });
+  const items = (await serialize(tx, page.items)).map((farm) => ({
+    id: farm.id,
+    name: farm.name,
+    municipality: farm.municipality,
+    commercialStatus: farm.commercialStatus,
+    isPrimary: farm.owners.some((owner) => owner.contactId === contactId && owner.isPrimary),
+  }));
+  return { ...page, items };
 }
