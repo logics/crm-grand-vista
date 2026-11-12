@@ -33,6 +33,7 @@ export * from './components/contact-shortcuts.js';
 export * from './components/data-table.js';
 export * from './components/date-range-picker.js';
 export * from './components/document-manager.js';
+export * from './components/duplicate-warning.js';
 export * from './components/empty-state.js';
 export * from './components/entity-form.js';
 export * from './components/farm-card.js';

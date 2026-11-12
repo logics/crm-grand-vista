@@ -205,7 +205,7 @@ describe('rota de busca de municípios', () => {
 
       const { rows } = await asSuperuser((client) =>
         client.query<{ count: number }>(
-          `select count(*)::int as count from municipalities where active and unaccent(name) ilike '%sa%'`,
+          `select count(*)::int as count from municipalities where active and normalize_text(name) like '%sa%'`,
         ),
       );
       const count = rows[0]?.count;

@@ -3,7 +3,7 @@
 Fazendas da empresa ativa: o imóvel captado. Esta issue (#145) entrega o cadastro mínimo ponta a ponta e a prova de integração do escopo de dados `own`.
 
 - **Spec:** `docs/specs/fase-1-fazendas.md`; issue #145
-- **Tabela que possui:** `farms` (migration `0020_farms.sql`), já com todas as colunas do modelo — níveis, técnico, precificação com o `CHECK` completo e `custom_fields` sem uso. As colunas além do mínimo ainda não têm rota nem tela.
+- **Tabela que possui:** `farms` (migration `0021_farms.sql`), já com todas as colunas do modelo — níveis, técnico, precificação com o `CHECK` completo e `custom_fields` sem uso. As colunas além do mínimo ainda não têm rota nem tela.
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/authorization`, `src/history`, `src/listing`, `modules/settings` (só `defaultEntries`)
 
 ## Convenções locais

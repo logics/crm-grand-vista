@@ -7,5 +7,5 @@ export { PLATFORM_ONLY_FIELDS, auditedWrites, diffRecords, toAuditText } from '.
 export type { AuditActor, AuditedWrites, FieldChange } from './audit.js';
 export { uuidv7 } from './uuid.js';
 export * from './schema/index.js';
-export { normalizedVocabularyName } from './schema/vocabulary.js';
+export { normalizedText } from './schema/vocabulary.js';
 export type { VocabularyTable } from './schema/vocabulary.js';

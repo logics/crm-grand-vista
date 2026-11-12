@@ -2,14 +2,14 @@
 // escopo de dados uma vez só, e aplica o mesmo `where` aos itens e ao total.
 // Os parâmetros chegam já validados pelo schema de `listQuerySchema`
 // (`@crm/shared`).
-import type { Transaction } from '@crm/db';
+import { normalizedText, type Transaction } from '@crm/db';
 import { parseSort, type ListPage, type ListQuery, type SortParam } from '@crm/shared';
 import { and, asc, desc, or, sql, type Column, type InferSelectModel, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn, PgTable } from 'drizzle-orm/pg-core';
 
 type ListTable = PgTable & { id: Column };
 
-/** Só coluna de texto: `unaccent` sobre `numeric` ou `uuid` é erro no Postgres. */
+/** Só coluna de texto: `normalize_text` sobre `numeric` ou `uuid` é erro no Postgres. */
 type TextColumn = AnyPgColumn<{ columnType: 'PgText' | 'PgVarchar' | 'PgChar' }>;
 
 /**
@@ -55,14 +55,14 @@ export function escapeLike(text: string): string {
 }
 
 /**
- * Busca insensível a acento e a maiúsculas (`unaccent` + `ILIKE`) em qualquer
+ * Busca insensível a acento e a maiúsculas (`normalize_text(coluna) LIKE normalize_text(padrão)`, substring) em qualquer
  * das colunas declaradas: "joao" acha "João". Sem busca, nenhum recorte.
  */
 export function searchClause(list: Pick<ListDefinition<ListTable, string>, 'searchable'>, q: string | undefined) {
   if (q === undefined || list.searchable.length === 0) return undefined;
 
   const pattern = `%${escapeLike(q)}%`;
-  return or(...list.searchable.map((column) => sql`unaccent(${column}) ilike unaccent(${pattern})`));
+  return or(...list.searchable.map((column) => sql`${normalizedText(column)} like ${normalizedText(pattern)}`));
 }
 
 /** Os parâmetros base da listagem, já validados; os filtros do módulo vêm em predicados. */

@@ -1,5 +1,5 @@
 {
-  "id": "b9a74e99-44e6-4439-b0b6-efba158f2ca9",
+  "id": "50792b75-fa6b-4778-b367-08cc31b76937",
   "prevId": "f9ad39dc-ae43-40b5-8433-3cab87fb1fd9",
   "version": "7",
   "dialect": "postgresql",
@@ -281,7 +281,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -593,7 +593,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -704,7 +704,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1125,7 +1125,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1231,7 +1231,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1273,488 +1273,6 @@
         }
       },
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.farms": {
-      "name": "farms",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "municipality_ibge_code": {
-          "name": "municipality_ibge_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "responsible_user_id": {
-          "name": "responsible_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "trading_post_id": {
-          "name": "trading_post_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "total_area_ha": {
-          "name": "total_area_ha",
-          "type": "numeric(12, 4)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "usable_area_ha": {
-          "name": "usable_area_ha",
-          "type": "numeric(12, 4)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "commercial_status_id": {
-          "name": "commercial_status_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sales_potential": {
-          "name": "sales_potential",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "priority": {
-          "name": "priority",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "water_availability": {
-          "name": "water_availability",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "irrigation_potential": {
-          "name": "irrigation_potential",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "productive_potential": {
-          "name": "productive_potential",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "soil": {
-          "name": "soil",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "topography": {
-          "name": "topography",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "water": {
-          "name": "water",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "historical_productivity": {
-          "name": "historical_productivity",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "infrastructure": {
-          "name": "infrastructure",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "technical_summary": {
-          "name": "technical_summary",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "differentials": {
-          "name": "differentials",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "distance_to_highway_km": {
-          "name": "distance_to_highway_km",
-          "type": "numeric(8, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "distance_to_warehouse_km": {
-          "name": "distance_to_warehouse_km",
-          "type": "numeric(8, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "document_status": {
-          "name": "document_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "document_notes": {
-          "name": "document_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "latitude": {
-          "name": "latitude",
-          "type": "numeric(10, 7)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "longitude": {
-          "name": "longitude",
-          "type": "numeric(10, 7)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pricing_mode": {
-          "name": "pricing_mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "asking_price": {
-          "name": "asking_price",
-          "type": "numeric(16, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "valuation_bags": {
-          "name": "valuation_bags",
-          "type": "numeric(14, 4)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "valuation_bags_unit": {
-          "name": "valuation_bags_unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "valuation_bags_alqueire_type": {
-          "name": "valuation_bags_alqueire_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "valuation_crop_id": {
-          "name": "valuation_crop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "custom_fields": {
-          "name": "custom_fields",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "farms_tenant_id_responsible_user_id_idx": {
-          "name": "farms_tenant_id_responsible_user_id_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "responsible_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "farms_tenant_id_commercial_status_id_idx": {
-          "name": "farms_tenant_id_commercial_status_id_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "commercial_status_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "farms_tenant_id_municipality_ibge_code_idx": {
-          "name": "farms_tenant_id_municipality_ibge_code_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "municipality_ibge_code",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "farms_tenant_id_created_at_idx": {
-          "name": "farms_tenant_id_created_at_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "farms_tenant_id_tenants_id_fk": {
-          "name": "farms_tenant_id_tenants_id_fk",
-          "tableFrom": "farms",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "farms_municipality_ibge_code_municipalities_ibge_code_fk": {
-          "name": "farms_municipality_ibge_code_municipalities_ibge_code_fk",
-          "tableFrom": "farms",
-          "tableTo": "municipalities",
-          "columnsFrom": [
-            "municipality_ibge_code"
-          ],
-          "columnsTo": [
-            "ibge_code"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "farms_responsible_user_id_users_id_fk": {
-          "name": "farms_responsible_user_id_users_id_fk",
-          "tableFrom": "farms",
-          "tableTo": "users",
-          "columnsFrom": [
-            "responsible_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "farms_trading_post_id_trading_posts_id_fk": {
-          "name": "farms_trading_post_id_trading_posts_id_fk",
-          "tableFrom": "farms",
-          "tableTo": "trading_posts",
-          "columnsFrom": [
-            "trading_post_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "farms_commercial_status_id_commercial_statuses_id_fk": {
-          "name": "farms_commercial_status_id_commercial_statuses_id_fk",
-          "tableFrom": "farms",
-          "tableTo": "commercial_statuses",
-          "columnsFrom": [
-            "commercial_status_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "farms_valuation_crop_id_crops_id_fk": {
-          "name": "farms_valuation_crop_id_crops_id_fk",
-          "tableFrom": "farms",
-          "tableTo": "crops",
-          "columnsFrom": [
-            "valuation_crop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "tenant_isolation": {
-          "name": "tenant_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "public"
-          ],
-          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
-          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {
-        "farms_total_area_ha_check": {
-          "name": "farms_total_area_ha_check",
-          "value": "\"farms\".\"total_area_ha\" > 0"
-        },
-        "farms_usable_area_ha_check": {
-          "name": "farms_usable_area_ha_check",
-          "value": "\"farms\".\"usable_area_ha\" is null or (\"farms\".\"usable_area_ha\" > 0 and \"farms\".\"usable_area_ha\" <= \"farms\".\"total_area_ha\")"
-        },
-        "farms_sales_potential_check": {
-          "name": "farms_sales_potential_check",
-          "value": "\"farms\".\"sales_potential\" in ('high', 'medium', 'low')"
-        },
-        "farms_priority_check": {
-          "name": "farms_priority_check",
-          "value": "\"farms\".\"priority\" in ('high', 'medium', 'low')"
-        },
-        "farms_water_availability_check": {
-          "name": "farms_water_availability_check",
-          "value": "\"farms\".\"water_availability\" in ('high', 'medium', 'low')"
-        },
-        "farms_irrigation_potential_check": {
-          "name": "farms_irrigation_potential_check",
-          "value": "\"farms\".\"irrigation_potential\" in ('high', 'medium', 'low')"
-        },
-        "farms_productive_potential_check": {
-          "name": "farms_productive_potential_check",
-          "value": "\"farms\".\"productive_potential\" in ('high', 'medium', 'low')"
-        },
-        "farms_distance_to_highway_km_check": {
-          "name": "farms_distance_to_highway_km_check",
-          "value": "\"farms\".\"distance_to_highway_km\" >= 0"
-        },
-        "farms_distance_to_warehouse_km_check": {
-          "name": "farms_distance_to_warehouse_km_check",
-          "value": "\"farms\".\"distance_to_warehouse_km\" >= 0"
-        },
-        "farms_document_status_check": {
-          "name": "farms_document_status_check",
-          "value": "\"farms\".\"document_status\" in ('regular', 'pending', 'irregular')"
-        },
-        "farms_coordinates_check": {
-          "name": "farms_coordinates_check",
-          "value": "(\"farms\".\"latitude\" is null) = (\"farms\".\"longitude\" is null) and (\"farms\".\"latitude\" is null or (\"farms\".\"latitude\" between -90 and 90 and \"farms\".\"longitude\" between -180 and 180))"
-        },
-        "farms_pricing_mode_check": {
-          "name": "farms_pricing_mode_check",
-          "value": "\"farms\".\"pricing_mode\" in ('brl', 'bags')"
-        },
-        "farms_asking_price_check": {
-          "name": "farms_asking_price_check",
-          "value": "\"farms\".\"asking_price\" > 0"
-        },
-        "farms_valuation_bags_check": {
-          "name": "farms_valuation_bags_check",
-          "value": "\"farms\".\"valuation_bags\" > 0"
-        },
-        "farms_valuation_bags_unit_check": {
-          "name": "farms_valuation_bags_unit_check",
-          "value": "\"farms\".\"valuation_bags_unit\" in ('per_hectare', 'per_alqueire')"
-        },
-        "farms_valuation_bags_alqueire_type_check": {
-          "name": "farms_valuation_bags_alqueire_type_check",
-          "value": "\"farms\".\"valuation_bags_alqueire_type\" in ('goiano', 'paulista', 'norte')"
-        },
-        "farms_pricing_check": {
-          "name": "farms_pricing_check",
-          "value": "(\n        \"farms\".\"pricing_mode\" is null\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" = 'brl'\n        and \"farms\".\"asking_price\" is not null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" = 'bags'\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is not null and \"farms\".\"valuation_bags_unit\" is not null\n        and \"farms\".\"valuation_crop_id\" is not null\n        and ((\"farms\".\"valuation_bags_unit\" = 'per_alqueire') = (\"farms\".\"valuation_bags_alqueire_type\" is not null))\n      )"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.lead_sources": {
@@ -1819,7 +1337,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -2079,7 +1597,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -2453,7 +1971,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -2938,7 +2456,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
