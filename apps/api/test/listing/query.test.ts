@@ -48,7 +48,7 @@ describe('ordenação da listagem', () => {
 describe('busca textual da listagem', () => {
   it('compara sem acento e sem caixa em cada coluna declarada', () => {
     expect(render(searchClause(list, 'joao'))).toMatchObject({
-      sql: '(unaccent("records"."name") ilike unaccent($1) or unaccent("records"."city") ilike unaccent($2))',
+      sql: '(normalize_text("records"."name") like normalize_text($1) or normalize_text("records"."city") like normalize_text($2))',
       params: ['%joao%', '%joao%'],
     });
   });
@@ -68,7 +68,7 @@ describe('busca textual da listagem', () => {
 
 describe('declaração da lista', () => {
   it('não aceita coluna pesquisável que não seja de texto', () => {
-    // @ts-expect-error -- `unaccent` sobre numeric quebra no Postgres
+    // @ts-expect-error -- `normalize_text` sobre numeric quebra no Postgres
     defineList({ ...list, searchable: [records.totalAreaHa] });
     // @ts-expect-error -- idem para uuid
     defineList({ ...list, searchable: [records.id] });

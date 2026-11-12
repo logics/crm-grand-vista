@@ -1,7 +1,7 @@
 // Opções do seletor de contato (`GET /contacts/options`). O papel pedido
 // ordena, não filtra: quem o tem vem primeiro, depois os demais, cada grupo por
 // nome. Fica fora de `service.ts` para o seletor evoluir sem tocar a lista.
-import { contactRoles, contacts, type Transaction } from '@crm/db';
+import { contactRoles, contacts, normalizedText, type Transaction } from '@crm/db';
 import {
   CONTACT_ROLES,
   normalizeTaxId,
@@ -39,9 +39,9 @@ async function rolesOf(tx: Transaction, ids: readonly string[]): Promise<Map<str
 function searchClause(term: string): SQL {
   const pattern = `%${escapeLike(term)}%`;
   const clauses: SQL[] = [
-    sql`unaccent(${contacts.name}) ilike unaccent(${pattern})`,
-    sql`unaccent(${contacts.legalName}) ilike unaccent(${pattern})`,
-    sql`${contacts.email} ilike ${pattern}`,
+    sql`${normalizedText(contacts.name)} like ${normalizedText(pattern)}`,
+    sql`${normalizedText(contacts.legalName)} like ${normalizedText(pattern)}`,
+    sql`${normalizedText(contacts.email)} like ${normalizedText(pattern)}`,
   ];
   if (/\d/.test(term)) {
     const taxId = normalizeTaxId(term);

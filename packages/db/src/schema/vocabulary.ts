@@ -7,12 +7,12 @@ import { id, timestamps } from './columns.js';
 import { tenantId } from './tenant-scope.js';
 
 /**
- * O nome sem caixa nem acento, pela função `IMMUTABLE` da migration que envolve
- * o `unaccent` (o próprio `unaccent` não é imutável e não entra em índice). É a
- * chave de unicidade do nome e a de toda comparação "este nome já existe".
+ * O texto sem caixa nem acento, pela função `IMMUTABLE` `normalize_text` (que
+ * envolve o `unaccent`, não imutável e fora de índice). É a única normalização
+ * do sistema: chave de unicidade do nome, comparação "este nome já existe" e
+ * toda busca textual.
  */
-export const normalizedVocabularyName = (name: AnyPgColumn | SQL | string): SQL =>
-  sql`normalize_vocabulary_name(${name})`;
+export const normalizedText = (value: AnyPgColumn | SQL | string): SQL => sql`normalize_text(${value})`;
 
 export const vocabularyColumns = () => ({
   id: id(),
@@ -27,7 +27,7 @@ export const vocabularyColumns = () => ({
 
 /** Nome único por empresa, ignorando caixa e acento: "soja" e "Sója" colidem com "Soja". */
 export const uniqueVocabularyName = (tableName: string, table: { tenantId: AnyPgColumn; name: AnyPgColumn }) =>
-  uniqueIndex(`${tableName}_tenant_id_name_unique`).on(table.tenantId, normalizedVocabularyName(table.name));
+  uniqueIndex(`${tableName}_tenant_id_name_unique`).on(table.tenantId, normalizedText(table.name));
 
 /** Tabela de cadastro auxiliar: o que o serviço do motor precisa dela. */
 export type VocabularyTable = PgTable & {
