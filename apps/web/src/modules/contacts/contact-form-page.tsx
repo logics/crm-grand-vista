@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { z } from 'zod';
+import { useUnsavedChangesGuard } from '../../lib/use-unsaved-changes-guard.js';
 import { VocabularyField } from '../settings/vocabulary-field.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
@@ -26,7 +27,7 @@ import { tenantPath } from '../../shell/tenant-path.js';
 import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
 import { TaxIdTakenError, createContact, fetchContact, fetchDuplicates, updateContact } from './contacts-api.js';
-import { DuplicateWarning } from './duplicate-warning.js';
+import { ContactDuplicateWarning } from './contact-duplicate-warning.js';
 
 const FORM_ID = 'contact-form';
 
@@ -70,6 +71,8 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   // Contatos parecidos achados antes de salvar; "salvar mesmo assim" pula a consulta uma vez.
   const [matches, setMatches] = useState<ContactDuplicate[]>([]);
   const skipDuplicateCheck = useRef(false);
+  const [dirty, setDirty] = useState(false);
+  const guard = useUnsavedChangesGuard(dirty);
   const back = tenantPath(slug, contact ? `contacts/${contact.id}` : 'contacts');
 
   const save = async ({ sameNumber: copy, ...parsed }: z.output<typeof contactFormSchema>) => {
@@ -98,6 +101,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
       throw error;
     }
     await queryClient.invalidateQueries({ queryKey: tenantQueryKey(slug, 'contacts') });
+    guard.release();
     navigate(tenantPath(slug, `contacts/${saved.id}`));
   };
 
@@ -143,7 +147,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   return (
     <div className="flex flex-col gap-gap-shell">
       <PageHeader title={contact ? 'Editar contato' : 'Novo contato'} />
-      <DuplicateWarning
+      <ContactDuplicateWarning
         matches={matches}
         form={FORM_ID}
         onSaveAnyway={() => {
@@ -168,7 +172,12 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
           relationshipOrigin: contact?.relationshipOrigin ?? '',
           strategicNotes: contact?.strategicNotes ?? '',
         }}
-        onCancel={() => navigate(back)}
+        onDirtyChange={setDirty}
+        onCancel={() => {
+          // O EntityForm já confirmou o descarte: o guarda não pergunta de novo.
+          guard.release();
+          navigate(back);
+        }}
         onSubmit={save}
         submitLabel={contact ? 'Salvar alterações' : 'Cadastrar contato'}
         sections={[
@@ -307,6 +316,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
           },
         ]}
       />
+      {guard.dialog}
       <ConfirmDialog
         open={pendingRemoval !== null}
         onOpenChange={(open) => {
