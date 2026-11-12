@@ -4,8 +4,8 @@ import { textLink, warningBanner } from '../lib/styles.js';
 import { Button } from './button.js';
 import { Icon } from './icon.js';
 
-// Aviso de cadastro duplicado: lista quem coincide, com o motivo e o link para
-// o cadastro, e oferece "Salvar mesmo assim". É aviso, não bloqueio. Serve a
+// Aviso de cadastro duplicado: lista quem coincide, com o motivo, o link para
+// o cadastro e, se houver, um detalhe, e oferece "Salvar mesmo assim". É aviso, não bloqueio. Serve a
 // contatos e a fazendas; o componente não conhece o roteador, quem usa passa o
 // elemento de link.
 
@@ -17,7 +17,11 @@ export type DuplicateWarningItem = {
   reasons: readonly string[];
   /** Destino do cadastro existente. */
   href: string;
+  /** Informação complementar, já em texto para a tela (os papéis do contato). Some se ausente ou vazia. */
+  detail?: ReactNode;
 };
+
+const hasDetail = (detail: ReactNode) => detail != null && detail !== false && detail !== '';
 
 /** Elemento de link que o chamador fornece (`Link` do roteador, ou `a`). Recebe o destino em `href`. */
 export type DuplicateWarningLink = ComponentType<{
@@ -68,6 +72,7 @@ export function DuplicateWarning({
               {item.label}
             </LinkElement>
             <span>{item.reasons.join(', ')}</span>
+            {hasDetail(item.detail) && <span className="opacity-80">{item.detail}</span>}
           </li>
         ))}
       </ul>

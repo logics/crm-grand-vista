@@ -155,6 +155,8 @@ describe('ContactField', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Cadastrar contato' }));
 
     expect(await within(dialog).findByRole('link', { name: 'Sebastião Antigo' })).toHaveAttribute('href', '/e/grand-vista/contacts/c9');
+    const alert = within(dialog).getByRole('alert', { name: 'Possível contato duplicado' });
+    expect(within(alert).getByText('Comprador')).toBeInTheDocument();
     expect(calls.writes).toEqual([]);
     await user.click(within(dialog).getByRole('button', { name: 'Salvar mesmo assim' }));
 
