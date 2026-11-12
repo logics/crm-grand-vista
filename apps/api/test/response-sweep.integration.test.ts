@@ -114,6 +114,9 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
     path: `/e/${tenantSlug}/settings/vocabularies/commercial-statuses/order`,
     body: { ids: [sweepFarm.status, sweepFarm.deactivatedStatus], ...FLAG_PROBE },
   }),
+  'GET /e/:tenant/farms/duplicates': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/farms/duplicates?name=Varredura&municipalityIbgeCode=5218805`,
+  }),
   'GET /e/:tenant/farms': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/farms` }),
   'POST /e/:tenant/farms': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/farms`,

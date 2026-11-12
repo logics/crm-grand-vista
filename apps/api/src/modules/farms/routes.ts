@@ -1,14 +1,14 @@
 // Rotas de fazendas, montadas sob `/e/:tenant/farms`. O escopo de dados (`own`
 // vê só as fazendas de que é corretor responsável) vale em toda rota que lê ou
 // grava uma fazenda: fora dele, 404.
-import { FARM_NOT_FOUND_MESSAGE, createFarmSchema, farmListQuerySchema, updateFarmSchema } from '@crm/shared';
+import { FARM_NOT_FOUND_MESSAGE, createFarmSchema, farmDuplicatesQuerySchema, farmListQuerySchema, updateFarmSchema } from '@crm/shared';
 import { zValidator } from '@hono/zod-validator';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { requirePermission } from '../../authorization/route-access.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
-import { createFarm, deleteFarm, farmVisible, getFarm, isDeleteRefused, isForbidden, isRejection, listFarms, updateFarm } from './service.js';
+import { createFarm, deleteFarm, farmVisible, findFarmDuplicates, getFarm, isDeleteRefused, isForbidden, isRejection, listFarms, updateFarm } from './service.js';
 
 const notFound = { error: { code: 'not_found', message: FARM_NOT_FOUND_MESSAGE } } as const;
 const idSchema = z.uuid();
@@ -34,6 +34,11 @@ export function createFarmsRoutes() {
       if (isForbidden(result)) return c.json(forbidden(result.forbidden), 403);
       if (isRejection(result)) return c.json(rejection(result.rejected, result.field), 400);
       return c.json(result, 201);
+    })
+    // Antes de `/:id`, senão "duplicates" seria lido como id.
+    .get('/duplicates', canView(), zValidator('query', farmDuplicatesQuerySchema), async (c) => {
+      const query = c.req.valid('query');
+      return c.json({ items: await c.var.withTenant((tx) => findFarmDuplicates(tx, c.var.access, query)) }, 200);
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
