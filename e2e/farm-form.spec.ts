@@ -55,3 +55,29 @@ test('a validação aponta os obrigatórios e a área útil maior que a total', 
   await expect(page.getByText('A área útil não pode ser maior que a área total.')).toBeVisible();
   await expect(page).toHaveURL(/\/farms\/new$/);
 });
+
+test('duas fazendas com o mesmo nome no mesmo município: o segundo cadastro avisa e só salva com confirmação', async ({ page }) => {
+  // O banco do E2E é reaproveitado entre execuções: o nome é único por rodada.
+  const name = `Fazenda Duplicada ${Date.now()}`;
+  const fill = async (value: string) => {
+    await page.getByRole('textbox', { name: /Nome/ }).fill(value);
+    await chooseMunicipality(page);
+    await page.getByRole('textbox', { name: /Área total/ }).fill('100');
+    await page.getByRole('button', { name: 'Cadastrar fazenda' }).click();
+  };
+
+  await fill(name);
+  await expect(page).toHaveURL(new RegExp(`/e/${tenant.slug}/farms/[0-9a-f-]{36}$`));
+
+  await page.goto(`/e/${tenant.slug}/farms/new`);
+  await fill(name.toUpperCase());
+
+  const warning = page.getByRole('alert', { name: 'Possível fazenda duplicada' });
+  await expect(warning).toBeVisible();
+  await expect(warning.getByText('mesmo nome no mesmo município')).toBeVisible();
+  await expect(page).toHaveURL(/\/farms\/new$/);
+  await expect(page.getByRole('textbox', { name: /Nome/ })).toHaveValue(name.toUpperCase());
+
+  await page.getByRole('button', { name: 'Salvar mesmo assim' }).click();
+  await expect(page).toHaveURL(new RegExp(`/e/${tenant.slug}/farms/[0-9a-f-]{36}$`));
+});

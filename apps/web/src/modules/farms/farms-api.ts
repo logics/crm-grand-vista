@@ -1,5 +1,5 @@
 import { FormSubmitError } from '@crm/ui';
-import type { CreateFarmInput, Farm, FarmListQuery, ListPage, UpdateFarmInput } from '@crm/shared';
+import type { CreateFarmInput, Farm, FarmDuplicate, FarmDuplicatesQuery, FarmListQuery, ListPage, UpdateFarmInput } from '@crm/shared';
 import { api } from '../../lib/api.js';
 import { ResourceNotFoundError } from '../../shell/tenant-query.js';
 
@@ -37,6 +37,13 @@ export async function fetchFarm(slug: string, id: string): Promise<Farm> {
   if (status === 404) throw new ResourceNotFoundError();
   if (!response.ok) throw new Error(`Falha ao carregar a fazenda: HTTP ${response.status}.`);
   return (await response.json()) as Farm;
+}
+
+export async function fetchFarmDuplicates(slug: string, query: FarmDuplicatesQuery): Promise<FarmDuplicate[]> {
+  const params = Object.fromEntries(Object.entries(query).filter(([, value]) => typeof value === 'string' && value !== ''));
+  const response = await api.e[':tenant'].farms.duplicates.$get({ param: { tenant: slug }, query: params });
+  if (!response.ok) throw new Error(`Falha ao consultar duplicatas: HTTP ${response.status}.`);
+  return ((await response.json()) as { items: FarmDuplicate[] }).items;
 }
 
 export async function createFarm(slug: string, json: CreateFarmInput): Promise<Farm> {
