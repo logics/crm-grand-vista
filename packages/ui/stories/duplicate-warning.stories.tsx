@@ -32,4 +32,15 @@ export const VariosItens: Story = {
   },
 };
 
+export const ComDetalhe: Story = {
+  name: 'Com detalhe',
+  args: {
+    title: 'Já existem contatos parecidos com este. Confira antes de salvar.',
+    items: [
+      { id: '1', label: 'Maria Souza', reasons: ['Mesmo WhatsApp'], href: '#maria', detail: 'Comprador, Proprietário' },
+      { id: '2', label: 'Maria de Souza Lima', reasons: ['Mesmo documento'], href: '#maria-lima' },
+    ],
+  },
+};
+
 export const Desabilitado: Story = { args: { disabled: true } };
