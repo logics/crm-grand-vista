@@ -117,7 +117,7 @@ const farm = {
   municipality: { ibgeCode: rioVerde.ibgeCode, name: rioVerde.name, uf: rioVerde.uf },
   responsible: { id: me.id, name: me.name },
   tradingPost: null,
-  commercialStatus: { id: '0197c000-0000-7000-8000-0000000000c1', name: 'Disponível' },
+  commercialStatus: { id: '0197c000-0000-7000-8000-0000000000c1', name: 'Disponível', systemMeaning: 'available' },
   totalAreaHa: '48.4000',
   usableAreaHa: null,
   createdAt: '2026-01-02T10:00:00.000Z',

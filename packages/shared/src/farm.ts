@@ -12,6 +12,7 @@ import {
   hectaresToAlqueires,
 } from './decimal.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
+import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import { municipalityOptionSchema } from './region.js';
 
 /** Nível: o tipo único das colunas de potencial, prioridade e nota. A tabela as protege por `CHECK` montado desta constante. */
@@ -50,6 +51,7 @@ export const VALUATION_BAGS_UNIT_LABELS: Record<ValuationBagsUnit, string> = {
 export const FARM_NAME_MAX_LENGTH = 200;
 
 export const FARM_NOT_FOUND_MESSAGE = 'Fazenda não encontrada.';
+export const FARM_DELETE_NOT_INACTIVE_MESSAGE = 'Desative a fazenda antes de excluir.';
 export const FARM_MUNICIPALITY_UNKNOWN_MESSAGE = 'Município inválido.';
 export const FARM_TRADING_POST_UNKNOWN_MESSAGE = 'Praça inválida.';
 export const FARM_STATUS_UNKNOWN_MESSAGE = 'Status comercial inválido.';
@@ -152,7 +154,10 @@ export const farmSchema = z.object({
   municipality: municipalityOptionSchema,
   responsible: namedReferenceSchema,
   tradingPost: namedReferenceSchema.nullable(),
-  commercialStatus: namedReferenceSchema,
+  commercialStatus: namedReferenceSchema.extend({
+    /** O significado de sistema do status (`inactive` é a fazenda desativada). */
+    systemMeaning: z.enum(Object.keys(COMMERCIAL_STATUS_MEANINGS) as [keyof typeof COMMERCIAL_STATUS_MEANINGS]),
+  }),
   /** Hectares, decimal canônico. */
   totalAreaHa: z.string(),
   usableAreaHa: z.string().nullable(),
@@ -162,7 +167,19 @@ export type Farm = z.infer<typeof farmSchema>;
 
 export const FARM_SORT_FIELDS = ['createdAt', 'name', 'totalAreaHa'] as const;
 
-export const farmListQuerySchema = listQuerySchema({ sortable: FARM_SORT_FIELDS });
+/**
+ * Status comercial da lista: ids separados por vírgula. Sem o parâmetro, a lista
+ * e o total deixam de fora as fazendas de significado `inactive`.
+ */
+const statusFilterSchema = z
+  .string()
+  .transform((value) => [...new Set(value.split(',').map((id) => id.trim()))])
+  .pipe(z.array(z.uuid({ error: FARM_STATUS_UNKNOWN_MESSAGE })).min(1, FARM_STATUS_UNKNOWN_MESSAGE));
+
+export const farmListQuerySchema = listQuerySchema({
+  sortable: FARM_SORT_FIELDS,
+  filters: { commercialStatusId: statusFilterSchema.optional() },
+});
 export type FarmListQuery = z.output<typeof farmListQuerySchema>;
 
 export const farmPageSchema = listPageSchema(farmSchema);

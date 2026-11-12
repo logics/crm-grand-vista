@@ -245,6 +245,7 @@ describe('cadastros auxiliares — Status comercial', () => {
         negotiating: null,
         sold: { id: first.id, name: 'Vendida' },
         suspended: null,
+        inactive: null,
       });
     });
 

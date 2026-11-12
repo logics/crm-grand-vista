@@ -49,7 +49,10 @@ describe('migration da semente em empresa existente', () => {
       );
     expect(await count('crops')).toBe(TENANT_SEED.crops.length);
     expect(await count('document_categories')).toBe(TENANT_SEED.documentCategories.length);
-    expect(await count('commercial_statuses')).toBe(TENANT_SEED.commercialStatuses.length);
+    expect(await count('commercial_statuses')).toBe(
+      // A 0015 não semeia o significado `inactive` (vem na 0022).
+      TENANT_SEED.commercialStatuses.filter(({ systemMeaning }) => systemMeaning !== 'inactive').length,
+    );
     expect(await count('tenant_settings')).toBe(1);
   });
 });

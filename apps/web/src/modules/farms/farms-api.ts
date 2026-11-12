@@ -56,3 +56,9 @@ export const fetchFarmHistory = (slug: string, id: string, cursor: string | unde
     param: { tenant: slug, id },
     query: cursor ? { cursor } : {},
   });
+
+/** Exclui a fazenda (só desativada). 409 traz a mensagem pronta da API. */
+export async function deleteFarm(slug: string, id: string): Promise<void> {
+  const response = await api.e[':tenant'].farms[':id'].$delete({ param: { tenant: slug, id } });
+  if (response.status !== 204) throw await failure(response);
+}

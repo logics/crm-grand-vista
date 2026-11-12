@@ -45,7 +45,7 @@ const FLAG_PROBE = { is_super_admin: true, isSuperAdmin: true };
  * rotas de empresa usam o slug da empresa da varredura.
  */
 /** Fazenda e o status comercial da empresa da varredura. */
-const sweepFarm = { id: '', status: '' };
+const sweepFarm = { id: '', status: '', deactivatedStatus: '', delete: '' };
 
 const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'GET /health': () => ({ path: '/health' }),
@@ -110,9 +110,9 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
     path: `/e/${tenantSlug}/settings/vocabularies/crops/${sweepCrops.delete}`,
   }),
   'PUT /e/:tenant/settings/vocabularies/:vocabulary/order': (_actor, tenantSlug) => ({
-    // A empresa da varredura tem um só status comercial (o das fazendas): a lista dele é a completa.
+    // A empresa da varredura tem dois status comerciais (o das fazendas e o de desativada): a lista deles é a completa.
     path: `/e/${tenantSlug}/settings/vocabularies/commercial-statuses/order`,
-    body: { ids: [sweepFarm.status], ...FLAG_PROBE },
+    body: { ids: [sweepFarm.status, sweepFarm.deactivatedStatus], ...FLAG_PROBE },
   }),
   'GET /e/:tenant/farms': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/farms` }),
   'POST /e/:tenant/farms': (_actor, tenantSlug) => ({
@@ -123,6 +123,9 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'PATCH /e/:tenant/farms/:id': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/farms/${sweepFarm.id}`,
     body: { name: 'Fazenda da varredura (editada)', ...FLAG_PROBE },
+  }),
+  'DELETE /e/:tenant/farms/:id': (_actor, tenantSlug) => ({
+    path: `/e/${tenantSlug}/farms/${sweepFarm.delete}`,
   }),
   'GET /e/:tenant/farms/:id/history': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/farms/${sweepFarm.id}/history`,
@@ -143,7 +146,7 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
 const SUPER_ADMIN_TRACE = /super/i;
 
 /** Folga da varredura: o tempo cresce com o número de rotas registradas. */
-const SWEEP_TIMEOUT_MS = 30_000;
+const SWEEP_TIMEOUT_MS = 60_000;
 
 describe('varredura das respostas da API', () => {
   const pool = createPool(env.DATABASE_URL);
@@ -185,23 +188,38 @@ describe('varredura das respostas da API', () => {
         .returning({ id: contacts.id });
       sweepContact.id = sweptContacts[0]!.id;
       sweepContact.delete = sweptContacts[1]!.id;
-      const [status] = await tx
+      const [status, deactivatedStatus] = await tx
         .insert(commercialStatuses)
-        .values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available' })
+        .values([
+          { tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 },
+          { tenantId: tenant.id, name: 'Desativada', systemMeaning: 'inactive', displayOrder: 1 },
+        ])
         .returning({ id: commercialStatuses.id });
       sweepFarm.status = status!.id;
-      const [farm] = await tx
+      sweepFarm.deactivatedStatus = deactivatedStatus!.id;
+      const [farm, deletable] = await tx
         .insert(farms)
-        .values({
-          tenantId: tenant.id,
-          name: 'Fazenda da varredura',
-          municipalityIbgeCode: '5218805',
-          responsibleUserId: commonUser.id,
-          commercialStatusId: status!.id,
-          totalAreaHa: '100',
-        })
+        .values([
+          {
+            tenantId: tenant.id,
+            name: 'Fazenda da varredura',
+            municipalityIbgeCode: '5218805',
+            responsibleUserId: commonUser.id,
+            commercialStatusId: status!.id,
+            totalAreaHa: '100',
+          },
+          {
+            tenantId: tenant.id,
+            name: 'Fazenda da varredura a excluir',
+            municipalityIbgeCode: '5218805',
+            responsibleUserId: commonUser.id,
+            commercialStatusId: deactivatedStatus!.id,
+            totalAreaHa: '100',
+          },
+        ])
         .returning({ id: farms.id });
       sweepFarm.id = farm!.id;
+      sweepFarm.delete = deletable!.id;
     });
 
     for (const user of [commonUser, superAdmin]) {

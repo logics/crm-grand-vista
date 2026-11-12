@@ -10,5 +10,6 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, issue #145).
 - Rotas: `farms`, `farms/new`, `farms/:id`, `farms/:id/edit`; menu "Fazendas" com `fazendas.ver`.
 - A ficha é `RecordSections` sobre `farmSections` (`farm-sections.tsx`), o mesmo mecanismo da ficha do contato: quem pendura algo registra a seção ali. Dados e Histórico de alterações são as desta issue.
 - Formulário: `createFarmSchema` de `@crm/shared`, o mesmo da API; seções Identificação e Áreas. Área pelo `AreaInput` na unidade da empresa, entregando hectares. Na edição só vai ao `PATCH` o que mudou — a área não editada não é reenviada, para a exibição em alqueire não gerar deriva nem histórico.
+- Exclusão na ficha (#150): botão "Excluir" com `fazendas.excluir`. Status de significado `inactive` abre o `ConfirmDialog` com confirmação digitada (o nome exato da fazenda habilita o botão); outro status abre só a explicação "Desative a fazenda antes de excluir.". Recusa da API (409) aparece na ficha, sem sair dela.
 - Praça: sugerida pelo município (`fetchTradingPostSuggestion`) só enquanto a pessoa não a escolheu à mão nesta edição.
 - Corretor responsável: com escopo `own` (`useDataScope('fazendas')`) o campo é somente leitura no próprio usuário; com `all`, `UserField` (equipe da empresa).
