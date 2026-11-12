@@ -55,6 +55,10 @@ export function createFarmsRoutes() {
       '/',
       createHistoryRoutes({
         entity: 'farms',
+        children: [
+          { entity: 'farm_aptitudes', parentColumn: 'farm_id', nameColumn: 'aptitude_id' },
+          { entity: 'farm_crops', parentColumn: 'farm_id', nameColumn: 'crop_id' },
+        ],
         access: canView(),
         isVisible: (tx, c, id) => farmVisible(tx, c.var.access, id),
       }),

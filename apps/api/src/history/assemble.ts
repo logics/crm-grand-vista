@@ -306,8 +306,15 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
       const shortTitle = labelWith(CHILD_VERBS[kind], meta);
       const nameField = fields.find((field) => field.column === declaration.nameColumn);
       const rawName = (declaration.nameColumn ? state[declaration.nameColumn] : null) ?? null;
-      // Coluna de lista fechada (`role`) aparece pelo rótulo, não pelo valor gravado.
-      const name = rawName !== null && nameField?.type === 'enum' ? formatFieldValue(nameField, rawName) : rawName;
+      // Lista fechada (`role`) aparece pelo rótulo; referência (`aptitude_id`), pelo nome de hoje no cadastro.
+      const name =
+        rawName === null
+          ? null
+          : nameField?.type === 'enum'
+            ? formatFieldValue(nameField, rawName)
+            : nameField?.type === 'reference'
+              ? formatReference(options.references, nameField.references, rawName)
+              : rawName;
       return [
         {
           child: { title: name ? `${shortTitle}: ${name}` : shortTitle, changes: changes.map(({ change }) => change) },

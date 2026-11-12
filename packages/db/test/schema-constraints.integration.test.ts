@@ -1,8 +1,9 @@
 // Garantias que o modelo de dados põe no banco, e não na aplicação.
 import { loadApiEnv } from '@crm/shared/env';
-import { eq } from 'drizzle-orm';
+import { LEVELS } from '@crm/shared';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createTenant, createUser } from './support/fixtures.js';
+import { createTenant, createTenantWithBusinessData, createUser } from './support/fixtures.js';
 import { createDatabase } from '../src/database.js';
 import { createPool } from '../src/pool.js';
 import { memberships, users } from '../src/schema/index.js';
@@ -89,6 +90,30 @@ describe('constraints do schema da Fase 0', () => {
 
       await link(first, tenantA, true);
       await expect(link(second, tenantA, true)).resolves.toBeDefined();
+    });
+  });
+
+  describe('farms', () => {
+    const CHECK_VIOLATION = '23514';
+    const LEVEL_COLUMNS = ['sales_potential', 'priority', 'water_availability', 'irrigation_potential', 'productive_potential'];
+
+    let farmsTenant: string;
+
+    beforeAll(async () => {
+      farmsTenant = await createTenantWithBusinessData(db, 'constraints-farms');
+    });
+
+    const setColumn = (column: string, value: string | null) =>
+      db.withTenant(farmsTenant, (tx) => tx.execute(sql`update farms set ${sql.identifier(column)} = ${value}`));
+
+    it.each(LEVEL_COLUMNS)('%s recusa valor fora de LEVELS', async (column) => {
+      await expect(setColumn(column, 'altissima')).rejects.toMatchObject({
+        cause: { code: CHECK_VIOLATION, constraint: `farms_${column}_check` },
+      });
+    });
+
+    it.each(LEVEL_COLUMNS)('%s aceita cada valor de LEVELS e nulo', async (column) => {
+      for (const value of [...LEVELS, null]) await expect(setColumn(column, value)).resolves.toBeDefined();
     });
   });
 });
