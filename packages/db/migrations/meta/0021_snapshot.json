@@ -281,7 +281,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -593,7 +593,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -704,7 +704,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1125,7 +1125,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1231,7 +1231,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1819,7 +1819,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -2079,7 +2079,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -2453,7 +2453,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -2938,7 +2938,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalize_vocabulary_name(\"name\")",
+              "expression": "normalize_text(\"name\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
