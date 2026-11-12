@@ -77,4 +77,34 @@ describe('ConfirmDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remover laudo.pdf' }));
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Continuar editando' })).toBeInTheDocument();
   });
+
+  it('com confirmação digitada, o botão só habilita com o texto exato', async () => {
+    const onConfirm = vi.fn();
+    render(<Harness confirmationText="Fazenda Boa Vista" confirmationLabel="Digite o nome da fazenda" confirmLabel="Excluir" onConfirm={onConfirm} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Remover laudo.pdf' }));
+    const dialog = screen.getByRole('dialog');
+    const confirm = within(dialog).getByRole('button', { name: 'Excluir' });
+    const field = within(dialog).getByLabelText('Digite o nome da fazenda');
+
+    expect(confirm).toBeDisabled();
+    await userEvent.type(field, 'fazenda boa vista');
+    expect(confirm).toBeDisabled();
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Fazenda Boa Vist');
+    expect(confirm).toBeDisabled();
+    await userEvent.type(field, 'a');
+    expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledOnce();
+  });
+
+  it('o campo digitado começa vazio ao reabrir', async () => {
+    render(<Harness confirmationText="X" confirmationLabel="Digite" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Remover laudo.pdf' }));
+    await userEvent.type(screen.getByLabelText('Digite'), 'X');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remover laudo.pdf' }));
+
+    expect(screen.getByLabelText('Digite')).toHaveValue('');
+  });
 });

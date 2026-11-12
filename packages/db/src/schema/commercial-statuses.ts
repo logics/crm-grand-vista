@@ -14,7 +14,7 @@ export const commercialStatuses = pgTable(
     uniqueVocabularyName('commercial_statuses', table),
     check(
       'commercial_statuses_system_meaning_check',
-      sql`${table.systemMeaning} in ('available', 'negotiating', 'sold', 'suspended')`,
+      sql`${table.systemMeaning} in ('available', 'negotiating', 'sold', 'suspended', 'inactive')`,
     ),
     tenantIsolationPolicy(),
   ],

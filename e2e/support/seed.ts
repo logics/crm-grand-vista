@@ -20,12 +20,15 @@ try {
     // a primeira empresa é a do formulário de fazenda: perfil com escopo `all`, parâmetros, status e uma praça
     if (!isDefault) continue;
     await createLinkedAccessProfile(db, tenant.id, user.id, 'Gestor do E2E', {
-      permissions: ['fazendas.ver', 'fazendas.criar', 'fazendas.editar'],
+      permissions: ['fazendas.ver', 'fazendas.criar', 'fazendas.editar', 'fazendas.excluir'],
       dataScopes: { fazendas: 'all' },
     });
     await db.withTenant(tenant.id, async (tx) => {
       await tx.insert(tenantSettings).values({ tenantId: tenant.id });
-      await tx.insert(commercialStatuses).values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available' });
+      await tx.insert(commercialStatuses).values([
+        { tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 },
+        { tenantId: tenant.id, name: 'Desativada', systemMeaning: 'inactive', displayOrder: 1 },
+      ]);
       const [post] = await tx.insert(tradingPosts).values({ tenantId: tenant.id, name: TRADING_POST_NAME }).returning();
       await tx
         .insert(tradingPostMunicipalities)

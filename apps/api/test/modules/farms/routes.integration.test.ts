@@ -11,7 +11,7 @@ import {
   userProfiles,
 } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../../src/app.js';
 import { createAuth } from '../../../src/modules/auth/auth.js';
@@ -30,7 +30,7 @@ interface FarmBody {
   municipality: { ibgeCode: string; name: string; uf: string };
   responsible: { id: string; name: string };
   tradingPost: { id: string; name: string } | null;
-  commercialStatus: { id: string; name: string };
+  commercialStatus: { id: string; name: string; systemMeaning: string };
   totalAreaHa: string;
   usableAreaHa: string | null;
 }
@@ -51,11 +51,12 @@ describe('fazendas', () => {
 
   let tenant: Awaited<ReturnType<typeof createTenant>>;
   let other: Awaited<ReturnType<typeof createTenant>>;
-  let users: Record<'manager' | 'broker' | 'otherBroker' | 'dual' | 'readOnly' | 'outsider' | 'unlinked', { id: string; name: string; email: string; password: string }>;
+  let users: Record<'manager' | 'broker' | 'otherBroker' | 'dual' | 'excluder' | 'readOnly' | 'outsider' | 'unlinked', { id: string; name: string; email: string; password: string }>;
   let cookies: Record<keyof typeof users, string>;
   let available: string;
   let sold: string;
   let inactiveStatus: string;
+  let deactivated: string;
   let post: string;
   let inactivePost: string;
   let foreignPost: string;
@@ -72,6 +73,9 @@ describe('fazendas', () => {
     app.request(url('', slug), jsonRequest('POST', body, cookie));
   const patch = (id: string, body: unknown, cookie = cookies.manager, slug = tenant.slug) =>
     app.request(url(`/${id}`, slug), jsonRequest('PATCH', body, cookie));
+  const remove = (id: string, cookie = cookies.manager, slug = tenant.slug) =>
+    app.request(url(`/${id}`, slug), { method: 'DELETE', headers: { cookie } });
+  const deactivate = (id: string) => patch(id, { commercialStatusId: deactivated });
   const read = (path = '', cookie = cookies.manager, slug = tenant.slug) => app.request(url(path, slug), { headers: { cookie } });
   const created = async (body: unknown = validBody(), cookie = cookies.manager) => (await (await create(body, cookie)).json()) as FarmBody;
 
@@ -83,6 +87,7 @@ describe('fazendas', () => {
       broker: 'Corretor',
       otherBroker: 'Outro corretor',
       dual: 'Dois perfis',
+      excluder: 'Corretor que exclui',
       readOnly: 'Só leitura',
       outsider: 'De outra empresa',
       unlinked: 'Sem vínculo',
@@ -90,7 +95,7 @@ describe('fazendas', () => {
     users = Object.fromEntries(
       await Promise.all(Object.entries(names).map(async ([key, name]) => [key, await createUserWithPassword(db, name)])),
     ) as typeof users;
-    for (const key of ['manager', 'broker', 'otherBroker', 'dual', 'readOnly'] as const) {
+    for (const key of ['manager', 'broker', 'otherBroker', 'dual', 'excluder', 'readOnly'] as const) {
       await createMembership(db, users[key].id, tenant.id, { isDefault: true });
     }
     await createMembership(db, users.outsider.id, other.id, { isDefault: true });
@@ -110,18 +115,23 @@ describe('fazendas', () => {
       permissions: ['fazendas.ver'],
       dataScopes: { fazendas: 'all' },
     });
+    await createLinkedAccessProfile(db, tenant.id, users.excluder.id, 'Corretor que exclui', {
+      permissions: ['fazendas.ver', 'fazendas.editar', 'fazendas.excluir'],
+      dataScopes: { fazendas: 'own' },
+    });
     await createLinkedAccessProfile(db, other.id, users.outsider.id, 'Admin', {
       permissions: ['fazendas.ver', 'fazendas.criar', 'fazendas.editar'],
       dataScopes: { fazendas: 'all' },
     });
 
-    [available, sold, inactiveStatus, post, inactivePost] = await db.withTenant(tenant.id, async (tx) => {
+    [available, sold, inactiveStatus, deactivated, post, inactivePost] = await db.withTenant(tenant.id, async (tx) => {
       const statuses = await tx
         .insert(commercialStatuses)
         .values([
           { tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 },
           { tenantId: tenant.id, name: 'Vendida', systemMeaning: 'sold', displayOrder: 1 },
           { tenantId: tenant.id, name: 'Antiga', systemMeaning: 'suspended', displayOrder: 2, active: false },
+          { tenantId: tenant.id, name: 'Desativada', systemMeaning: 'inactive', displayOrder: 3 },
         ])
         .returning();
       const posts = await tx
@@ -131,7 +141,7 @@ describe('fazendas', () => {
           { tenantId: tenant.id, name: 'Praça antiga', active: false },
         ])
         .returning();
-      return [statuses[0]!.id, statuses[1]!.id, statuses[2]!.id, posts[0]!.id, posts[1]!.id];
+      return [statuses[0]!.id, statuses[1]!.id, statuses[2]!.id, statuses[3]!.id, posts[0]!.id, posts[1]!.id];
     });
     [foreignPost, foreignStatus] = await db.withTenant(other.id, async (tx) => {
       const [p] = await tx.insert(tradingPosts).values({ tenantId: other.id, name: 'Praça alheia' }).returning();
@@ -356,6 +366,7 @@ describe('fazendas', () => {
       expect((await read('/nao-e-um-id')).status).toBe(404);
       expect((await read('/nao-e-um-id/history')).status).toBe(404);
       expect((await patch('nao-e-um-id', { name: 'X' })).status).toBe(404);
+      expect((await remove('nao-e-um-id')).status).toBe(404);
     });
   });
 
@@ -372,6 +383,7 @@ describe('fazendas', () => {
       expect((await read(`/${foreign.id}`)).status).toBe(404);
       expect((await read(`/${foreign.id}/history`)).status).toBe(404);
       expect((await patch(foreign.id, { name: 'Invadida' })).status).toBe(404);
+      expect((await remove(foreign.id)).status).toBe(404);
     });
 
     it('a lista não traz fazenda de outra empresa', async () => {
@@ -398,6 +410,65 @@ describe('fazendas', () => {
           }),
         ),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('exclusão (critérios 12 e 15)', () => {
+    it('excluir fazenda fora de status desativada é 409 e a fazenda continua lá', async () => {
+      const farm = await created(validBody({ name: 'Exclusão — ativa' }));
+      const response = await remove(farm.id);
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({
+        error: { code: 'conflict', message: 'Desative a fazenda antes de excluir.' },
+      });
+      expect((await read(`/${farm.id}`)).status).toBe(200);
+    });
+
+    it('fazenda desativada é excluída com 204 e some do detalhe, da lista e do histórico', async () => {
+      const farm = await created(validBody({ name: 'Exclusão — desativada' }));
+      expect((await deactivate(farm.id)).status).toBe(200);
+
+      expect((await remove(farm.id)).status).toBe(204);
+      expect((await read(`/${farm.id}`)).status).toBe(404);
+      expect((await read(`/${farm.id}/history`)).status).toBe(404);
+      const listed = (await (await read(`?commercialStatusId=${deactivated}&pageSize=100`)).json()) as ListBody;
+      expect(listed.items.map((item) => item.id)).not.toContain(farm.id);
+      expect((await remove(farm.id)).status).toBe(404);
+    });
+
+    it('a exclusão fica no audit_log da empresa', async () => {
+      const farm = await created(validBody({ name: 'Exclusão — auditada' }));
+      await deactivate(farm.id);
+      await remove(farm.id);
+
+      const rows = await db.withTenant(tenant.id, (tx) =>
+        tx.execute<{ n: string }>(
+          // `audit_log` não tem coluna de operação: a exclusão é a linha de `name` com valor novo nulo.
+          sql`select count(*) as n from audit_log where entity = 'farms' and entity_id = ${farm.id} and field = 'name' and new_value is null`,
+        ),
+      );
+      expect(Number(rows.rows[0]!.n)).toBe(1);
+    });
+
+    it('sem fazendas.excluir é 403 antes do banco', async () => {
+      const farm = await created(validBody({ name: 'Exclusão — sem permissão' }));
+      await deactivate(farm.id);
+
+      expect((await remove(farm.id, cookies.readOnly)).status).toBe(403);
+      expect((await remove(farm.id, cookies.broker)).status).toBe(403);
+      expect((await read(`/${farm.id}`)).status).toBe(200);
+    });
+
+    it('escopo own com fazendas.excluir recebe 404 no DELETE de fazenda alheia, e exclui a própria desativada', async () => {
+      const theirs = await created(validBody({ name: 'Exclusão — alheia', responsibleUserId: users.broker.id }));
+      await deactivate(theirs.id);
+      const mine = await created(validBody({ name: 'Exclusão — própria', responsibleUserId: users.excluder.id }));
+      await deactivate(mine.id);
+
+      expect((await remove(theirs.id, cookies.excluder)).status).toBe(404);
+      expect((await read(`/${theirs.id}`)).status).toBe(200);
+      expect((await remove(mine.id, cookies.excluder)).status).toBe(204);
     });
   });
 
@@ -471,6 +542,29 @@ describe('fazendas', () => {
   });
 
   describe('lista', () => {
+    it('sem parâmetro de status, a lista e o total não contam desativadas; pedindo o status desativada, aparecem', async () => {
+      const keep = await created(validBody({ name: 'Lista — ativa' }));
+      const soldFarm = await created(validBody({ name: 'Lista — vendida', commercialStatusId: sold }));
+      const gone = await created(validBody({ name: 'Lista — desativada' }));
+      await deactivate(gone.id);
+
+      const byDefault = (await (await read('?pageSize=100')).json()) as ListBody;
+      const ids = byDefault.items.map((item) => item.id);
+      expect(ids).toContain(keep.id);
+      expect(ids).toContain(soldFarm.id);
+      expect(ids).not.toContain(gone.id);
+      expect(byDefault.total).toBe(byDefault.items.length);
+
+      const asked = (await (await read(`?commercialStatusId=${deactivated}&pageSize=100`)).json()) as ListBody;
+      expect(asked.items.map((item) => item.id)).toContain(gone.id);
+      expect(asked.items.every((item) => item.commercialStatus.systemMeaning === 'inactive')).toBe(true);
+      expect(asked.total).toBe(asked.items.length);
+    });
+
+    it('status com id inválido é 400', async () => {
+      expect((await read('?commercialStatusId=nao-e-id')).status).toBe(400);
+    });
+
     it('ordena por mais recente, desempatando por id, e pagina', async () => {
       const first = (await (await read('?pageSize=25')).json()) as ListBody & { page: number; pageSize: number };
 

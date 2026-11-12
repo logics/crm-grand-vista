@@ -24,6 +24,7 @@ export const TENANT_SEED: TenantSeed = {
     { name: 'Em negociação', systemMeaning: 'negotiating' },
     { name: 'Vendida', systemMeaning: 'sold' },
     { name: 'Suspensa', systemMeaning: 'suspended' },
+    { name: 'Desativada', systemMeaning: 'inactive' },
   ],
   documentCategories: ['CAR', 'CCIR', 'Contratos', 'Georreferenciamento', 'Laudos', 'Licenças', 'Mapas', 'Matrículas'],
   crops: ['Algodão', 'Café', 'Cana-de-açúcar', 'Milho', 'Pecuária', 'Soja'],

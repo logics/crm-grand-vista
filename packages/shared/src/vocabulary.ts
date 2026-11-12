@@ -47,6 +47,7 @@ export const COMMERCIAL_STATUS_MEANINGS = {
   negotiating: 'Em negociação',
   sold: 'Vendida',
   suspended: 'Suspensa',
+  inactive: 'Desativada',
 } as const;
 
 export const VOCABULARIES = {
