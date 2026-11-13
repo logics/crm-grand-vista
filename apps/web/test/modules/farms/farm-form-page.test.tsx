@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '../../support/dom.js';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { session, stubFakeApi } from '../../support/fake-api.js';
@@ -120,18 +120,37 @@ const farm = {
   commercialStatus: { id: '0197c000-0000-7000-8000-0000000000c1', name: 'Disponível' },
   totalAreaHa: '48.4000',
   usableAreaHa: null,
+  pricingMode: null,
+  askingPrice: null,
+  valuationBags: null,
+  valuationBagsUnit: null,
+  valuationBagsAlqueireType: null,
+  valuationCrop: null,
+  priceDerivatives: { pricePerHectare: null, pricePerUsableHectare: null, bagsPerHectare: null },
   createdAt: '2026-01-02T10:00:00.000Z',
 };
 
+const soy = { id: '0197c000-0000-7000-8000-0000000000d1', name: 'Soja', active: true };
+const inReais = { ...farm, pricingMode: 'brl', askingPrice: '80000000.00' };
+const inBags = {
+  ...farm,
+  pricingMode: 'bags',
+  valuationBags: '7000.0000',
+  valuationBagsUnit: 'per_alqueire',
+  valuationBagsAlqueireType: 'paulista',
+  valuationCrop: { id: soy.id, name: soy.name },
+};
+
 /** Escritas de fazenda não são GET: o teste as intercepta e devolve a fazenda salva. */
-function openWithWrites(path: string, settings: { areaDisplayUnit: 'hectare' | 'alqueire' }) {
+function openWithWrites(path: string, settings: { areaDisplayUnit: 'hectare' | 'alqueire' }, saved: object = farm) {
   const writes: { method: string; path: string; body: unknown }[] = [];
   const api = stubFakeApi({
     session: session(),
     permissions: ['fazendas.ver', 'fazendas.criar', 'fazendas.editar'],
     dataScopes: { fazendas: 'all' },
     records: {
-      '/e/grand-vista/farms/f1': farm,
+      '/e/grand-vista/farms/f1': saved,
+      '/e/grand-vista/settings/vocabularies/crops/options': { items: [soy] },
       '/e/grand-vista/municipalities': { items: [rioVerde] },
       '/e/grand-vista/settings/vocabularies/trading-posts/options': { items: [southPost] },
       '/e/grand-vista/users': { users: [{ ...me, profiles: [] }] },
@@ -244,5 +263,138 @@ describe('formulário de fazenda: validação', () => {
 
     expect(await screen.findByText('A área útil não pode ser maior que a área total.')).toBeInTheDocument();
     expect(api.writes).toHaveLength(0);
+  });
+});
+
+describe('formulário de fazenda: precificação', () => {
+  const pickMode = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(await screen.findByRole('combobox', { name: 'Modo de precificação' }));
+    await user.click(await screen.findByRole('option', { name }));
+  };
+
+  it('editar fazenda avaliada em sacas por alqueire sem tocar em área nem preço, exibida em alqueire, só envia o nome', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'alqueire' }, inBags);
+    const user = userEvent.setup();
+
+    const name = await screen.findByRole('textbox', { name: /Nome/ });
+    await user.clear(name);
+    await user.type(name, 'Boa Vista II');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]!.body).toEqual({ name: 'Boa Vista II' });
+  });
+
+  it('sem preço, o formulário não mostra campo de preço', async () => {
+    openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' });
+
+    expect(await screen.findByRole('combobox', { name: 'Modo de precificação' })).toHaveTextContent('Sem preço');
+    expect(screen.queryByRole('textbox', { name: /Preço pedido/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Avaliação em sacas/ })).not.toBeInTheDocument();
+  });
+
+  it('trocar de modo sem valor preenchido não pede confirmação', async () => {
+    openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await pickMode(user, 'Em reais');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: /Preço pedido/ })).toBeInTheDocument();
+  });
+
+  it('trocar de modo com valor preenchido pede confirmação; cancelar mantém o modo e o valor', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' }, inReais);
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('80.000.000,00');
+    await pickMode(user, 'Em sacas');
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Trocar o modo de precificação?');
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.getByRole('combobox', { name: 'Modo de precificação' })).toHaveTextContent('Em reais');
+    expect(screen.getByDisplayValue('80.000.000,00')).toBeInTheDocument();
+    expect(api.writes).toHaveLength(0);
+  });
+
+  it('confirmar a troca de reais para sacas limpa o preço pedido e envia o bloco novo inteiro', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' }, inReais);
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('80.000.000,00');
+    await pickMode(user, 'Em sacas');
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Trocar modo' }));
+
+    await user.type(await screen.findByRole('textbox', { name: /Avaliação em sacas/ }), '7000');
+    await user.click(screen.getByRole('combobox', { name: 'Unidade da avaliação' }));
+    await user.click(await screen.findByRole('option', { name: 'Por alqueire' }));
+    await user.click(screen.getByRole('combobox', { name: /Cultura de referência/ }));
+    await user.click(await screen.findByRole('option', { name: 'Soja' }));
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]!.body).toEqual({
+      pricingMode: 'bags',
+      askingPrice: null,
+      valuationBags: '7000',
+      valuationBagsUnit: 'per_alqueire',
+      valuationBagsAlqueireType: 'goiano',
+      valuationCropId: soy.id,
+    });
+  });
+
+  it('por alqueire pede o tipo, pré-preenchido com o padrão da empresa e editável', async () => {
+    openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await pickMode(user, 'Em sacas');
+    expect(screen.queryByRole('combobox', { name: 'Tipo de alqueire da avaliação' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: 'Unidade da avaliação' }));
+    await user.click(await screen.findByRole('option', { name: 'Por alqueire' }));
+
+    const type = await screen.findByRole('combobox', { name: 'Tipo de alqueire da avaliação' });
+    await waitFor(() => expect(type).toHaveTextContent('Goiano'));
+    await user.click(type);
+    await user.click(await screen.findByRole('option', { name: 'Paulista' }));
+    expect(screen.getByRole('combobox', { name: 'Tipo de alqueire da avaliação' })).toHaveTextContent('Paulista');
+  });
+
+  it('voltar a "Sem preço" com valor confirma e envia só o modo nulo', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' }, inReais);
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('80.000.000,00');
+    await pickMode(user, 'Sem preço');
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Trocar modo' }));
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]!.body).toEqual({
+      pricingMode: null,
+      askingPrice: null,
+      valuationBags: null,
+      valuationBagsUnit: null,
+      valuationBagsAlqueireType: null,
+      valuationCropId: null,
+    });
+  });
+
+  it('cria em reais enviando o preço pedido e mais nada de preço', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/new', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: /Nome/ }), 'Fazenda Boa Vista');
+    await user.click(screen.getByRole('combobox', { name: /Município/ }));
+    await user.click(await screen.findByRole('option', { name: /Rio Verde/ }));
+    await user.type(screen.getByRole('textbox', { name: /Área total/ }), '1000');
+    await pickMode(user, 'Em reais');
+    await user.type(await screen.findByRole('textbox', { name: /Preço pedido/ }), '8000000000');
+    await user.click(screen.getByRole('button', { name: 'Cadastrar fazenda' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]!.body).toMatchObject({ pricingMode: 'brl', askingPrice: '80000000' });
+    expect(api.writes[0]!.body).not.toHaveProperty('valuationBags');
   });
 });

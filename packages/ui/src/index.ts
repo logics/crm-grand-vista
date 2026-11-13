@@ -47,6 +47,7 @@ export * from './components/money-input.js';
 export * from './components/municipality-picker.js';
 export * from './components/opportunity-card.js';
 export * from './components/pagination.js';
+export * from './components/decimal-input.js';
 export * from './components/percent-input.js';
 export * from './components/phone-input.js';
 export * from './components/progress-bar.js';

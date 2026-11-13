@@ -4,6 +4,7 @@
 import {
   auditedWrites,
   commercialStatuses,
+  crops,
   farms,
   memberships,
   municipalities,
@@ -18,9 +19,14 @@ import {
   FARM_RESPONSIBLE_FORBIDDEN_MESSAGE,
   FARM_RESPONSIBLE_UNKNOWN_MESSAGE,
   FARM_STATUS_UNKNOWN_MESSAGE,
+  FARM_VALUATION_CROP_UNKNOWN_MESSAGE,
   FARM_TRADING_POST_UNKNOWN_MESSAGE,
   FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE,
+  priceDerivatives,
   usableExceedsTotal,
+  type AlqueireType,
+  type PricingMode,
+  type ValuationBagsUnit,
   type CreateFarmInput,
   type Farm,
   type FarmListQuery,
@@ -72,7 +78,7 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
   if (rows.length === 0) return [];
   const unique = <T>(values: readonly (T | null)[]) => [...new Set(values.filter((value): value is T => value !== null))];
 
-  const [municipalityRows, statusRows, userRows, postRows] = await Promise.all([
+  const [municipalityRows, statusRows, userRows, postRows, cropRows] = await Promise.all([
     tx
       .select({ ibgeCode: municipalities.ibgeCode, name: municipalities.name, uf: municipalities.uf })
       .from(municipalities)
@@ -89,11 +95,16 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
       .select({ id: tradingPosts.id, name: tradingPosts.name })
       .from(tradingPosts)
       .where(inArray(tradingPosts.id, unique(rows.map((row) => row.tradingPostId)))),
+    tx
+      .select({ id: crops.id, name: crops.name })
+      .from(crops)
+      .where(inArray(crops.id, unique(rows.map((row) => row.valuationCropId)))),
   ]);
   const municipalityByCode = new Map(municipalityRows.map((row) => [row.ibgeCode, row]));
   const statusById = new Map(statusRows.map((row) => [row.id, row]));
   const userById = new Map(userRows.map((row) => [row.id, row]));
   const postById = new Map(postRows.map((row) => [row.id, row]));
+  const cropById = new Map(cropRows.map((row) => [row.id, row]));
 
   return rows.map((row) => ({
     id: row.id,
@@ -104,6 +115,21 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
     commercialStatus: statusById.get(row.commercialStatusId)!,
     totalAreaHa: row.totalAreaHa,
     usableAreaHa: row.usableAreaHa,
+    pricingMode: row.pricingMode as PricingMode | null,
+    askingPrice: row.askingPrice,
+    valuationBags: row.valuationBags,
+    valuationBagsUnit: row.valuationBagsUnit as ValuationBagsUnit | null,
+    valuationBagsAlqueireType: row.valuationBagsAlqueireType as AlqueireType | null,
+    valuationCrop: row.valuationCropId ? (cropById.get(row.valuationCropId) ?? null) : null,
+    priceDerivatives: priceDerivatives({
+      pricingMode: row.pricingMode as PricingMode | null,
+      askingPrice: row.askingPrice,
+      valuationBags: row.valuationBags,
+      valuationBagsUnit: row.valuationBagsUnit as ValuationBagsUnit | null,
+      valuationBagsAlqueireType: row.valuationBagsAlqueireType as AlqueireType | null,
+      totalAreaHa: row.totalAreaHa,
+      usableAreaHa: row.usableAreaHa,
+    }),
     createdAt: row.createdAt.toISOString(),
   }));
 }
@@ -138,6 +164,7 @@ interface ReferenceInput {
   tradingPostId?: string | null | undefined;
   commercialStatusId?: string | undefined;
   responsibleUserId?: string | undefined;
+  valuationCropId?: string | null | undefined;
 }
 
 /**
@@ -152,7 +179,7 @@ async function referenceRejection(
   input: ReferenceInput,
   current?: FarmRow,
 ): Promise<FarmRejection | null> {
-  const { municipalityIbgeCode, tradingPostId, commercialStatusId, responsibleUserId } = input;
+  const { municipalityIbgeCode, tradingPostId, commercialStatusId, responsibleUserId, valuationCropId } = input;
 
   if (municipalityIbgeCode !== undefined && municipalityIbgeCode !== current?.municipalityIbgeCode) {
     const [row] = await tx
@@ -179,7 +206,26 @@ async function referenceRejection(
       .where(and(eq(memberships.tenantId, tenantId), eq(memberships.userId, responsibleUserId)));
     if (!row) return { rejected: FARM_RESPONSIBLE_UNKNOWN_MESSAGE, field: 'responsibleUserId' };
   }
+  if (valuationCropId && valuationCropId !== current?.valuationCropId) {
+    // A FK de `crops` não passa pelo RLS: sem esta consulta (que passa), cultura de outra empresa seria aceita.
+    const [row] = await tx.select({ active: crops.active }).from(crops).where(eq(crops.id, valuationCropId));
+    if (!row?.active) return { rejected: FARM_VALUATION_CROP_UNKNOWN_MESSAGE, field: 'valuationCropId' };
+  }
   return null;
+}
+
+/** As seis colunas da precificação: as que não pertencem ao modo vão nulas. */
+function pricingColumns(input: CreateFarmInput | UpdateFarmInput) {
+  const mode = input.pricingMode ?? null;
+  const bags = mode === 'bags';
+  return {
+    pricingMode: mode,
+    askingPrice: mode === 'brl' ? (input.askingPrice ?? null) : null,
+    valuationBags: bags ? (input.valuationBags ?? null) : null,
+    valuationBagsUnit: bags ? (input.valuationBagsUnit ?? null) : null,
+    valuationBagsAlqueireType: bags && input.valuationBagsUnit === 'per_alqueire' ? (input.valuationBagsAlqueireType ?? null) : null,
+    valuationCropId: bags ? (input.valuationCropId ?? null) : null,
+  };
 }
 
 export async function createFarm(
@@ -206,6 +252,7 @@ export async function createFarm(
     totalAreaHa: input.totalAreaHa,
     usableAreaHa: input.usableAreaHa ?? null,
     commercialStatusId,
+    ...pricingColumns(input),
   });
   return (await serialize(tx, [row]))[0]!;
 }
@@ -233,7 +280,12 @@ export async function updateFarm(
   const refused = await referenceRejection(tx, actor.tenantId, input, current);
   if (refused) return refused;
 
-  const set: Partial<typeof farms.$inferInsert> = { ...input };
+  // O modo manda no bloco: com ele no corpo, as seis colunas são regravadas num save só.
+  const { pricingMode, askingPrice, valuationBags, valuationBagsUnit, valuationBagsAlqueireType, valuationCropId, ...rest } = input;
+  const set: Partial<typeof farms.$inferInsert> = {
+    ...rest,
+    ...(pricingMode !== undefined && pricingColumns({ pricingMode, askingPrice, valuationBags, valuationBagsUnit, valuationBagsAlqueireType, valuationCropId })),
+  };
   if (Object.keys(set).length === 0) return (await serialize(tx, [current]))[0]!;
   const [row] = await auditedWrites(tx, actor).update(farms, set, eq(farms.id, id));
   return row ? (await serialize(tx, [row]))[0]! : null;

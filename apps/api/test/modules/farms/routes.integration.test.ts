@@ -6,6 +6,7 @@ import {
   commercialStatuses,
   createDatabase,
   createPool,
+  crops,
   farms,
   tradingPosts,
   userProfiles,
@@ -33,6 +34,13 @@ interface FarmBody {
   commercialStatus: { id: string; name: string };
   totalAreaHa: string;
   usableAreaHa: string | null;
+  pricingMode: 'brl' | 'bags' | null;
+  askingPrice: string | null;
+  valuationBags: string | null;
+  valuationBagsUnit: 'per_hectare' | 'per_alqueire' | null;
+  valuationBagsAlqueireType: 'goiano' | 'paulista' | 'norte' | null;
+  valuationCrop: { id: string; name: string } | null;
+  priceDerivatives: { pricePerHectare: string | null; pricePerUsableHectare: string | null; bagsPerHectare: string | null };
 }
 
 interface ListBody {
@@ -60,6 +68,9 @@ describe('fazendas', () => {
   let inactivePost: string;
   let foreignPost: string;
   let foreignStatus: string;
+  let soy: string;
+  let oldCorn: string;
+  let foreignCrop: string;
 
   const url = (path = '', slug = tenant.slug) => `/e/${slug}/farms${path}`;
   const validBody = (overrides: Record<string, unknown> = {}) => ({
@@ -140,6 +151,21 @@ describe('fazendas', () => {
         .values({ tenantId: other.id, name: 'Disponível', systemMeaning: 'available' })
         .returning();
       return [p!.id, s!.id];
+    });
+
+    [soy, oldCorn] = await db.withTenant(tenant.id, async (tx) => {
+      const rows = await tx
+        .insert(crops)
+        .values([
+          { tenantId: tenant.id, name: 'Soja' },
+          { tenantId: tenant.id, name: 'Milho antigo', active: false },
+        ])
+        .returning();
+      return [rows[0]!.id, rows[1]!.id];
+    });
+    [foreignCrop] = await db.withTenant(other.id, async (tx) => {
+      const rows = await tx.insert(crops).values({ tenantId: other.id, name: 'Soja alheia' }).returning();
+      return [rows[0]!.id];
     });
 
     cookies = {} as typeof cookies;
@@ -253,6 +279,32 @@ describe('fazendas', () => {
       }
     });
 
+    it('cultura de referência de outra empresa é 400 no campo, na criação e na edição', async () => {
+      const response = await create(validBody({ ...bagsPricing(), valuationCropId: foreignCrop }));
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ error: { field: 'valuationCropId' } });
+
+      const farm = await created();
+      const edit = await patch(farm.id, { ...bagsPricing(), valuationCropId: foreignCrop });
+      expect(edit.status).toBe(400);
+      expect(await edit.json()).toMatchObject({ error: { field: 'valuationCropId' } });
+    });
+
+    it('cultura de referência inativa é 400 quando muda, e salvar sem tocá-la passa', async () => {
+      expect((await create(validBody({ ...bagsPricing(), valuationCropId: oldCorn }))).status).toBe(400);
+
+      const farm = await created(validBody(bagsPricing()));
+      await db.withTenant(tenant.id, (tx) => tx.update(crops).set({ active: false }).where(eq(crops.id, soy)));
+      try {
+        const same = await patch(farm.id, { name: 'Outro nome', ...bagsPricing() });
+        expect(same.status).toBe(200);
+        expect(await same.json()).toMatchObject({ valuationCrop: { id: soy, name: 'Soja' } });
+        expect((await patch(farm.id, { ...bagsPricing(), valuationCropId: oldCorn })).status).toBe(400);
+      } finally {
+        await db.withTenant(tenant.id, (tx) => tx.update(crops).set({ active: true }).where(eq(crops.id, soy)));
+      }
+    });
+
     it('troca de status e de município ativos é aceita', async () => {
       const farm = await created();
 
@@ -260,6 +312,182 @@ describe('fazendas', () => {
 
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({ commercialStatus: { name: 'Vendida' }, municipality: { name: 'Goiânia' } });
+    });
+  });
+
+  const bagsPricing = (overrides: Record<string, unknown> = {}) => ({
+    pricingMode: 'bags',
+    valuationBags: '7000',
+    valuationBagsUnit: 'per_alqueire',
+    valuationBagsAlqueireType: 'goiano',
+    valuationCropId: soy,
+    ...overrides,
+  });
+
+  describe('precificação (critério 3)', () => {
+    // Cada linha fere uma cláusula do `CHECK` farms_pricing_check.
+    const invalid: [string, () => Record<string, unknown>, string][] = [
+      ['modo nulo com preço pedido', () => ({ askingPrice: '10' }), 'askingPrice'],
+      ['modo nulo com quantidade de sacas', () => ({ valuationBags: '10' }), 'valuationBags'],
+      ['modo nulo com unidade', () => ({ valuationBagsUnit: 'per_hectare' }), 'valuationBagsUnit'],
+      ['modo nulo com tipo de alqueire', () => ({ valuationBagsAlqueireType: 'goiano' }), 'valuationBagsAlqueireType'],
+      ['modo nulo com cultura', () => ({ valuationCropId: soy }), 'valuationCropId'],
+      ['modo nulo com o conjunto de sacas completo', () => bagsPricing({ pricingMode: undefined }), 'valuationBags'],
+      ['reais sem preço pedido', () => ({ pricingMode: 'brl' }), 'askingPrice'],
+      ['reais com quantidade de sacas', () => ({ pricingMode: 'brl', askingPrice: '10', valuationBags: '1' }), 'valuationBags'],
+      ['reais com unidade', () => ({ pricingMode: 'brl', askingPrice: '10', valuationBagsUnit: 'per_hectare' }), 'valuationBagsUnit'],
+      ['reais com cultura', () => ({ pricingMode: 'brl', askingPrice: '10', valuationCropId: soy }), 'valuationCropId'],
+      ['sacas sem quantidade', () => bagsPricing({ valuationBags: undefined }), 'valuationBags'],
+      ['sacas sem unidade', () => bagsPricing({ valuationBagsUnit: undefined, valuationBagsAlqueireType: undefined }), 'valuationBagsUnit'],
+      ['sacas sem cultura', () => bagsPricing({ valuationCropId: undefined }), 'valuationCropId'],
+      ['sacas com preço pedido', () => bagsPricing({ askingPrice: '10' }), 'askingPrice'],
+      ['por alqueire sem tipo', () => bagsPricing({ valuationBagsAlqueireType: undefined }), 'valuationBagsAlqueireType'],
+      ['por hectare com tipo', () => bagsPricing({ valuationBagsUnit: 'per_hectare' }), 'valuationBagsAlqueireType'],
+    ];
+
+    // Furo do CHECK do 0021 (NULL passa): ver DECISOES-PENDENTES.md, D1. Sobem para `it` quando a migration sair.
+    const checkHole = new Set(['modo nulo com preço pedido', 'modo nulo com o conjunto de sacas completo']);
+
+    it.each(invalid.filter(([label]) => !checkHole.has(label)))('o banco recusa %s', async (_label, build) => {
+      const pricing = Object.fromEntries(Object.entries(build()).filter(([, value]) => value !== undefined));
+      await expect(
+        db.withTenant(tenant.id, (tx) =>
+          tx.insert(farms).values({
+            tenantId: tenant.id,
+            name: 'Direta',
+            municipalityIbgeCode: RIO_VERDE,
+            responsibleUserId: users.manager.id,
+            commercialStatusId: available,
+            totalAreaHa: '10',
+            ...(pricing as Partial<typeof farms.$inferInsert>),
+          }),
+        ),
+      ).rejects.toMatchObject({ cause: { constraint: 'farms_pricing_check' } });
+    });
+
+    it.skip.each([...checkHole])('o banco recusa %s (D1: depende da migration do CHECK)', () => undefined);
+
+    it.each(invalid)('POST com %s é 400 no campo, nunca 500', async (_label, build, field) => {
+      const response = await create(validBody(build()));
+
+      expect(response.status).toBe(400);
+      expect(JSON.stringify(await response.json())).toContain(field);
+    });
+
+    it('cria em reais, com valor por hectare e por hectare útil no detalhe', async () => {
+      const farm = await created(validBody({ totalAreaHa: '1000', usableAreaHa: '800', pricingMode: 'brl', askingPrice: '80000000' }));
+      const detail = (await (await read(`/${farm.id}`)).json()) as FarmBody;
+
+      expect(detail).toMatchObject({ pricingMode: 'brl', askingPrice: '80000000.00', valuationBags: null, valuationCrop: null });
+      expect(detail.priceDerivatives).toEqual({ pricePerHectare: '80000', pricePerUsableHectare: '100000', bagsPerHectare: null });
+    });
+
+    it('cria em sacas por alqueire, com sacas por hectare pelo tipo congelado', async () => {
+      const farm = await created(validBody(bagsPricing()));
+      const detail = (await (await read(`/${farm.id}`)).json()) as FarmBody;
+
+      expect(detail).toMatchObject({
+        pricingMode: 'bags',
+        askingPrice: null,
+        valuationBags: '7000.0000',
+        valuationBagsUnit: 'per_alqueire',
+        valuationBagsAlqueireType: 'goiano',
+        valuationCrop: { id: soy, name: 'Soja' },
+      });
+      expect(detail.priceDerivatives).toEqual({ pricePerHectare: null, pricePerUsableHectare: null, bagsPerHectare: '1446.281' });
+    });
+
+    it('sem preço: modo e conjunto nulos, derivados nulos', async () => {
+      const farm = await created();
+
+      expect(farm).toMatchObject({
+        pricingMode: null,
+        askingPrice: null,
+        valuationBags: null,
+        valuationBagsUnit: null,
+        valuationBagsAlqueireType: null,
+        valuationCrop: null,
+        priceDerivatives: { pricePerHectare: null, pricePerUsableHectare: null, bagsPerHectare: null },
+      });
+    });
+  });
+
+  describe('troca de modo (critério 4)', () => {
+    it('trocar de reais para sacas apaga o preço pedido no mesmo save, e o histórico guarda o valor anterior', async () => {
+      const farm = await created(validBody({ pricingMode: 'brl', askingPrice: '80000000' }));
+
+      const response = await patch(farm.id, bagsPricing());
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ pricingMode: 'bags', askingPrice: null, valuationBags: '7000.0000' });
+
+      const history = (await (await read(`/${farm.id}/history`)).json()) as HistoryBody;
+      const latest = history.entries[0]!.changes;
+      expect(latest).toContainEqual({ field: 'Modo de precificação', from: 'Em reais', to: 'Em sacas' });
+      expect(latest).toContainEqual({ field: 'Preço pedido', from: 'R$ 80.000.000,00', to: null });
+      expect(latest.map((change) => change.field)).toEqual(
+        expect.arrayContaining(['Avaliação em sacas', 'Unidade da avaliação', 'Tipo de alqueire da avaliação', 'Cultura de referência']),
+      );
+    });
+
+    it('trocar de sacas para reais apaga o conjunto de sacas', async () => {
+      const farm = await created(validBody(bagsPricing()));
+
+      const response = await patch(farm.id, { pricingMode: 'brl', askingPrice: '5000000' });
+
+      expect(await response.json()).toMatchObject({
+        pricingMode: 'brl',
+        askingPrice: '5000000.00',
+        valuationBags: null,
+        valuationBagsUnit: null,
+        valuationBagsAlqueireType: null,
+        valuationCrop: null,
+      });
+    });
+
+    it('voltar a sem preço apaga tudo, com a mudança no histórico', async () => {
+      const farm = await created(validBody(bagsPricing()));
+
+      const response = await patch(farm.id, { pricingMode: null });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        pricingMode: null,
+        askingPrice: null,
+        valuationBags: null,
+        valuationBagsUnit: null,
+        valuationBagsAlqueireType: null,
+        valuationCrop: null,
+      });
+      const history = (await (await read(`/${farm.id}/history`)).json()) as HistoryBody;
+      expect(history.entries[0]!.changes).toContainEqual({ field: 'Modo de precificação', from: 'Em sacas', to: null });
+    });
+
+    it('PATCH com campo de preço sem o modo é 400 no modo', async () => {
+      const farm = await created(validBody({ pricingMode: 'brl', askingPrice: '100' }));
+
+      const response = await patch(farm.id, { askingPrice: '200' });
+
+      expect(response.status).toBe(400);
+      expect(JSON.stringify(await response.json())).toContain('pricingMode');
+    });
+
+    it('PATCH sem campo de preço não toca a precificação nem o histórico dela', async () => {
+      const farm = await created(validBody({ pricingMode: 'brl', askingPrice: '100' }));
+
+      const response = await patch(farm.id, { name: 'Só o nome' });
+
+      expect(await response.json()).toMatchObject({ pricingMode: 'brl', askingPrice: '100.00' });
+      const history = (await (await read(`/${farm.id}/history`)).json()) as HistoryBody;
+      expect(history.entries[0]!.changes.map((change) => change.field)).toEqual(['Nome']);
+    });
+
+    it('reenviar o mesmo bloco não gera histórico', async () => {
+      const farm = await created(validBody(bagsPricing()));
+      const before = ((await (await read(`/${farm.id}/history`)).json()) as HistoryBody).entries.length;
+
+      expect((await patch(farm.id, bagsPricing())).status).toBe(200);
+
+      expect(((await (await read(`/${farm.id}/history`)).json()) as HistoryBody).entries.length).toBe(before);
     });
   });
 
