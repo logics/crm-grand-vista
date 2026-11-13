@@ -162,7 +162,7 @@ function multiply(a: string, b: string, scale: number): string {
 }
 
 /** Divide dois decimais canônicos, arredondando o quociente em `scale` casas. */
-function divide(a: string, b: string, scale: number): string {
+export function divideDecimal(a: string, b: string, scale: number): string {
   const left = toScaled(a);
   const right = toScaled(b);
   const units = divRound(left.units * pow10(right.scale + scale), right.units * pow10(left.scale));
@@ -174,7 +174,10 @@ export function alqueiresToHectares(alqueires: string, type: AlqueireType): stri
   return multiply(alqueires, ALQUEIRE_HECTARES[type], AREA_SCALE);
 }
 
-/** Hectares em alqueires do tipo dado, nas casas da área. */
-export function hectaresToAlqueires(hectares: string, type: AlqueireType): string {
-  return divide(hectares, ALQUEIRE_HECTARES[type], AREA_SCALE);
+/**
+ * Hectares em alqueires do tipo dado, nas casas da área. `scale` maior serve às
+ * contas internas: hectare → alqueire (8 casas) → hectare (4) volta exato.
+ */
+export function hectaresToAlqueires(hectares: string, type: AlqueireType, scale: number = AREA_SCALE): string {
+  return divideDecimal(hectares, ALQUEIRE_HECTARES[type], scale);
 }

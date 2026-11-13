@@ -20,3 +20,6 @@ export const twoTenantUser = {
 /** Município e praça semeados na primeira empresa, para o formulário de fazenda. */
 export const RIO_VERDE_IBGE = '5218805';
 export const TRADING_POST_NAME = 'Praça Sudoeste';
+
+/** Cultura semeada na primeira empresa, para a cultura de referência da avaliação em sacas. */
+export const CROP_NAME = 'Soja';
