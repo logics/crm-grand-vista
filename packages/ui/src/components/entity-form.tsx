@@ -17,6 +17,7 @@ import { Card } from './card.js';
 import { ConfirmDialog } from './confirm-dialog.js';
 import { Field } from './field.js';
 import { Icon } from './icon.js';
+import { textLink } from '../lib/styles.js';
 
 // Formulário de cadastro em seções (fazenda, contato, oportunidade), validado
 // pelo mesmo schema Zod da fronteira HTTP. Cada seção é um `Card` com grade de
@@ -54,6 +55,8 @@ export type EntityFormField<TValues extends FieldValues> = {
 }[FieldPath<TValues>];
 
 export type EntityFormSection<TValues extends FieldValues> = {
+  /** Âncora estável da seção (`#tecnico`); com duas ou mais seções ancoradas, o formulário mostra o índice no topo. */
+  id?: string;
   title: ReactNode;
   description?: ReactNode;
   fields: EntityFormField<TValues>[];
@@ -112,6 +115,7 @@ export function EntityForm<TSchema extends FormSchema>({
       ),
   });
   const { isSubmitting, isDirty } = form.formState;
+  const anchored = sections.filter((section) => section.id);
   const fieldNames = sections.flatMap((section) => section.fields.map((field) => field.name));
 
   useEffect(() => {
@@ -176,13 +180,24 @@ export function EntityForm<TSchema extends FormSchema>({
           </div>
         </div>
       )}
+      {anchored.length > 1 && (
+        <nav aria-label="Seções do formulário" className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          {anchored.map((section) => (
+            <a key={section.id} href={`#${section.id}`} className={textLink}>
+              {section.title}
+            </a>
+          ))}
+        </nav>
+      )}
       {sections.map((section, index) => {
         const titleId = `${baseId}section-${index}`;
         return (
           <Card
             // a seção é uma região nomeada pelo título
             key={titleId}
+            id={section.id}
             aria-labelledby={titleId}
+            className="scroll-mt-6"
             title={<span id={titleId}>{section.title}</span>}
             subtitle={section.description}
           >

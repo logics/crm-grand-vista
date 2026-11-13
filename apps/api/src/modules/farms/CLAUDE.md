@@ -1,9 +1,9 @@
 # farms
 
-Fazendas da empresa ativa: o imóvel captado. Esta issue (#145) entrega o cadastro mínimo ponta a ponta e a prova de integração do escopo de dados `own`.
+Fazendas da empresa ativa: o imóvel captado. Cadastro mínimo (#145) e ficha técnica e comercial (#147): níveis, distâncias, situação documental, textos, coordenadas, aptidões e culturas.
 
 - **Spec:** `docs/specs/fase-1-fazendas.md`; issue #145
-- **Tabela que possui:** `farms` (migration `0021_farms.sql`), já com todas as colunas do modelo — níveis, técnico, precificação com o `CHECK` completo e `custom_fields` sem uso. As colunas além do mínimo ainda não têm rota nem tela.
+- **Tabelas que possui:** `farms` (migration `0021_farms.sql`), com todas as colunas do modelo (precificação e `custom_fields` ainda sem rota), e as junções `farm_aptitudes` e `farm_crops` (migration `0022_farm_aptitudes_crops.sql`).
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/authorization`, `src/history`, `src/listing`, `modules/settings` (só `defaultEntries`)
 
 ## Convenções locais
@@ -17,3 +17,6 @@ Fazendas da empresa ativa: o imóvel captado. Esta issue (#145) entrega o cadast
 - A API grava a praça que recebe; a sugestão pelo município é só do front.
 - Área útil ≤ total: o schema confere o par enviado junto, o serviço confere contra o cadastro (edição de um só lado) e o `CHECK` da tabela é a rede final.
 - Resposta traz as referências com o nome de hoje (ativas ou não), hidratadas em lote por `serialize`.
+- **Junções** (`aptitudeIds`, `cropIds`): se presentes no corpo, substituem o conjunto **por diferença** (insere os adicionados, remove os retirados; nunca delete + insert), numa só instância de `auditedWrites` com a fazenda — um `change_id`, e os filhos aparecem no histórico (`children` em `routes.ts`, nomeados pela referência). Ausente não toca; `[]` limpa. Id de outra empresa ou inexistente é 400 no campo; os que **entram** têm de estar ativos, o já gravado que ficou inativo passa. O `PATCH` lê a fazenda com `FOR UPDATE` antes da diferença (dois saves concorrentes não geram `23505`). Ids repetidos são deduplicados pelo schema.
+- **Coordenadas** (latitude e longitude, as duas ou nenhuma): o schema confere o par enviado junto; no `PATCH` de um lado só, o serviço confere o par efetivo contra o cadastro (senão o `CHECK` do banco viraria 500).
+- Status comercial: qualquer entrada ativa, trocada à mão pelo `PATCH`.

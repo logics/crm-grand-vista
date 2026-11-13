@@ -2,8 +2,12 @@
 // rota abre por `withTenant`), num `change_id` por save. O escopo de dados
 // (`own` vê só as próprias) entra em toda leitura e escrita; fora dele é 404.
 import {
+  aptitudes,
   auditedWrites,
   commercialStatuses,
+  crops,
+  farmAptitudes,
+  farmCrops,
   farms,
   memberships,
   municipalities,
@@ -14,6 +18,9 @@ import {
   type Transaction,
 } from '@crm/db';
 import {
+  FARM_APTITUDE_UNKNOWN_MESSAGE,
+  FARM_COORDINATES_PAIR_MESSAGE,
+  FARM_CROP_UNKNOWN_MESSAGE,
   FARM_MUNICIPALITY_UNKNOWN_MESSAGE,
   FARM_NO_DEFAULT_STATUS_MESSAGE,
   FARM_RESPONSIBLE_FORBIDDEN_MESSAGE,
@@ -30,7 +37,7 @@ import {
   type ListPage,
   type UpdateFarmInput,
 } from '@crm/shared';
-import { and, eq, inArray, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql, type SQL } from 'drizzle-orm';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
@@ -75,7 +82,8 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
   if (rows.length === 0) return [];
   const unique = <T>(values: readonly (T | null)[]) => [...new Set(values.filter((value): value is T => value !== null))];
 
-  const [municipalityRows, statusRows, userRows, postRows] = await Promise.all([
+  const farmIds = rows.map((row) => row.id);
+  const [municipalityRows, statusRows, userRows, postRows, aptitudeRows, cropRows] = await Promise.all([
     tx
       .select({ ibgeCode: municipalities.ibgeCode, name: municipalities.name, uf: municipalities.uf })
       .from(municipalities)
@@ -92,7 +100,26 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
       .select({ id: tradingPosts.id, name: tradingPosts.name })
       .from(tradingPosts)
       .where(inArray(tradingPosts.id, unique(rows.map((row) => row.tradingPostId)))),
+    tx
+      .select({ farmId: farmAptitudes.farmId, id: aptitudes.id, name: aptitudes.name })
+      .from(farmAptitudes)
+      .innerJoin(aptitudes, eq(aptitudes.id, farmAptitudes.aptitudeId))
+      .where(inArray(farmAptitudes.farmId, farmIds))
+      .orderBy(sql`${aptitudes.name} collate "pt-BR-x-icu"`, asc(aptitudes.id)),
+    tx
+      .select({ farmId: farmCrops.farmId, id: crops.id, name: crops.name })
+      .from(farmCrops)
+      .innerJoin(crops, eq(crops.id, farmCrops.cropId))
+      .where(inArray(farmCrops.farmId, farmIds))
+      .orderBy(sql`${crops.name} collate "pt-BR-x-icu"`, asc(crops.id)),
   ]);
+  const groupByFarm = (items: readonly { farmId: string; id: string; name: string }[]) => {
+    const grouped = new Map<string, { id: string; name: string }[]>();
+    for (const { farmId, id, name } of items) grouped.set(farmId, [...(grouped.get(farmId) ?? []), { id, name }]);
+    return grouped;
+  };
+  const aptitudesByFarm = groupByFarm(aptitudeRows);
+  const cropsByFarm = groupByFarm(cropRows);
   const municipalityByCode = new Map(municipalityRows.map((row) => [row.ibgeCode, row]));
   const statusById = new Map(statusRows.map((row) => [row.id, row]));
   const userById = new Map(userRows.map((row) => [row.id, row]));
@@ -107,6 +134,26 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
     commercialStatus: statusById.get(row.commercialStatusId)!,
     totalAreaHa: row.totalAreaHa,
     usableAreaHa: row.usableAreaHa,
+    salesPotential: row.salesPotential as Farm['salesPotential'],
+    priority: row.priority as Farm['priority'],
+    waterAvailability: row.waterAvailability as Farm['waterAvailability'],
+    irrigationPotential: row.irrigationPotential as Farm['irrigationPotential'],
+    productivePotential: row.productivePotential as Farm['productivePotential'],
+    distanceToHighwayKm: row.distanceToHighwayKm,
+    distanceToWarehouseKm: row.distanceToWarehouseKm,
+    documentStatus: row.documentStatus as Farm['documentStatus'],
+    documentNotes: row.documentNotes,
+    soil: row.soil,
+    topography: row.topography,
+    water: row.water,
+    historicalProductivity: row.historicalProductivity,
+    infrastructure: row.infrastructure,
+    technicalSummary: row.technicalSummary,
+    differentials: row.differentials,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    aptitudes: aptitudesByFarm.get(row.id) ?? [],
+    crops: cropsByFarm.get(row.id) ?? [],
     createdAt: row.createdAt.toISOString(),
   }));
 }
@@ -116,8 +163,9 @@ export async function listFarms(tx: Transaction, access: EffectiveAccess, query:
   return { ...page, items: await serialize(tx, page.items) };
 }
 
-async function findRow(tx: Transaction, access: EffectiveAccess, id: string): Promise<FarmRow | null> {
-  const [row] = await tx.select().from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+async function findRow(tx: Transaction, access: EffectiveAccess, id: string, lock = false): Promise<FarmRow | null> {
+  const query = tx.select().from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+  const [row] = await (lock ? query.for('update') : query);
   return row ?? null;
 }
 
@@ -222,6 +270,101 @@ async function referenceRejection(
   return null;
 }
 
+/** Os campos técnicos e comerciais que vão direto para a coluna; ausente é "não informado". */
+const SCALAR_FIELDS = [
+  'salesPotential',
+  'priority',
+  'waterAvailability',
+  'irrigationPotential',
+  'productivePotential',
+  'distanceToHighwayKm',
+  'distanceToWarehouseKm',
+  'documentStatus',
+  'documentNotes',
+  'soil',
+  'topography',
+  'water',
+  'historicalProductivity',
+  'infrastructure',
+  'technicalSummary',
+  'differentials',
+  'latitude',
+  'longitude',
+] as const;
+
+const scalarValues = (input: CreateFarmInput) =>
+  Object.fromEntries(SCALAR_FIELDS.map((field) => [field, input[field] ?? null])) as Pick<typeof farms.$inferInsert, (typeof SCALAR_FIELDS)[number]>;
+
+/** As duas coordenadas ou nenhuma: no PATCH vale o par efetivo (enviado, senão gravado). */
+function coordinatesRejection(input: UpdateFarmInput, current: FarmRow): FarmRejection | null {
+  const latitude = input.latitude === undefined ? current.latitude : input.latitude;
+  const longitude = input.longitude === undefined ? current.longitude : input.longitude;
+  if ((latitude === null) === (longitude === null)) return null;
+  return { rejected: FARM_COORDINATES_PAIR_MESSAGE, field: latitude === null ? 'latitude' : 'longitude' };
+}
+
+interface JunctionSpec {
+  /** Cadastro auxiliar que a junção aponta. */
+  vocabulary: typeof aptitudes | typeof crops;
+  message: string;
+  field: 'aptitudeIds' | 'cropIds';
+}
+
+/**
+ * Os ids existem na empresa ativa (o RLS esconde os de outra: "não encontrado"
+ * é de outra empresa ou inexistente) e os que entram estão ativos. Quem já
+ * estava gravado e ficou inativo continua valendo.
+ */
+async function junctionRejection(
+  tx: Transaction,
+  { vocabulary, message, field }: JunctionSpec,
+  ids: readonly string[],
+  currentIds: ReadonlySet<string>,
+): Promise<FarmRejection | null> {
+  if (ids.length === 0) return null;
+  const found = await tx
+    .select({ id: vocabulary.id, active: vocabulary.active })
+    .from(vocabulary)
+    .where(inArray(vocabulary.id, [...ids]));
+  const byId = new Map(found.map((row) => [row.id, row.active]));
+  const refused = ids.some((id) => !byId.has(id) || (!currentIds.has(id) && !byId.get(id)));
+  return refused ? { rejected: message, field } : null;
+}
+
+const APTITUDES: JunctionSpec = { vocabulary: aptitudes, message: FARM_APTITUDE_UNKNOWN_MESSAGE, field: 'aptitudeIds' };
+const CROPS: JunctionSpec = { vocabulary: crops, message: FARM_CROP_UNKNOWN_MESSAGE, field: 'cropIds' };
+
+async function currentJunctionIds(tx: Transaction, farmId: string): Promise<{ aptitudeIds: Set<string>; cropIds: Set<string> }> {
+  const [aptitudeRows, cropRows] = await Promise.all([
+    tx.select({ id: farmAptitudes.aptitudeId }).from(farmAptitudes).where(eq(farmAptitudes.farmId, farmId)),
+    tx.select({ id: farmCrops.cropId }).from(farmCrops).where(eq(farmCrops.farmId, farmId)),
+  ]);
+  return { aptitudeIds: new Set(aptitudeRows.map((row) => row.id)), cropIds: new Set(cropRows.map((row) => row.id)) };
+}
+
+type Writes = ReturnType<typeof auditedWrites>;
+
+/** Leva o conjunto gravado ao pedido, só pela diferença: quem não mudou não é regravado nem entra no histórico. */
+async function applyAptitudes(writes: Writes, tenantId: string, farmId: string, current: ReadonlySet<string>, wanted: readonly string[]) {
+  const removed = [...current].filter((id) => !wanted.includes(id));
+  if (removed.length > 0) {
+    await writes.delete(farmAptitudes, and(eq(farmAptitudes.farmId, farmId), inArray(farmAptitudes.aptitudeId, removed))!);
+  }
+  for (const aptitudeId of wanted.filter((id) => !current.has(id))) {
+    await writes.insert(farmAptitudes, { tenantId, farmId, aptitudeId });
+  }
+}
+
+async function applyCrops(writes: Writes, tenantId: string, farmId: string, current: ReadonlySet<string>, wanted: readonly string[]) {
+  const removed = [...current].filter((id) => !wanted.includes(id));
+  if (removed.length > 0) {
+    await writes.delete(farmCrops, and(eq(farmCrops.farmId, farmId), inArray(farmCrops.cropId, removed))!);
+  }
+  for (const cropId of wanted.filter((id) => !current.has(id))) {
+    await writes.insert(farmCrops, { tenantId, farmId, cropId });
+  }
+}
+
 export async function createFarm(
   tx: Transaction,
   actor: AuditActor & { tenantId: string },
@@ -237,7 +380,16 @@ export async function createFarm(
   const refused = await referenceRejection(tx, actor.tenantId, { ...input, responsibleUserId, commercialStatusId });
   if (refused) return refused;
 
-  const row = await auditedWrites(tx, actor).insert(farms, {
+  const none = new Set<string>();
+  const aptitudeIds = input.aptitudeIds ?? [];
+  const cropIds = input.cropIds ?? [];
+  const refusedJunction =
+    (await junctionRejection(tx, APTITUDES, aptitudeIds, none)) ?? (await junctionRejection(tx, CROPS, cropIds, none));
+  if (refusedJunction) return refusedJunction;
+
+  const writes = auditedWrites(tx, actor);
+  const row = await writes.insert(farms, {
+    ...scalarValues(input),
     tenantId: actor.tenantId,
     name: input.name,
     municipalityIbgeCode: input.municipalityIbgeCode,
@@ -247,6 +399,8 @@ export async function createFarm(
     usableAreaHa: input.usableAreaHa ?? null,
     commercialStatusId,
   });
+  await applyAptitudes(writes, actor.tenantId, row.id, none, aptitudeIds);
+  await applyCrops(writes, actor.tenantId, row.id, none, cropIds);
   return (await serialize(tx, [row]))[0]!;
 }
 
@@ -258,7 +412,7 @@ export async function updateFarm(
   id: string,
   input: UpdateFarmInput,
 ): Promise<Farm | FarmRejection | FarmForbidden | null> {
-  const current = await findRow(tx, access, id);
+  const current = await findRow(tx, access, id, true);
   if (!current) return null;
 
   if (input.responsibleUserId !== undefined && !mayAssign(access, input.responsibleUserId)) {
@@ -270,11 +424,26 @@ export async function updateFarm(
   if (usableExceedsTotal(totalAreaHa, usableAreaHa)) {
     return { rejected: FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE, field: 'usableAreaHa' };
   }
-  const refused = await referenceRejection(tx, actor.tenantId, input, current);
+  const { aptitudeIds, cropIds, ...fields } = input;
+  const refused = (await referenceRejection(tx, actor.tenantId, fields, current)) ?? coordinatesRejection(fields, current);
   if (refused) return refused;
 
-  const set: Partial<typeof farms.$inferInsert> = { ...input };
-  if (Object.keys(set).length === 0) return (await serialize(tx, [current]))[0]!;
-  const [row] = await auditedWrites(tx, actor).update(farms, set, eq(farms.id, id));
-  return row ? (await serialize(tx, [row]))[0]! : null;
+  const currentJunctions = await currentJunctionIds(tx, id);
+  if (aptitudeIds) {
+    const refusedAptitudes = await junctionRejection(tx, APTITUDES, aptitudeIds, currentJunctions.aptitudeIds);
+    if (refusedAptitudes) return refusedAptitudes;
+  }
+  if (cropIds) {
+    const refusedCrops = await junctionRejection(tx, CROPS, cropIds, currentJunctions.cropIds);
+    if (refusedCrops) return refusedCrops;
+  }
+
+  // Um `change_id` por save: a fazenda e as junções vão no mesmo histórico.
+  const writes = auditedWrites(tx, actor);
+  const set: Partial<typeof farms.$inferInsert> = { ...fields };
+  const [updated] = Object.keys(set).length === 0 ? [current] : await writes.update(farms, set, eq(farms.id, id));
+  if (!updated) return null;
+  if (aptitudeIds) await applyAptitudes(writes, actor.tenantId, id, currentJunctions.aptitudeIds, aptitudeIds);
+  if (cropIds) await applyCrops(writes, actor.tenantId, id, currentJunctions.cropIds, cropIds);
+  return (await serialize(tx, [updated]))[0]!;
 }
