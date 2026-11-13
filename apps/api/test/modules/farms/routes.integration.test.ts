@@ -629,6 +629,75 @@ describe('fazendas', () => {
     });
   });
 
+  describe('duplicatas (critérios 23 e 15)', () => {
+    interface DuplicatesBody {
+      items: { id: string; name: string; municipality: { ibgeCode: string; name: string; uf: string }; reasons: string[] }[];
+    }
+    const duplicates = (query: Record<string, string>, cookie = cookies.manager, slug = tenant.slug) =>
+      read(`/duplicates?${new URLSearchParams(query)}`, cookie, slug);
+    const found = async (query: Record<string, string>, cookie = cookies.manager, slug = tenant.slug) =>
+      (await (await duplicates(query, cookie, slug)).json()) as DuplicatesBody;
+
+    it('acha o mesmo nome sem caixa nem acento no mesmo município, e não no município vizinho', async () => {
+      const inRioVerde = await created(validBody({ name: 'Fazenda São Judas Tadeu' }));
+      await created(validBody({ name: 'Fazenda São Judas Tadeu', municipalityIbgeCode: GOIANIA }));
+
+      const body = await found({ name: 'fazenda sao judas tadeu', municipalityIbgeCode: RIO_VERDE });
+
+      expect(body.items).toEqual([
+        {
+          id: inRioVerde.id,
+          name: 'Fazenda São Judas Tadeu',
+          municipality: { ibgeCode: RIO_VERDE, name: 'Rio Verde', uf: 'GO' },
+          reasons: ['name_municipality'],
+        },
+      ]);
+    });
+
+    it('nome só parecido não conta', async () => {
+      await created(validBody({ name: 'Fazenda Santo Antônio do Vale' }));
+
+      expect((await found({ name: 'Fazenda Santo Antônio', municipalityIbgeCode: RIO_VERDE })).items).toEqual([]);
+    });
+
+    it('excludeId tira a própria fazenda', async () => {
+      const own = await created(validBody({ name: 'Fazenda Nossa Senhora Aparecida' }));
+      const twin = await created(validBody({ name: 'Fazenda Nossa Senhora Aparecida' }));
+      const query = { name: 'Fazenda Nossa Senhora Aparecida', municipalityIbgeCode: RIO_VERDE };
+
+      expect((await found(query)).items.map((item) => item.id).sort()).toEqual([own.id, twin.id].sort());
+      expect((await found({ ...query, excludeId: own.id })).items.map((item) => item.id)).toEqual([twin.id]);
+    });
+
+    it('com escopo own, não devolve fazenda alheia; com escopo all, devolve', async () => {
+      const theirs = await created(
+        validBody({ name: 'Fazenda Bela Vista do Corretor Alheio', responsibleUserId: users.otherBroker.id }),
+      );
+      const query = { name: 'Fazenda Bela Vista do Corretor Alheio', municipalityIbgeCode: RIO_VERDE };
+
+      expect((await found(query, cookies.broker)).items).toEqual([]);
+      expect((await found(query, cookies.otherBroker)).items.map((item) => item.id)).toEqual([theirs.id]);
+      expect((await found(query, cookies.manager)).items.map((item) => item.id)).toEqual([theirs.id]);
+    });
+
+    it('não devolve fazenda de outra empresa', async () => {
+      await create(validBody({ name: 'Fazenda Da Outra Empresa Homônima' }), cookies.outsider, other.slug);
+
+      const body = await found({ name: 'Fazenda Da Outra Empresa Homônima', municipalityIbgeCode: RIO_VERDE });
+
+      expect(body.items).toEqual([]);
+    });
+
+    it('sem nome ou sem município devolve lista vazia; excludeId malformado é 400', async () => {
+      await created(validBody({ name: 'Fazenda Sem Critério' }));
+
+      expect((await found({ municipalityIbgeCode: RIO_VERDE })).items).toEqual([]);
+      expect((await found({ name: 'Fazenda Sem Critério' })).items).toEqual([]);
+      expect((await found({ name: '  ', municipalityIbgeCode: RIO_VERDE })).items).toEqual([]);
+      expect((await duplicates({ name: 'x', municipalityIbgeCode: RIO_VERDE, excludeId: 'nao-e-uuid' })).status).toBe(400);
+    });
+  });
+
   describe('lista', () => {
     it('ordena por mais recente, desempatando por id, e pagina', async () => {
       const first = (await (await read('?pageSize=25')).json()) as ListBody & { page: number; pageSize: number };
