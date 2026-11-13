@@ -85,3 +85,53 @@ describe('LEVELS', () => {
     expect(LEVELS.map((level) => LEVEL_LABELS[level])).toEqual(['Alta', 'Média', 'Baixa']);
   });
 });
+
+describe('ficha técnica e comercial', () => {
+  const base = { name: 'Boa Vista', municipalityIbgeCode: '5218805', totalAreaHa: '1000' };
+  const A = '0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e6f';
+
+  it('recusa latitude sem longitude e longitude sem latitude', () => {
+    for (const schema of [createFarmSchema, farmFormSchema, updateFarmSchema]) {
+      const extra = schema === updateFarmSchema ? {} : { ...base, responsibleUserId: A, owners: [] };
+      const lat = schema.safeParse({ ...extra, latitude: '-17.7923', longitude: null });
+      const lng = schema.safeParse({ ...extra, latitude: null, longitude: '-51.5' });
+      expect(lat.success).toBe(false);
+      expect(lng.success).toBe(false);
+      expect(lat.error?.issues[0]?.path).toEqual(['longitude']);
+      expect(lng.error?.issues[0]?.path).toEqual(['latitude']);
+    }
+    // sem a chave do outro lado
+    expect(createFarmSchema.safeParse({ ...base, latitude: '-17.7923' }).success).toBe(false);
+    expect(updateFarmSchema.safeParse({ latitude: '-17.7923' }).success).toBe(true);
+    expect(createFarmSchema.safeParse({ ...base, latitude: '-17.7923', longitude: '-51.5' }).success).toBe(true);
+    expect(createFarmSchema.safeParse({ ...base, latitude: null, longitude: null }).success).toBe(true);
+  });
+
+  it('recusa latitude fora de −90..90 e longitude fora de −180..180', () => {
+    expect(createFarmSchema.safeParse({ ...base, latitude: '90.0000001', longitude: '0' }).success).toBe(false);
+    expect(createFarmSchema.safeParse({ ...base, latitude: '-91', longitude: '0' }).success).toBe(false);
+    expect(createFarmSchema.safeParse({ ...base, latitude: '0', longitude: '180.5' }).success).toBe(false);
+    expect(createFarmSchema.safeParse({ ...base, latitude: '-90', longitude: '-180' }).success).toBe(true);
+  });
+
+  it('nível fora de LEVELS é recusado', () => {
+    expect(createFarmSchema.safeParse({ ...base, priority: 'urgent' }).success).toBe(false);
+    expect(createFarmSchema.safeParse({ ...base, priority: 'high', salesPotential: null }).success).toBe(true);
+  });
+
+  it('recusa distância negativa ou com mais de duas casas', () => {
+    expect(createFarmSchema.safeParse({ ...base, distanceToHighwayKm: '-1' }).success).toBe(false);
+    expect(createFarmSchema.safeParse({ ...base, distanceToHighwayKm: '1.234' }).success).toBe(false);
+    expect(createFarmSchema.safeParse({ ...base, distanceToHighwayKm: '12.5' }).success).toBe(true);
+  });
+
+  it('situação documental fora da lista é recusada; texto vazio vira nulo', () => {
+    expect(createFarmSchema.safeParse({ ...base, documentStatus: 'ok' }).success).toBe(false);
+    expect(createFarmSchema.parse({ ...base, soil: '  ' }).soil).toBeNull();
+  });
+
+  it('aptitudeIds repetidos chegam uma vez só', () => {
+    expect(createFarmSchema.parse({ ...base, aptitudeIds: [A, A], cropIds: [] })).toMatchObject({ aptitudeIds: [A], cropIds: [] });
+    expect(createFarmSchema.safeParse({ ...base, cropIds: ['x'] }).success).toBe(false);
+  });
+});

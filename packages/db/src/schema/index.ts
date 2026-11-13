@@ -19,5 +19,5 @@ export { commercialStatuses } from './commercial-statuses.js';
 export { tradingPosts, tradingPostMunicipalities } from './trading-posts.js';
 export { tenantSettings } from './tenant-settings.js';
 export { contacts, contactRoles } from './contacts.js';
-export { farmOwners, farms } from './farms.js';
+export { farmAptitudes, farmCrops, farmOwners, farms } from './farms.js';
 

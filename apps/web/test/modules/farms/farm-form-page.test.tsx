@@ -10,6 +10,8 @@ const southPost = { id: '0197c000-0000-7000-8000-0000000000a1', name: 'Praça Su
 const northPost = { id: '0197c000-0000-7000-8000-0000000000a2', name: 'Praça Norte', active: true };
 const rioVerde = { ibgeCode: '5218805', name: 'Rio Verde', uf: 'GO', active: true };
 const me = session().user;
+const agriculture = { id: '0197c000-0000-7000-8000-0000000000b1', name: 'Agricultura', active: true };
+const livestock = { id: '0197c000-0000-7000-8000-0000000000b2', name: 'Pecuária', active: true };
 
 const SUGGESTION = '/e/grand-vista/settings/trading-posts/suggestion';
 
@@ -120,6 +122,26 @@ const farm = {
   commercialStatus: { id: '0197c000-0000-7000-8000-0000000000c1', name: 'Disponível' },
   totalAreaHa: '48.4000',
   usableAreaHa: null,
+  salesPotential: null,
+  priority: null,
+  waterAvailability: null,
+  irrigationPotential: null,
+  productivePotential: null,
+  distanceToHighwayKm: null,
+  distanceToWarehouseKm: null,
+  documentStatus: null,
+  documentNotes: null,
+  soil: null,
+  topography: null,
+  water: null,
+  historicalProductivity: null,
+  infrastructure: null,
+  technicalSummary: null,
+  differentials: null,
+  latitude: null,
+  longitude: null,
+  aptitudes: [{ id: agriculture.id, name: agriculture.name }],
+  crops: [],
   owners: [],
   createdAt: '2026-01-02T10:00:00.000Z',
 };
@@ -135,6 +157,9 @@ function openWithWrites(path: string, settings: { areaDisplayUnit: 'hectare' | '
       '/e/grand-vista/farms/f1': farm,
       '/e/grand-vista/municipalities': { items: [rioVerde] },
       '/e/grand-vista/settings/vocabularies/trading-posts/options': { items: [southPost] },
+      '/e/grand-vista/settings/vocabularies/aptitudes/options': { items: [agriculture, livestock] },
+      '/e/grand-vista/settings/vocabularies/crops/options': { items: [] },
+      '/e/grand-vista/settings/vocabularies/commercial-statuses/options': { items: [{ ...farm.commercialStatus, active: true }] },
       '/e/grand-vista/users': { users: [{ ...me, profiles: [] }] },
       '/e/grand-vista/settings': { defaultAlqueireType: 'goiano', ...settings },
     },
@@ -202,6 +227,59 @@ describe('formulário de fazenda: envio', () => {
     await waitFor(() => expect(api.writes).toHaveLength(1));
     // 10 alqueires goianos = 48,4 hectares
     expect(api.writes[0]!.body).toMatchObject({ totalAreaHa: '48.4' });
+  });
+});
+
+describe('formulário de fazenda: técnico e comercial', () => {
+  it('editar só a aptidão envia só aptitudeIds', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Aptidões' }));
+    await user.click(await screen.findByRole('option', { name: /Pecuária/ }));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]).toMatchObject({ method: 'PATCH', body: { aptitudeIds: [agriculture.id, livestock.id] } });
+    expect(Object.keys(api.writes[0]!.body as object)).toEqual(['aptitudeIds']);
+  });
+
+  it('abrir e salvar sem mexer não envia nada', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await screen.findByRole('combobox', { name: 'Aptidões' });
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Salvar alterações' })).not.toBeInTheDocument());
+    expect(api.writes).toHaveLength(0);
+  });
+
+  it('níveis, distância e coordenadas vão ao PATCH; coordenadas sempre em par', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: /Distância até a rodovia/ }), '12,5');
+    await user.type(screen.getByRole('textbox', { name: /Latitude/ }), '-17.79');
+    await user.type(screen.getByRole('textbox', { name: /Longitude/ }), '-50.9');
+    await user.click(screen.getByRole('combobox', { name: 'Prioridade' }));
+    await user.click(await screen.findByRole('option', { name: 'Alta' }));
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]!.body).toEqual({ distanceToHighwayKm: '12.5', latitude: '-17.79', longitude: '-50.9', priority: 'high' });
+  });
+
+  it('latitude sem longitude é recusada no formulário', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('textbox', { name: /Latitude/ }), '-17.79');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    expect(await screen.findByText('Informe a latitude e a longitude juntas.')).toBeInTheDocument();
+    expect(api.writes).toHaveLength(0);
   });
 });
 

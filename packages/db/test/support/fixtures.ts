@@ -10,6 +10,8 @@ import {
   contactClassifications,
   contactRoles,
   contacts,
+  farmAptitudes,
+  farmCrops,
   farmOwners,
   farms,
   commercialStatuses,
@@ -99,7 +101,8 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(profilePermissions).values({ tenantId, profileId, permissionCode: TEST_PERMISSION });
     await tx.insert(profileDataScopes).values({ tenantId, profileId, module: 'testes', scope: 'own' });
     await tx.insert(userProfiles).values({ tenantId, userId, profileId });
-    await tx.insert(crops).values({ tenantId, name: 'Soja' });
+    const [crop] = await tx.insert(crops).values({ tenantId, name: 'Soja' }).returning();
+    const [aptitude] = await tx.insert(aptitudes).values({ tenantId, name: 'Exemplo' }).returning();
     await tx.insert(tenantSettings).values({ tenantId });
     const [status] = await tx
       .insert(commercialStatuses)
@@ -122,9 +125,10 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
         totalAreaHa: '100',
       })
       .returning();
+    await tx.insert(farmAptitudes).values({ tenantId, farmId: farm!.id, aptitudeId: aptitude!.id });
+    await tx.insert(farmCrops).values({ tenantId, farmId: farm!.id, cropId: crop!.id });
     await tx.insert(farmOwners).values({ tenantId, farmId: farm!.id, contactId: contact!.id, isPrimary: true });
     for (const table of [
-      aptitudes,
       contactClassifications,
       documentCategories,
       leadSources,

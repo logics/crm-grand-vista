@@ -157,3 +157,8 @@ export const ErroDoServidor: Story = {
     await expect(await within(canvasElement).findByRole('alert')).toBeVisible();
   },
 };
+
+export const SecoesAncoradas: Story = {
+  name: 'Seções ancoradas',
+  args: { sections: sections.map((section, index) => ({ ...section, id: index === 0 ? 'identificacao' : 'area-e-valor' })) },
+};

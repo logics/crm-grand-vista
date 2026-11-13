@@ -113,9 +113,18 @@ export function createFarmsRoutes() {
       '/',
       createHistoryRoutes({
         entity: 'farms',
+        children: [
+          { entity: 'farm_aptitudes', parentColumn: 'farm_id', nameColumn: 'aptitude_id' },
+          { entity: 'farm_crops', parentColumn: 'farm_id', nameColumn: 'crop_id' },
+          {
+            entity: 'farm_owners',
+            parentColumn: 'farm_id',
+            nameColumn: 'contact_id',
+            primaryFlag: { column: 'is_primary', label: 'Proprietário principal' },
+          },
+        ],
         access: canView(),
         isVisible: (tx, c, id) => farmVisible(tx, c.var.access, id),
-        children: [{ entity: 'farm_owners', parentColumn: 'farm_id', nameColumn: 'contact_id', primaryFlag: { column: 'is_primary', label: 'Proprietário principal' } }],
       }),
     );
 }

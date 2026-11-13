@@ -1,7 +1,7 @@
 // Semeia o banco do E2E: zera o database de teste, aplica as migrations e cria
 // as contas de `accounts.ts`. Roda num processo próprio (`global-setup.ts`),
 // com o ambiente do `.env.test`, pelos mesmos fixtures da suíte de integração.
-import { commercialStatuses, contactRoles, contacts, createDatabase, createPool, tenantSettings, tradingPostMunicipalities, tradingPosts } from '../../packages/db/src/index.js';
+import { aptitudes, commercialStatuses, contactRoles, contacts, createDatabase, createPool, tenantSettings, tradingPostMunicipalities, tradingPosts } from '../../packages/db/src/index.js';
 import { resetTestDatabase } from '../../packages/db/test/support/reset-database.js';
 import { loadCliEnv, loadMigrationEnv } from '../../packages/shared/src/env.js';
 import { createLinkedAccessProfile, createMembership, createTenant, createUserWithPassword } from '../../apps/api/test/support/fixtures.js';
@@ -25,6 +25,10 @@ try {
     });
     await db.withTenant(tenant.id, async (tx) => {
       await tx.insert(tenantSettings).values({ tenantId: tenant.id });
+      await tx.insert(aptitudes).values([
+        { tenantId: tenant.id, name: 'Agricultura' },
+        { tenantId: tenant.id, name: 'Pecuária' },
+      ]);
       await tx.insert(commercialStatuses).values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available' });
       // contatos para o seletor de proprietários do formulário de fazenda
       const owners = await tx
