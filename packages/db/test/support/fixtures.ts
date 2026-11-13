@@ -10,6 +10,8 @@ import {
   contactClassifications,
   contactRoles,
   contacts,
+  farmAptitudes,
+  farmCrops,
   farms,
   commercialStatuses,
   crops,
@@ -98,7 +100,8 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(profilePermissions).values({ tenantId, profileId, permissionCode: TEST_PERMISSION });
     await tx.insert(profileDataScopes).values({ tenantId, profileId, module: 'testes', scope: 'own' });
     await tx.insert(userProfiles).values({ tenantId, userId, profileId });
-    await tx.insert(crops).values({ tenantId, name: 'Soja' });
+    const [crop] = await tx.insert(crops).values({ tenantId, name: 'Soja' }).returning();
+    const [aptitude] = await tx.insert(aptitudes).values({ tenantId, name: 'Exemplo' }).returning();
     await tx.insert(tenantSettings).values({ tenantId });
     const [status] = await tx
       .insert(commercialStatuses)
@@ -110,16 +113,20 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
       .values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
     const [contact] = await tx.insert(contacts).values({ tenantId, personType: 'pf', name: 'Exemplo' }).returning();
     await tx.insert(contactRoles).values({ tenantId, contactId: contact!.id, role: 'buyer' });
-    await tx.insert(farms).values({
-      tenantId,
-      name: 'Exemplo',
-      municipalityIbgeCode: '5218805',
-      responsibleUserId: userId,
-      commercialStatusId: status!.id,
-      totalAreaHa: '100',
-    });
+    const [farm] = await tx
+      .insert(farms)
+      .values({
+        tenantId,
+        name: 'Exemplo',
+        municipalityIbgeCode: '5218805',
+        responsibleUserId: userId,
+        commercialStatusId: status!.id,
+        totalAreaHa: '100',
+      })
+      .returning();
+    await tx.insert(farmAptitudes).values({ tenantId, farmId: farm!.id, aptitudeId: aptitude!.id });
+    await tx.insert(farmCrops).values({ tenantId, farmId: farm!.id, cropId: crop!.id });
     for (const table of [
-      aptitudes,
       contactClassifications,
       documentCategories,
       leadSources,

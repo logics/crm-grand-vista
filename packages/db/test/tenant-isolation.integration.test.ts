@@ -30,6 +30,8 @@ const BUSINESS_TABLES = [
   'contacts',
   'crops',
   'document_categories',
+  'farm_aptitudes',
+  'farm_crops',
   'farms',
   'lead_sources',
   'payment_methods',

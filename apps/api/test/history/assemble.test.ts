@@ -360,6 +360,22 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
     ]);
   });
 
+  it('nomeia o filho pela referência quando a coluna de nome é uma referência', () => {
+    const byUser: HistoryChildDeclaration = { entity: 'farm_brokers', parentColumn: 'farm_id', nameColumn: 'user_id' };
+    const broker = child('farm_brokers', '0190a000-0000-7000-8000-00000000b003');
+    const [entry] = assembleHistory(
+      [
+        farm('c1', 'name', 'A', 'B'),
+        broker('c1', 'id', null, '0190a000-0000-7000-8000-00000000b003'),
+        broker('c1', 'farm_id', null, FARM_ID),
+        broker('c1', 'user_id', null, AUTHOR_ID),
+      ],
+      { ...options, children: [byUser] },
+    );
+
+    expect(entry?.children[0]?.title).toBe('Corretora adicionada: Ana Gestora');
+  });
+
   it('o filtro vê a linha inteira do filho, mesmo num save que não grava a coluna que ele lê', () => {
     const colleague = child('farm_brokers', '0190a000-0000-7000-8000-00000000b002');
     const entries = assembleFarm([

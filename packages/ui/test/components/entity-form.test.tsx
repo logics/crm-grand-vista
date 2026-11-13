@@ -65,6 +65,25 @@ const sections: EntityFormSection<FarmInput>[] = [
   },
 ];
 
+describe('EntityForm: seções ancoradas', () => {
+  const anchoredSections = sections.map((section, index) => ({ ...section, id: index === 0 ? 'identificacao' : 'area' }));
+
+  it('dá o id à seção e um índice de âncoras no topo', () => {
+    render(<EntityForm schema={farmSchema} defaultValues={filled} sections={anchoredSections} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    const nav = screen.getByRole('navigation', { name: 'Seções do formulário' });
+    expect(within(nav).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['Identificação', '#identificacao'],
+      ['Área', '#area'],
+    ]);
+    expect(document.getElementById('area')).toBe(screen.getByRole('region', { name: 'Área' }));
+  });
+
+  it('sem âncoras, sem índice', () => {
+    render(<EntityForm schema={farmSchema} defaultValues={filled} sections={sections} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+});
+
 function renderForm(props: Partial<EntityFormProps<typeof farmSchema>> = {}) {
   const onSubmit = props.onSubmit ?? vi.fn();
   const onCancel = props.onCancel ?? vi.fn();

@@ -1,6 +1,7 @@
 // Contato: pessoa física ou jurídica, com papéis acumuláveis — o parceiro que
 // indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro.
 import { z } from 'zod';
+import { optionalText } from './text.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { INVALID_PHONE_MESSAGE, isBlankPhone, normalizePhone } from './phone.js';
 import { formatTaxId, isValidCnpj, isValidCpf, normalizeTaxId, taxIdKind } from './tax-id.js';
@@ -85,15 +86,6 @@ export function taxIdIssue(personType: PersonType, taxId: string | null | undefi
   if (personType === 'pf') return isValidCpf(taxId) ? null : TAX_ID_CPF_MESSAGE;
   return isValidCnpj(taxId) ? null : TAX_ID_CNPJ_MESSAGE;
 }
-
-/** Texto opcional: espaços nas pontas saem, e o vazio vira ausência (`null`). */
-const optionalText = (max: number, label: string) =>
-  z
-    .string()
-    .trim()
-    .max(max, `${label} aceita até ${max} caracteres.`)
-    .transform((value) => value || null)
-    .nullable();
 
 const contactNameSchema = z
   .string()

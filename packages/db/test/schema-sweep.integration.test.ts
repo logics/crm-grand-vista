@@ -52,6 +52,8 @@ describe('varredura de schema', () => {
       'contacts',
       'crops',
       'document_categories',
+      'farm_aptitudes',
+      'farm_crops',
       'farms',
       'lead_sources',
       'payment_methods',

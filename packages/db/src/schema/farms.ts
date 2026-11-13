@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { check, index, jsonb, numeric, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { check, index, jsonb, numeric, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
+import { aptitudes } from './aptitudes.js';
 import { id, timestamps } from './columns.js';
 import { commercialStatuses } from './commercial-statuses.js';
 import { crops } from './crops.js';
@@ -105,6 +106,48 @@ export const farms = pgTable(
     index('farms_tenant_id_commercial_status_id_idx').on(t.tenantId, t.commercialStatusId),
     index('farms_tenant_id_municipality_ibge_code_idx').on(t.tenantId, t.municipalityIbgeCode),
     index('farms_tenant_id_created_at_idx').on(t.tenantId, t.createdAt.desc(), t.id),
+    tenantIsolationPolicy(),
+  ],
+);
+
+/** Aptidão da fazenda (agricultura, pecuária…): junção auditável; sai junto com a fazenda. */
+export const farmAptitudes = pgTable(
+  'farm_aptitudes',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    farmId: uuid('farm_id')
+      .notNull()
+      .references(() => farms.id, { onDelete: 'cascade' }),
+    aptitudeId: uuid('aptitude_id')
+      .notNull()
+      .references(() => aptitudes.id, { onDelete: 'restrict' }),
+    ...timestamps,
+  },
+  (t) => [
+    unique('farm_aptitudes_farm_id_aptitude_id_unique').on(t.farmId, t.aptitudeId),
+    index('farm_aptitudes_tenant_id_aptitude_id_idx').on(t.tenantId, t.aptitudeId),
+    tenantIsolationPolicy(),
+  ],
+);
+
+/** Cultura produzida na fazenda (as mesmas `crops` do perfil de compra): junção auditável; sai junto com a fazenda. */
+export const farmCrops = pgTable(
+  'farm_crops',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    farmId: uuid('farm_id')
+      .notNull()
+      .references(() => farms.id, { onDelete: 'cascade' }),
+    cropId: uuid('crop_id')
+      .notNull()
+      .references(() => crops.id, { onDelete: 'restrict' }),
+    ...timestamps,
+  },
+  (t) => [
+    unique('farm_crops_farm_id_crop_id_unique').on(t.farmId, t.cropId),
+    index('farm_crops_tenant_id_crop_id_idx').on(t.tenantId, t.cropId),
     tenantIsolationPolicy(),
   ],
 );
