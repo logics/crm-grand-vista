@@ -84,6 +84,7 @@ export const farms = pgTable(
     check('farms_valuation_bags_check', sql`${t.valuationBags} > 0`),
     check('farms_valuation_bags_unit_check', sql`${t.valuationBagsUnit} in ('per_hectare', 'per_alqueire')`),
     check('farms_valuation_bags_alqueire_type_check', sql`${t.valuationBagsAlqueireType} in ('goiano', 'paulista', 'norte')`),
+    // Cada cláusula do OR é protegida contra modo nulo: `NULL = 'brl'` daria NULL, e um CHECK aceita NULL.
     check(
       'farms_pricing_check',
       sql`(
@@ -91,11 +92,11 @@ export const farms = pgTable(
         and ${t.askingPrice} is null and ${t.valuationBags} is null and ${t.valuationBagsUnit} is null
         and ${t.valuationBagsAlqueireType} is null and ${t.valuationCropId} is null
       ) or (
-        ${t.pricingMode} = 'brl'
+        ${t.pricingMode} is not null and ${t.pricingMode} = 'brl'
         and ${t.askingPrice} is not null and ${t.valuationBags} is null and ${t.valuationBagsUnit} is null
         and ${t.valuationBagsAlqueireType} is null and ${t.valuationCropId} is null
       ) or (
-        ${t.pricingMode} = 'bags'
+        ${t.pricingMode} is not null and ${t.pricingMode} = 'bags'
         and ${t.askingPrice} is null and ${t.valuationBags} is not null and ${t.valuationBagsUnit} is not null
         and ${t.valuationCropId} is not null
         and ((${t.valuationBagsUnit} = 'per_alqueire') = (${t.valuationBagsAlqueireType} is not null))

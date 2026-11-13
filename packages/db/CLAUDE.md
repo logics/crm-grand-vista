@@ -28,3 +28,4 @@ Schema Drizzle e migrations: fonte única da verdade das tabelas.
 - `municipalities` é dado de referência do IBGE, carregado pelas migrations a partir de `data/municipalities.json`; `crm_app` só lê. `pnpm municipalities:snapshot` baixa a lista, e havendo diferença regrava o snapshot e gera a migration do delta (`INSERT`/`UPDATE`/`active = false`, nunca `DELETE`). Se o `fetch` do Node recusar o certificado do ambiente, rode com `NODE_EXTRA_CA_CERTS`.
 - Gerar migration: `pnpm --filter @crm/db generate`. Aplicar: `pnpm db:migrate`.
 - Teste de integração termina em `.integration.test.ts`; o setup (`test/support/global-setup.ts`) zera o banco `*_test` e aplica as migrations do zero.
+- CHECK com OR: proteja cada cláusula contra NULL (`col is not null and col = ...`).

@@ -41,18 +41,19 @@ test('avaliação em sacas por alqueire, troca para reais e a mudança no histó
   await page.getByRole('textbox', { name: /Preço pedido/ }).fill('8000000000');
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
 
-  await expect(page.getByText('R$ 80.000.000,00')).toBeVisible();
+  await expect(page.getByRole('definition').filter({ hasText: 'R$ 80.000.000,00' })).toBeVisible();
   await expect(page.getByText('Valor por hectare', { exact: true })).toBeVisible();
-  await expect(page.getByText('Modo de precificação')).toBeVisible();
+  await expect(page.getByText('Modo de precificação').first()).toBeVisible();
   await expect(page.getByText('Em sacas').first()).toBeVisible();
 });
 
 test('abrir e salvar sem tocar em nada não gera entrada nova no histórico', async ({ page }) => {
   await login(page, twoTenantUser);
+  await expect(page).toHaveURL(`/e/${tenant.slug}`);
   await page.goto(`/e/${tenant.slug}/farms/new`);
   await page.getByRole('textbox', { name: /Nome/ }).fill('Fazenda Sem Deriva');
   await chooseMunicipality(page);
-  await page.getByRole('textbox', { name: /Área total/ }).fill('48.4');
+  await page.getByRole('textbox', { name: /Área total/ }).fill('48,4');
   await page.getByRole('button', { name: 'Cadastrar fazenda' }).click();
   await expect(page.getByRole('heading', { name: 'Fazenda Sem Deriva' })).toBeVisible();
   await expect(page.getByText('Preço não informado')).toBeVisible();

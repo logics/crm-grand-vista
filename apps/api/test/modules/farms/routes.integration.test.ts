@@ -345,10 +345,7 @@ describe('fazendas', () => {
       ['por hectare com tipo', () => bagsPricing({ valuationBagsUnit: 'per_hectare' }), 'valuationBagsAlqueireType'],
     ];
 
-    // Furo do CHECK do 0021 (NULL passa): ver DECISOES-PENDENTES.md, D1. Sobem para `it` quando a migration sair.
-    const checkHole = new Set(['modo nulo com preço pedido', 'modo nulo com o conjunto de sacas completo']);
-
-    it.each(invalid.filter(([label]) => !checkHole.has(label)))('o banco recusa %s', async (_label, build) => {
+    it.each(invalid)('o banco recusa %s', async (_label, build) => {
       const pricing = Object.fromEntries(Object.entries(build()).filter(([, value]) => value !== undefined));
       await expect(
         db.withTenant(tenant.id, (tx) =>
@@ -365,7 +362,25 @@ describe('fazendas', () => {
       ).rejects.toMatchObject({ cause: { constraint: 'farms_pricing_check' } });
     });
 
-    it.skip.each([...checkHole])('o banco recusa %s (D1: depende da migration do CHECK)', () => undefined);
+    it('o banco aceita sem preço, em reais e em sacas por hectare e por alqueire', async () => {
+      const base = {
+        tenantId: tenant.id,
+        name: 'Direta',
+        municipalityIbgeCode: RIO_VERDE,
+        responsibleUserId: users.manager.id,
+        commercialStatusId: available,
+        totalAreaHa: '10',
+      };
+      const accepted: Partial<typeof farms.$inferInsert>[] = [
+        {},
+        { pricingMode: 'brl', askingPrice: '1000.00' },
+        { pricingMode: 'bags', valuationBags: '10', valuationBagsUnit: 'per_hectare', valuationCropId: soy },
+        { pricingMode: 'bags', valuationBags: '10', valuationBagsUnit: 'per_alqueire', valuationBagsAlqueireType: 'goiano', valuationCropId: soy },
+      ];
+      for (const pricing of accepted) {
+        await expect(db.withTenant(tenant.id, (tx) => tx.insert(farms).values({ ...base, ...pricing }))).resolves.toBeDefined();
+      }
+    });
 
     it.each(invalid)('POST com %s é 400 no campo, nunca 500', async (_label, build, field) => {
       const response = await create(validBody(build()));
