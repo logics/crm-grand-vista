@@ -20,3 +20,12 @@ Fazendas da empresa ativa: o imóvel captado. Cadastro mínimo (#145) e ficha t�
 - **Junções** (`aptitudeIds`, `cropIds`): se presentes no corpo, substituem o conjunto **por diferença** (insere os adicionados, remove os retirados; nunca delete + insert), numa só instância de `auditedWrites` com a fazenda — um `change_id`, e os filhos aparecem no histórico (`children` em `routes.ts`, nomeados pela referência). Ausente não toca; `[]` limpa. Id de outra empresa ou inexistente é 400 no campo; os que **entram** têm de estar ativos, o já gravado que ficou inativo passa. O `PATCH` lê a fazenda com `FOR UPDATE` antes da diferença (dois saves concorrentes não geram `23505`). Ids repetidos são deduplicados pelo schema.
 - **Coordenadas** (latitude e longitude, as duas ou nenhuma): o schema confere o par enviado junto; no `PATCH` de um lado só, o serviço confere o par efetivo contra o cadastro (senão o `CHECK` do banco viraria 500).
 - Status comercial: qualquer entrada ativa, trocada à mão pelo `PATCH`.
+
+## Proprietários (issue #148)
+
+- Tabela `farm_owners` (migration `0023_farm_owners.sql`): `contact_id` `RESTRICT`, índice único parcial de um principal por fazenda. `owners: [{ contactId, isPrimary }]` em `POST`/`PATCH` substitui o conjunto; ausente no `PATCH` não mexe.
+- `updateFarm` lê a fazenda com `FOR UPDATE` no início; `applyOwners` aplica a diferença em ordem fixa (apaga os retirados, desmarca o principal antigo, marca o novo entre os que ficam, insere os novos) com um único `auditedWrites` por save. Nunca delete + insert. `23505` em `farm_owners` vira 409 na rota.
+- Contato de outra empresa é 400 no campo `owners` (`ownerRejection`): a FK não passa pelo RLS. `ensureContactRole(…, 'owner')` roda para cada contato novo, na mesma transação.
+- `declareRoleUsage('owner', …)` fica em `routes.ts`, com `inUsePhrase` e `label.gender`.
+- `GET /by-owner/:contactId` (seção "Fazendas" da ficha do contato): escopo na lista e no total, sem filtro de status, contato inexistente ou malformado é lista vazia. Registrada antes de `/:id`.
+- Histórico: `farm_owners` é filho com `primaryFlag`; a troca vira "Proprietário principal: João → Maria" na entrada.

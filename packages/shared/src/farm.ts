@@ -63,6 +63,12 @@ export const FARM_CROP_UNKNOWN_MESSAGE = 'Cultura inválida.';
 export const FARM_COORDINATES_PAIR_MESSAGE = 'Informe a latitude e a longitude juntas.';
 export const FARM_NO_DEFAULT_STATUS_MESSAGE = 'Cadastre um status comercial ativo com o significado "Disponível" antes de cadastrar fazendas.';
 
+export const FARM_OWNER_UNKNOWN_MESSAGE = 'Proprietário inválido.';
+export const FARM_OWNER_DUPLICATED_MESSAGE = 'Um contato não pode ser proprietário duas vezes na mesma fazenda.';
+export const FARM_OWNER_PRIMARY_MESSAGE = 'Marque exatamente um proprietário principal.';
+export const FARM_OWNER_CONFLICT_MESSAGE =
+  'Outra alteração mudou os proprietários desta fazenda ao mesmo tempo. Recarregue e tente de novo.';
+
 const AREA_PATTERN = new RegExp(`^\\d{1,8}(\\.\\d{1,${AREA_SCALE}})?$`);
 
 /** Hectares como o `numeric(12,4)` aceita: decimal canônico, até 8 inteiros e 4 casas, maior que zero. */
@@ -145,6 +151,23 @@ const uniqueIds = (message: string) =>
 
 const longText = (label: string) => optionalText(FARM_LONG_TEXT_MAX_LENGTH, label);
 
+/** Proprietário como o corpo o envia: o contato e a marca de principal. */
+export const farmOwnerInputSchema = z.object({
+  contactId: z.uuid({ error: FARM_OWNER_UNKNOWN_MESSAGE }),
+  isPrimary: z.boolean({ error: FARM_OWNER_PRIMARY_MESSAGE }),
+});
+export type FarmOwnerInput = z.output<typeof farmOwnerInputSchema>;
+
+/** Conjunto de proprietários: sem repetido e, com ao menos um, exatamente um principal. */
+export const ownersSchema = z.array(farmOwnerInputSchema).superRefine((owners, ctx) => {
+  if (new Set(owners.map((owner) => owner.contactId)).size !== owners.length) {
+    ctx.addIssue({ code: 'custom', path: [], message: FARM_OWNER_DUPLICATED_MESSAGE });
+  }
+  if (owners.length > 0 && owners.filter((owner) => owner.isPrimary).length !== 1) {
+    ctx.addIssue({ code: 'custom', path: [], message: FARM_OWNER_PRIMARY_MESSAGE });
+  }
+});
+
 const farmEditableShape = {
   name: farmNameSchema,
   municipalityIbgeCode: ibgeCodeSchema,
@@ -212,6 +235,7 @@ export const createFarmSchema = z
     tradingPostId: farmEditableShape.tradingPostId.optional(),
     commercialStatusId: farmEditableShape.commercialStatusId.optional(),
     usableAreaHa: farmEditableShape.usableAreaHa.optional(),
+    owners: ownersSchema.optional(),
     ...optionalOnCreate,
   })
   .superRefine(checkAreas)
@@ -232,6 +256,7 @@ export const farmFormSchema = z
     tradingPostId: farmEditableShape.tradingPostId.optional(),
     commercialStatusId: farmEditableShape.commercialStatusId.optional(),
     usableAreaHa: farmEditableShape.usableAreaHa.optional(),
+    owners: ownersSchema,
     ...optionalOnCreate,
   })
   .superRefine(checkAreas)
@@ -239,10 +264,18 @@ export const farmFormSchema = z
 export type CreateFarmInput = z.output<typeof createFarmSchema>;
 
 /** Só o que muda. Área útil sem a total no corpo é conferida contra o cadastro (serviço). */
-export const updateFarmSchema = z.object(farmEditableShape).partial().superRefine(checkAreas).superRefine(checkCoordinatesSent);
+export const updateFarmSchema = z
+  .object({ ...farmEditableShape, owners: ownersSchema })
+  .partial()
+  .superRefine(checkAreas)
+  .superRefine(checkCoordinatesSent);
 export type UpdateFarmInput = z.output<typeof updateFarmSchema>;
 
 const namedReferenceSchema = z.object({ id: z.uuid(), name: z.string() });
+
+/** Proprietário como a API o devolve, na ordem de inclusão. */
+export const farmOwnerSchema = z.object({ contactId: z.uuid(), name: z.string(), isPrimary: z.boolean() });
+export type FarmOwner = z.infer<typeof farmOwnerSchema>;
 
 /** Fazenda como a API a devolve: referências já com o nome (o do cadastro hoje, ativo ou não). */
 export const farmSchema = z.object({
@@ -255,6 +288,7 @@ export const farmSchema = z.object({
   /** Hectares, decimal canônico. */
   totalAreaHa: z.string(),
   usableAreaHa: z.string().nullable(),
+  owners: z.array(farmOwnerSchema),
   salesPotential: levelSchema.nullable(),
   priority: levelSchema.nullable(),
   waterAvailability: levelSchema.nullable(),
@@ -288,6 +322,18 @@ export const farmListQuerySchema = listQuerySchema({ sortable: FARM_SORT_FIELDS 
 export type FarmListQuery = z.output<typeof farmListQuerySchema>;
 
 export const farmPageSchema = listPageSchema(farmSchema);
+
+/** Fazenda na seção "Fazendas" da ficha do contato: o status em qualquer valor e a marca de principal daquele contato. */
+export const contactFarmSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  municipality: municipalityOptionSchema,
+  commercialStatus: namedReferenceSchema,
+  isPrimary: z.boolean(),
+});
+export type ContactFarm = z.infer<typeof contactFarmSchema>;
+
+export const contactFarmPageSchema = listPageSchema(contactFarmSchema);
 
 /** Fazenda como a busca a devolve. Área em hectares, decimal canônico (`numeric`, nunca `float`). */
 export const farmOptionSchema = z.object({

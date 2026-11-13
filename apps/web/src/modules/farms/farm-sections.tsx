@@ -45,6 +45,18 @@ function IdentificationBlock({ record }: { record: Farm }) {
   );
 }
 
+/** "Maria (principal), João": o principal marcado. */
+const ownersText = (owners: Farm['owners']) =>
+  owners.length === 0 ? null : owners.map((owner) => (owner.isPrimary ? `${owner.name} (principal)` : owner.name)).join(', ');
+
+function OwnersBlock({ record }: { record: Farm }) {
+  return (
+    <Block title="Proprietários">
+      <SpecList items={[{ label: 'Proprietários', value: ownersText(record.owners) }]} />
+    </Block>
+  );
+}
+
 function AreasBlock({ record }: { record: Farm }) {
   const formatArea = useAreaFormatter();
   return (
@@ -111,6 +123,7 @@ function DataSection({ record }: { record: Farm }) {
   return (
     <div className="flex flex-col gap-gap-shell">
       <IdentificationBlock record={record} />
+      <OwnersBlock record={record} />
       <AreasBlock record={record} />
       <CommercialBlock record={record} />
       <TechnicalBlock record={record} />

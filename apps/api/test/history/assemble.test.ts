@@ -523,4 +523,85 @@ describe('referência a município', () => {
     );
     expect(entry?.changes).toEqual([{ field: 'Município', from: 'Rio Verde — GO', to: 'Bom Jesus — GO' }]);
   });
+
+  describe('filho por referência e marca de principal', () => {
+    const OWNER_A = '0190a000-0000-7000-8000-0000000000b1';
+    const OWNER_B = '0190a000-0000-7000-8000-0000000000b2';
+    const CONTACT_A = '0190a000-0000-7000-8000-0000000000c1';
+    const CONTACT_B = '0190a000-0000-7000-8000-0000000000c2';
+    const ownersRegistry = {
+      farms: { label: 'Fazenda', gender: 'f', fields: { ...RECORD_COLUMNS } },
+      farm_owners: {
+        label: 'Proprietário',
+        gender: 'm',
+        fields: {
+          ...RECORD_COLUMNS,
+          farm_id: HIDDEN,
+          contact_id: { type: 'reference', label: 'Proprietário', references: { table: 'contacts', nameColumn: 'name' } },
+          is_primary: { type: 'boolean', label: 'Proprietário principal' },
+        },
+      },
+    } satisfies Record<string, EntityMeta>;
+    const ownersOptions: AssembleOptions = {
+      ...base,
+      entity: 'farms',
+      entityId: FARM_ID,
+      registry: ownersRegistry,
+      children: [
+        {
+          entity: 'farm_owners',
+          parentColumn: 'farm_id',
+          nameColumn: 'contact_id',
+          primaryFlag: { column: 'is_primary', label: 'Proprietário principal' },
+        },
+      ],
+      references: new Map([
+        [referenceKey({ table: 'contacts', nameColumn: 'name' }), new Map([[CONTACT_A, 'João'], [CONTACT_B, 'Maria']])],
+      ]),
+    };
+    const owner =
+      (entityId: string) => (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
+        row(changeId, field, oldValue, newValue, { entity: 'farm_owners', entityId });
+    const ownerA = owner(OWNER_A);
+    const ownerB = owner(OWNER_B);
+
+    it('nomeia o filho por referência ("Proprietário adicionado: Maria")', () => {
+      const [entry] = assembleHistory(
+        [
+          ownerB('c1', 'id', null, OWNER_B),
+          ownerB('c1', 'farm_id', null, FARM_ID),
+          ownerB('c1', 'contact_id', null, CONTACT_B),
+          ownerB('c1', 'is_primary', null, 'false'),
+        ],
+        ownersOptions,
+      );
+
+      expect(entry?.children.map((c) => c.title)).toEqual(['Proprietário adicionado: Maria']);
+      expect(entry?.children[0]?.changes.map((c) => c.field)).toEqual(['Proprietário']);
+    });
+
+    it('troca de principal vira "Proprietário principal: João → Maria", sem linha dos filhos', () => {
+      const [entry] = assembleHistory(
+        [
+          ownerA('c1', 'id', null, OWNER_A),
+          ownerA('c1', 'farm_id', null, FARM_ID),
+          ownerA('c1', 'contact_id', null, CONTACT_A),
+          ownerA('c1', 'is_primary', null, 'true'),
+          ownerB('c1', 'id', null, OWNER_B),
+          ownerB('c1', 'farm_id', null, FARM_ID),
+          ownerB('c1', 'contact_id', null, CONTACT_B),
+          ownerB('c1', 'is_primary', null, 'false'),
+          ownerA('c2', 'is_primary', 'true', 'false'),
+          ownerB('c2', 'is_primary', 'false', 'true'),
+        ],
+        ownersOptions,
+      );
+
+      expect(entry).toMatchObject({
+        title: 'Proprietário principal alterado',
+        changes: [{ field: 'Proprietário principal', from: 'João', to: 'Maria' }],
+        children: [],
+      });
+    });
+  });
 });

@@ -15,4 +15,11 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comer
 - No `PATCH` só vai o que mudou: aptidões e culturas só se o **conjunto** mudou (comparado ordenado); latitude e longitude sempre em par; distância e coordenada aceitam vírgula (viram ponto).
 - Adota `useUnsavedChangesGuard`: `guard.release()` antes do `navigate` no save e no cancelar (o `EntityForm` já confirmou o descarte), `{guard.dialog}` no JSX.
 - A ficha (aba Dados) mostra os mesmos blocos, na mesma ordem.
+
+## Proprietários (issue #148)
+
+- `farm-owners-field.tsx`: lista de `ContactField` (papel `owner`) com marca de principal e retirar. O primeiro incluído vira principal; retirar o principal promove o próximo. Sem `contatos.ver` o seletor é somente leitura e não se inclui ninguém; retirar e trocar o principal continuam possíveis.
+- O formulário só envia `owners` se o conjunto ou o principal mudou.
+- `contact-farms-section.tsx` registra a seção "Fazendas" da ficha do contato (papel `owner` + `fazendas.ver`), importada por efeito em `routes.tsx`.
+- A lista mostra o proprietário principal com "+N" (`primaryOwnerLabel`).
 - Aviso de duplicata: `save` consulta `fetchFarmDuplicates` (nome + município; `excludeId` na edição) antes de gravar e mostra `FarmDuplicateWarning` (sobre o `DuplicateWarning` do DS) sem remontar o formulário. "Salvar mesmo assim" pula a consulta uma vez; consulta que falha não barra o cadastro.

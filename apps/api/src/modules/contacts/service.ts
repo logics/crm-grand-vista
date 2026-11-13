@@ -38,7 +38,7 @@ import {
   type UpdateContactInput,
 } from '@crm/shared';
 import { and, eq, getTableColumns, getTableName, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
-import { countRoleUsage, pluralLabelOfTable } from './role-usage.js';
+import { countRoleUsage, pluralLabelOfTable, usageOfTable } from './role-usage.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
@@ -365,7 +365,16 @@ function referencingEntityLabel(table: string | undefined): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-export const contactInUseMessage = (table: string | undefined) =>
+export function contactInUseMessage(table: string | undefined): string {
+  const usage = table ? usageOfTable(table) : undefined;
+  if (usage?.inUsePhrase) {
+    const article = usage.label.gender === 'f' ? 'das' : 'dos';
+    return `Este contato ${usage.inUsePhrase}. Remova-o ${article} ${usage.label.plural} antes de excluir.`;
+  }
+  return inUseMessageOfEntity(table);
+}
+
+const inUseMessageOfEntity = (table: string | undefined) =>
   `Este contato está em uso em ${referencingEntityLabel(table)}. Remova os vínculos antes de excluir.`;
 
 /**

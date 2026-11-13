@@ -41,6 +41,7 @@ const saved = {
   longitude: null,
   aptitudes: [],
   crops: [],
+  owners: [],
   createdAt: '2026-01-02T10:00:00.000Z',
 };
 

@@ -5,9 +5,11 @@ import {
   aptitudes,
   auditedWrites,
   commercialStatuses,
+  contacts,
   crops,
   farmAptitudes,
   farmCrops,
+  farmOwners,
   farms,
   memberships,
   municipalities,
@@ -15,12 +17,14 @@ import {
   tradingPosts,
   users,
   type AuditActor,
+  type AuditedWrites,
   type Transaction,
 } from '@crm/db';
 import {
   FARM_APTITUDE_UNKNOWN_MESSAGE,
   FARM_COORDINATES_PAIR_MESSAGE,
   FARM_CROP_UNKNOWN_MESSAGE,
+  FARM_OWNER_UNKNOWN_MESSAGE,
   FARM_MUNICIPALITY_UNKNOWN_MESSAGE,
   FARM_NO_DEFAULT_STATUS_MESSAGE,
   FARM_RESPONSIBLE_FORBIDDEN_MESSAGE,
@@ -29,7 +33,9 @@ import {
   FARM_TRADING_POST_UNKNOWN_MESSAGE,
   FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE,
   usableExceedsTotal,
+  type ContactFarm,
   type CreateFarmInput,
+  type FarmOwnerInput,
   type Farm,
   type FarmDuplicate,
   type FarmDuplicatesQuery,
@@ -37,10 +43,11 @@ import {
   type ListPage,
   type UpdateFarmInput,
 } from '@crm/shared';
-import { and, asc, eq, inArray, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, ne, sql, type SQL } from 'drizzle-orm';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
+import { ensureContactRole } from '../contacts/service.js';
 import { defaultEntries } from '../settings/service.js';
 
 type FarmRow = typeof farms.$inferSelect;
@@ -83,7 +90,7 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
   const unique = <T>(values: readonly (T | null)[]) => [...new Set(values.filter((value): value is T => value !== null))];
 
   const farmIds = rows.map((row) => row.id);
-  const [municipalityRows, statusRows, userRows, postRows, aptitudeRows, cropRows] = await Promise.all([
+  const [municipalityRows, statusRows, userRows, postRows, aptitudeRows, cropRows, ownerRows] = await Promise.all([
     tx
       .select({ ibgeCode: municipalities.ibgeCode, name: municipalities.name, uf: municipalities.uf })
       .from(municipalities)
@@ -112,6 +119,17 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
       .innerJoin(crops, eq(crops.id, farmCrops.cropId))
       .where(inArray(farmCrops.farmId, farmIds))
       .orderBy(sql`${crops.name} collate "pt-BR-x-icu"`, asc(crops.id)),
+    tx
+      .select({
+        farmId: farmOwners.farmId,
+        contactId: farmOwners.contactId,
+        name: contacts.name,
+        isPrimary: farmOwners.isPrimary,
+      })
+      .from(farmOwners)
+      .innerJoin(contacts, eq(contacts.id, farmOwners.contactId))
+      .where(inArray(farmOwners.farmId, farmIds))
+      .orderBy(asc(farmOwners.id)),
   ]);
   const groupByFarm = (items: readonly { farmId: string; id: string; name: string }[]) => {
     const grouped = new Map<string, { id: string; name: string }[]>();
@@ -120,6 +138,8 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
   };
   const aptitudesByFarm = groupByFarm(aptitudeRows);
   const cropsByFarm = groupByFarm(cropRows);
+  const ownersByFarm = new Map<string, Farm['owners']>();
+  for (const { farmId, ...owner } of ownerRows) ownersByFarm.set(farmId, [...(ownersByFarm.get(farmId) ?? []), owner]);
   const municipalityByCode = new Map(municipalityRows.map((row) => [row.ibgeCode, row]));
   const statusById = new Map(statusRows.map((row) => [row.id, row]));
   const userById = new Map(userRows.map((row) => [row.id, row]));
@@ -134,6 +154,7 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
     commercialStatus: statusById.get(row.commercialStatusId)!,
     totalAreaHa: row.totalAreaHa,
     usableAreaHa: row.usableAreaHa,
+    owners: ownersByFarm.get(row.id) ?? [],
     salesPotential: row.salesPotential as Farm['salesPotential'],
     priority: row.priority as Farm['priority'],
     waterAvailability: row.waterAvailability as Farm['waterAvailability'],
@@ -379,6 +400,8 @@ export async function createFarm(
 
   const refused = await referenceRejection(tx, actor.tenantId, { ...input, responsibleUserId, commercialStatusId });
   if (refused) return refused;
+  const ownerRefused = await ownerRejection(tx, input.owners ?? []);
+  if (ownerRefused) return ownerRefused;
 
   const none = new Set<string>();
   const aptitudeIds = input.aptitudeIds ?? [];
@@ -399,6 +422,7 @@ export async function createFarm(
     usableAreaHa: input.usableAreaHa ?? null,
     commercialStatusId,
   });
+  await applyOwners(tx, writes, actor, row.id, input.owners ?? []);
   await applyAptitudes(writes, actor.tenantId, row.id, none, aptitudeIds);
   await applyCrops(writes, actor.tenantId, row.id, none, cropIds);
   return (await serialize(tx, [row]))[0]!;
@@ -412,6 +436,8 @@ export async function updateFarm(
   id: string,
   input: UpdateFarmInput,
 ): Promise<Farm | FarmRejection | FarmForbidden | null> {
+  // Trava a fazenda no início do save: saves concorrentes são serializados, e os
+  // proprietários lidos depois do lock já refletem o save que terminou antes.
   const current = await findRow(tx, access, id, true);
   if (!current) return null;
 
@@ -424,9 +450,14 @@ export async function updateFarm(
   if (usableExceedsTotal(totalAreaHa, usableAreaHa)) {
     return { rejected: FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE, field: 'usableAreaHa' };
   }
-  const { aptitudeIds, cropIds, ...fields } = input;
+  const { aptitudeIds, cropIds, owners, ...fields } = input;
   const refused = (await referenceRejection(tx, actor.tenantId, fields, current)) ?? coordinatesRejection(fields, current);
   if (refused) return refused;
+
+  if (owners !== undefined) {
+    const ownerRefused = await ownerRejection(tx, owners);
+    if (ownerRefused) return ownerRefused;
+  }
 
   const currentJunctions = await currentJunctionIds(tx, id);
   if (aptitudeIds) {
@@ -445,5 +476,92 @@ export async function updateFarm(
   if (!updated) return null;
   if (aptitudeIds) await applyAptitudes(writes, actor.tenantId, id, currentJunctions.aptitudeIds, aptitudeIds);
   if (cropIds) await applyCrops(writes, actor.tenantId, id, currentJunctions.cropIds, cropIds);
+  if (owners !== undefined) await applyOwners(tx, writes, actor, id, owners);
   return (await serialize(tx, [updated]))[0]!;
+}
+
+/** Os contatos existem na empresa ativa (a FK não passa pelo RLS e o papel seria gravado em contato alheio). */
+async function ownerRejection(tx: Transaction, owners: readonly FarmOwnerInput[]): Promise<FarmRejection | null> {
+  if (owners.length === 0) return null;
+  const ids = owners.map((owner) => owner.contactId);
+  const found = await tx.select({ id: contacts.id }).from(contacts).where(inArray(contacts.id, ids));
+  return found.length === new Set(ids).size ? null : { rejected: FARM_OWNER_UNKNOWN_MESSAGE, field: 'owners' };
+}
+
+/**
+ * Substitui o conjunto de proprietários por diferença, em ordem fixa (nunca
+ * delete + insert): apaga os retirados; tira a marca do principal antigo; marca o
+ * novo principal entre os que ficam; insere os novos (já com a marca, porque o
+ * passo anterior liberou o índice parcial). Quem não mudou não é regravado. A
+ * fazenda já está travada por quem chama.
+ */
+async function applyOwners(
+  tx: Transaction,
+  writes: AuditedWrites,
+  actor: AuditActor & { tenantId: string },
+  farmId: string,
+  desired: readonly FarmOwnerInput[],
+): Promise<void> {
+  const current = await tx.select().from(farmOwners).where(eq(farmOwners.farmId, farmId));
+  const currentByContact = new Map(current.map((owner) => [owner.contactId, owner]));
+  const desiredIds = new Set(desired.map((owner) => owner.contactId));
+
+  const removed = current.filter((owner) => !desiredIds.has(owner.contactId));
+  if (removed.length > 0) {
+    await writes.delete(
+      farmOwners,
+      and(
+        eq(farmOwners.farmId, farmId),
+        inArray(
+          farmOwners.contactId,
+          removed.map((owner) => owner.contactId),
+        ),
+      )!,
+    );
+  }
+
+  const newPrimary = desired.find((owner) => owner.isPrimary);
+  const oldPrimary = current.find((owner) => owner.isPrimary && desiredIds.has(owner.contactId));
+  if (oldPrimary && newPrimary && oldPrimary.contactId !== newPrimary.contactId) {
+    await writes.update(farmOwners, { isPrimary: false }, eq(farmOwners.id, oldPrimary.id));
+  }
+  const promoted = newPrimary && currentByContact.get(newPrimary.contactId);
+  if (promoted && !promoted.isPrimary) {
+    await writes.update(farmOwners, { isPrimary: true }, eq(farmOwners.id, promoted.id));
+  }
+
+  for (const owner of desired) {
+    if (currentByContact.has(owner.contactId)) continue;
+    await writes.insert(farmOwners, {
+      tenantId: actor.tenantId,
+      farmId,
+      contactId: owner.contactId,
+      isPrimary: owner.isPrimary,
+    });
+    await ensureContactRole(tx, actor, owner.contactId, 'owner');
+  }
+}
+
+/** Fazendas de que o contato é proprietário, no escopo do leitor e em qualquer status (a lista e o total). */
+export async function listFarmsOfOwner(
+  tx: Transaction,
+  access: EffectiveAccess,
+  contactId: string,
+  query: FarmListQuery,
+): Promise<ListPage<ContactFarm>> {
+  const owned = exists(
+    tx
+      .select({ one: sql`1` })
+      .from(farmOwners)
+      .where(and(eq(farmOwners.farmId, farms.id), eq(farmOwners.contactId, contactId))),
+  );
+  const page = await paginatedQuery(tx, farmList, query, { scope: scopeOf(access), filters: [owned] });
+  const items = (await serialize(tx, page.items)).map((farm) => ({
+    id: farm.id,
+    name: farm.name,
+    municipality: farm.municipality,
+    commercialStatus: farm.commercialStatus,
+    isPrimary: farm.owners.some((owner) => owner.contactId === contactId && owner.isPrimary),
+  }));
+  return { ...page, items };
 }
