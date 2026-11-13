@@ -1,5 +1,5 @@
 {
-  "id": "98247cb5-649e-4164-b66d-a871310be3c6",
+  "id": "e8ee153f-58d8-4a0f-8fa0-c53e9a706c8a",
   "prevId": "07b0eaf5-83b3-43c6-9e4c-4f9b465dbccd",
   "version": "7",
   "dialect": "postgresql",
@@ -637,7 +637,7 @@
       "checkConstraints": {
         "commercial_statuses_system_meaning_check": {
           "name": "commercial_statuses_system_meaning_check",
-          "value": "\"commercial_statuses\".\"system_meaning\" in ('available', 'negotiating', 'sold', 'suspended', 'inactive')"
+          "value": "\"commercial_statuses\".\"system_meaning\" in ('available', 'negotiating', 'sold', 'suspended')"
         }
       },
       "isRLSEnabled": false
@@ -1523,6 +1523,161 @@
           "columns": [
             "farm_id",
             "crop_id"
+          ]
+        }
+      },
+      "policies": {
+        "tenant_isolation": {
+          "name": "tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.farm_owners": {
+      "name": "farm_owners",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contact_id": {
+          "name": "contact_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "farm_owners_farm_id_primary_unique": {
+          "name": "farm_owners_farm_id_primary_unique",
+          "columns": [
+            {
+              "expression": "farm_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"farm_owners\".\"is_primary\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "farm_owners_tenant_id_contact_id_idx": {
+          "name": "farm_owners_tenant_id_contact_id_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "contact_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "farm_owners_tenant_id_tenants_id_fk": {
+          "name": "farm_owners_tenant_id_tenants_id_fk",
+          "tableFrom": "farm_owners",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "farm_owners_farm_id_farms_id_fk": {
+          "name": "farm_owners_farm_id_farms_id_fk",
+          "tableFrom": "farm_owners",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "farm_owners_contact_id_contacts_id_fk": {
+          "name": "farm_owners_contact_id_contacts_id_fk",
+          "tableFrom": "farm_owners",
+          "tableTo": "contacts",
+          "columnsFrom": [
+            "contact_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_owners_farm_id_contact_id_unique": {
+          "name": "farm_owners_farm_id_contact_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "contact_id"
           ]
         }
       },

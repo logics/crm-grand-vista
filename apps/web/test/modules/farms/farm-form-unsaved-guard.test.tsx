@@ -21,6 +21,7 @@ const farm = {
   commercialStatus: { id: status.id, name: status.name },
   totalAreaHa: '48.4000',
   usableAreaHa: null,
+  owners: [],
   salesPotential: null,
   priority: null,
   waterAvailability: null,

@@ -11,7 +11,7 @@ import { MIGRATIONS_FOLDER } from '../src/migrate.js';
 const owner = new pg.Client({ connectionString: loadMigrationEnv().MIGRATION_DATABASE_URL });
 
 // Só o bloco `DO`: reaplicar o `ADD CONSTRAINT` do começo do arquivo falharia.
-const seedSql = readFileSync(join(MIGRATIONS_FOLDER, '0023_farm_inactive_status.sql'), 'utf8')
+const seedSql = readFileSync(join(MIGRATIONS_FOLDER, '0024_farm_inactive_status.sql'), 'utf8')
   .split('--> statement-breakpoint')
   .at(-1)!;
 

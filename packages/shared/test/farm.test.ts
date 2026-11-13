@@ -92,7 +92,7 @@ describe('ficha técnica e comercial', () => {
 
   it('recusa latitude sem longitude e longitude sem latitude', () => {
     for (const schema of [createFarmSchema, farmFormSchema, updateFarmSchema]) {
-      const extra = schema === updateFarmSchema ? {} : { ...base, responsibleUserId: A };
+      const extra = schema === updateFarmSchema ? {} : { ...base, responsibleUserId: A, owners: [] };
       const lat = schema.safeParse({ ...extra, latitude: '-17.7923', longitude: null });
       const lng = schema.safeParse({ ...extra, latitude: null, longitude: '-51.5' });
       expect(lat.success).toBe(false);

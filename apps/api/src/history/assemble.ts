@@ -50,6 +50,12 @@ export interface HistoryChildDeclaration<Table extends string = string> {
   /** Coluna que nomeia o filho no título da linha ("Documento adicionado: Matrícula 12.345"). */
   nameColumn?: string;
   /**
+   * Coluna booleana que marca um filho entre os irmãos (o proprietário principal).
+   * Não vira linha do filho: a troca vira uma alteração da entrada, "Proprietário
+   * principal: João → Maria", de quem perdeu a marca para quem a ganhou.
+   */
+  primaryFlag?: { column: string; label: string };
+  /**
    * Se o leitor vê o filho — a quarta camada de controle de acesso. Decide uma
    * vez por filho, sobre o último estado dele (o de antes da exclusão, se foi
    * excluído), e vale para todos os saves dele. Roda antes da paginação: filho
@@ -289,6 +295,44 @@ function belongsTo(entityId: string, parentColumn: string, state: ChildState, sa
   );
 }
 
+/** O nome do filho no título: lista fechada (`role`) pelo rótulo, referência (`contact_id`) pelo nome atual. */
+function childName(nameField: EntityField | undefined, rawName: string | null | undefined, options: FormatOptions): string | null {
+  if (rawName === null || rawName === undefined) return null;
+  if (nameField?.type === 'enum') return formatFieldValue(nameField, rawName);
+  if (nameField?.type === 'reference') return formatReference(options.references, nameField.references, rawName);
+  return rawName;
+}
+
+/**
+ * A troca da marca de principal num save, por declaração: de quem a perdeu (retirado
+ * ou desmarcado) para quem a ganhou (incluído ou promovido). Nada se o save não a mexeu.
+ */
+function primaryChangesOf(sources: readonly ChildSource[], changeId: string, options: ChildrenContext): VisibleChange[] {
+  return sources.flatMap(({ declaration, fields, histories }) => {
+    const flag = declaration.primaryFlag;
+    if (!flag) return [];
+    const nameField = fields.find((field) => field.column === declaration.nameColumn);
+    let lost: string | null = null;
+    let gained: string | null = null;
+    for (const history of histories.values()) {
+      const saved = history.filter((row) => row.changeId === changeId);
+      if (saved.length === 0) continue;
+      const state = childStateAt(history, changeId);
+      if (!belongsTo(options.entityId, declaration.parentColumn, state, saved)) continue;
+      const flagRows = saved.filter((row) => row.field === flag.column).sort(byId);
+      if (flagRows.length === 0) continue;
+      const before = flagRows[0]!.oldValue === 'true';
+      const after = kindOf(saved) !== 'deleted' && flagRows.at(-1)!.newValue === 'true';
+      const name = childName(nameField, declaration.nameColumn ? state[declaration.nameColumn] : null, options);
+      if (before && !after) lost = name;
+      if (after && !before) gained = name;
+    }
+    return lost === null && gained === null
+      ? []
+      : [{ change: { field: flag.label, from: lost, to: gained }, gender: 'm' as GrammaticalGender }];
+  });
+}
+
 /** As linhas dos filhos (já só os visíveis) num save, uma por filho. */
 function childrenOf(sources: readonly ChildSource[], changeId: string, options: ChildrenContext): VisibleChild[] {
   return sources.flatMap(({ declaration, meta, fields, histories }) =>
@@ -300,21 +344,17 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
       const state = childStateAt(history, changeId);
       if (!belongsTo(options.entityId, declaration.parentColumn, state, saved)) return [];
 
-      const changes = changesOf(fields, saved, options);
+      const flagColumn = declaration.primaryFlag?.column;
+      const changes = changesOf(
+        fields.filter((field) => field.column !== flagColumn),
+        saved,
+        options,
+      );
       if (kind === 'updated' && changes.length === 0) return [];
 
       const shortTitle = labelWith(CHILD_VERBS[kind], meta);
       const nameField = fields.find((field) => field.column === declaration.nameColumn);
-      const rawName = (declaration.nameColumn ? state[declaration.nameColumn] : null) ?? null;
-      // Lista fechada (`role`) aparece pelo rótulo; referência (`aptitude_id`), pelo nome de hoje no cadastro.
-      const name =
-        rawName === null
-          ? null
-          : nameField?.type === 'enum'
-            ? formatFieldValue(nameField, rawName)
-            : nameField?.type === 'reference'
-              ? formatReference(options.references, nameField.references, rawName)
-              : rawName;
+      const name = childName(nameField, declaration.nameColumn ? state[declaration.nameColumn] : null, options);
       return [
         {
           child: { title: name ? `${shortTitle}: ${name}` : shortTitle, changes: changes.map(({ change }) => change) },
@@ -390,7 +430,7 @@ export function assembleHistory(rows: readonly AuditRow[], options: AssembleOpti
     .sort((a, b) => b.newest.id - a.newest.id)
     .flatMap(({ newest, rows: saved }): HistoryEntry[] => {
       const recordRows = saved.filter((row) => row.entity === entity && row.entityId === entityId);
-      const changes = changesOf(fields, recordRows, formatting);
+      const changes = [...changesOf(fields, recordRows, formatting), ...primaryChangesOf(sources, newest.changeId, formatting)];
       const visibleChildren = childrenOf(sources, newest.changeId, formatting);
       if (changes.length === 0 && visibleChildren.length === 0) return [];
 

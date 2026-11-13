@@ -2,10 +2,16 @@
 // e de referências, e a prova de integração do escopo de dados `own` (404 por id
 // direto, lista e total sem as alheias), mais o isolamento entre empresas.
 import {
+  aptitudes,
   auditedWrites,
   commercialStatuses,
+  contacts,
   createDatabase,
   createPool,
+  crops,
+  farmAptitudes,
+  farmCrops,
+  farmOwners,
   farms,
   tradingPosts,
   userProfiles,
@@ -449,6 +455,56 @@ describe('fazendas', () => {
         ),
       );
       expect(Number(rows.rows[0]!.n)).toBe(1);
+    });
+
+    it('a exclusão apaga proprietários, culturas e aptidões e audita cada filho', async () => {
+      const [aptitude, crop, owner] = await db.withTenant(tenant.id, async (tx) => {
+        const [a] = await tx.insert(aptitudes).values({ tenantId: tenant.id, name: 'Exclusão — aptidão' }).returning();
+        const [c] = await tx.insert(crops).values({ tenantId: tenant.id, name: 'Exclusão — cultura' }).returning();
+        const [o] = await tx
+          .insert(contacts)
+          .values({ tenantId: tenant.id, personType: 'pf', name: 'Exclusão — proprietário' })
+          .returning();
+        return [a!, c!, o!] as const;
+      });
+      const response = await create(
+        validBody({
+          name: 'Exclusão — com filhos',
+          aptitudeIds: [aptitude.id],
+          cropIds: [crop.id],
+          owners: [{ contactId: owner.id, isPrimary: true }],
+        }),
+      );
+      expect(response.status).toBe(201);
+      const farm = (await response.json()) as FarmBody;
+      expect((await deactivate(farm.id)).status).toBe(200);
+
+      expect((await remove(farm.id)).status).toBe(204);
+
+      const remaining = await db.withTenant(tenant.id, async (tx) => ({
+        aptitudes: await tx.select().from(farmAptitudes).where(eq(farmAptitudes.farmId, farm.id)),
+        crops: await tx.select().from(farmCrops).where(eq(farmCrops.farmId, farm.id)),
+        owners: await tx.select().from(farmOwners).where(eq(farmOwners.farmId, farm.id)),
+      }));
+      expect(remaining).toEqual({ aptitudes: [], crops: [], owners: [] });
+
+      // `audit_log` não tem coluna de operação: a exclusão é a linha com valor novo nulo.
+      const audited = await db.withTenant(tenant.id, (tx) =>
+        tx.execute<{ entity: string; n: string; changes: string }>(
+          sql`select entity, count(distinct entity_id) as n, count(distinct change_id) as changes from audit_log
+            where entity in ('farm_aptitudes', 'farm_crops', 'farm_owners') and new_value is null
+              and entity_id in (
+                select entity_id from audit_log where entity in ('farm_aptitudes', 'farm_crops', 'farm_owners')
+                  and field = 'farm_id' and old_value = ${farm.id}
+              )
+            group by entity order by entity`,
+        ),
+      );
+      expect(audited.rows.map((row) => [row.entity, Number(row.n)])).toEqual([
+        ['farm_aptitudes', 1],
+        ['farm_crops', 1],
+        ['farm_owners', 1],
+      ]);
     });
 
     it('sem fazendas.excluir é 403 antes do banco', async () => {

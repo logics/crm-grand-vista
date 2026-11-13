@@ -13,6 +13,7 @@ import {
 import { zValidator } from '@hono/zod-validator';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
+import { databaseError } from '../../database-error.js';
 import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import { hydrateContactNames, listContactOptions } from './options.js';
@@ -57,17 +58,6 @@ function violatesTaxIdUniqueIndex(error: unknown): boolean {
 const isId = (c: Context<TenantEnv>) => idSchema.safeParse(c.req.param('id')).success;
 
 const conflict = (message: string) => ({ error: { code: 'conflict', message } }) as const;
-
-/** SQLSTATE e tabela do erro do driver, que o Drizzle embrulha em `cause`. */
-function databaseError(error: unknown): { code?: string; table?: string } {
-  for (let current = error; current instanceof Error; current = current.cause) {
-    const { code, table } = current as { code?: unknown; table?: unknown };
-    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) {
-      return { code, ...(typeof table === 'string' ? { table } : {}) };
-    }
-  }
-  return {};
-}
 
 // `ON DELETE RESTRICT` falha com 23001; `NO ACTION`, com 23503: os dois são "em uso".
 const IN_USE_SQLSTATES = ['23001', '23503'];

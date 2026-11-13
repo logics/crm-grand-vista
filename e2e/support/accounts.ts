@@ -20,3 +20,6 @@ export const twoTenantUser = {
 /** Município e praça semeados na primeira empresa, para o formulário de fazenda. */
 export const RIO_VERDE_IBGE = '5218805';
 export const TRADING_POST_NAME = 'Praça Sudoeste';
+
+/** Contatos proprietários semeados na primeira empresa, para o seletor do formulário de fazenda. */
+export const OWNER_NAMES = ['Maria Proprietária', 'João Proprietário'] as const;

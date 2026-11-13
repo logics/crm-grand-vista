@@ -12,6 +12,7 @@ import {
   contacts,
   farmAptitudes,
   farmCrops,
+  farmOwners,
   farms,
   commercialStatuses,
   crops,
@@ -126,6 +127,7 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
       .returning();
     await tx.insert(farmAptitudes).values({ tenantId, farmId: farm!.id, aptitudeId: aptitude!.id });
     await tx.insert(farmCrops).values({ tenantId, farmId: farm!.id, cropId: crop!.id });
+    await tx.insert(farmOwners).values({ tenantId, farmId: farm!.id, contactId: contact!.id, isPrimary: true });
     for (const table of [
       contactClassifications,
       documentCategories,

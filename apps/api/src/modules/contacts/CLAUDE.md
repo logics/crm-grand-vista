@@ -21,3 +21,5 @@ Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumulávei
 - `GET /duplicates` (`contatos.ver`): coincidência por telefone/WhatsApp (cruzados), e-mail e nome sem caixa nem acento (`normalize_text`), com os `reasons`; `excludeId` tira o próprio contato; telefone passa por `normalizePhone`. Registrada antes de `/:id`. É aviso, nunca bloqueio.
 - `GET /options` (`options.ts`, declarada `noPermissionRequired` e checada na rota): `role` **ordena** (quem tem o papel, depois os demais, cada grupo por nome e `id`), não filtra; `q` busca em nome, razão social, e-mail, documento e telefone/WhatsApp pelos dígitos; cursor = deslocamento. `ids` hidrata qualquer vínculo; sem `contatos.ver` devolve só `id` e `name` (`personType` e `taxId` nulos, `roles` vazio) e a busca por termo é 403 antes do banco. Registrada antes de `/:id`.
 - Ainda sem API: `custom_fields` — de issue seguinte da spec.
+
+- `RoleUsage` aceita `inUsePhrase` e `label.gender`: a exclusão barrada pela FK usa a frase declarada pela tabela ("Este contato é proprietário de fazenda. Remova-o das fazendas antes de excluir."); sem frase, o rótulo da entidade. O mapeamento é pela tabela do erro.

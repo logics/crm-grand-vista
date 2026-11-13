@@ -7,6 +7,7 @@ import {
   type DocumentStatus,
   type Farm,
   type FarmDuplicate,
+  type FarmOwnerInput,
   type MunicipalityOption,
   type UpdateFarmInput,
 } from '@crm/shared';
@@ -40,11 +41,13 @@ import { useDataScope } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
 import { FarmDuplicateWarning } from './farm-duplicate-warning.js';
+import { FarmOwnersField } from './farm-owners-field.js';
 import { createFarm, fetchFarm, fetchFarmDuplicates, updateFarm } from './farms-api.js';
 
 const FORM_ID = 'farm-form';
 
 const fields = FIELD_REGISTRY.farms.fields;
+const ownersField = { label: 'Proprietários' };
 
 type FormValues = z.input<typeof farmFormSchema>;
 type FormSection = EntityFormSection<FormValues>;
@@ -128,6 +131,7 @@ function changesOf(farm: Farm, values: z.output<typeof farmFormSchema>): UpdateF
   if ((values.tradingPostId ?? null) !== (farm.tradingPost?.id ?? null)) changes.tradingPostId = values.tradingPostId ?? null;
   if (!sameArea(values.totalAreaHa, farm.totalAreaHa)) changes.totalAreaHa = values.totalAreaHa;
   if (!sameArea(values.usableAreaHa, farm.usableAreaHa)) changes.usableAreaHa = values.usableAreaHa ?? null;
+  if (ownersChanged(farm.owners, values.owners)) changes.owners = values.owners;
   if (values.commercialStatusId && values.commercialStatusId !== farm.commercialStatus.id) {
     changes.commercialStatusId = values.commercialStatusId;
   }
@@ -146,6 +150,13 @@ function changesOf(farm: Farm, values: z.output<typeof farmFormSchema>): UpdateF
   if (!sameIds(values.aptitudeIds ?? [], farm.aptitudes.map((item) => item.id))) changes.aptitudeIds = values.aptitudeIds ?? [];
   if (!sameIds(values.cropIds ?? [], farm.crops.map((item) => item.id))) changes.cropIds = values.cropIds ?? [];
   return changes;
+}
+
+/** Se o conjunto ou o principal mudou, sem olhar a ordem. */
+function ownersChanged(saved: Farm['owners'], desired: readonly FarmOwnerInput[]): boolean {
+  if (saved.length !== desired.length) return true;
+  const primaryByContact = new Map(saved.map((owner) => [owner.contactId, owner.isPrimary]));
+  return desired.some((owner) => primaryByContact.get(owner.contactId) !== owner.isPrimary);
 }
 
 function FarmForm({ farm }: { farm: Farm | null }) {
@@ -273,6 +284,24 @@ function FarmForm({ farm }: { farm: Farm | null }) {
               onBlur={field.onBlur}
             />
           ),
+      },
+    ],
+  };
+
+  const owners: FormSection = {
+    title: 'Proprietários',
+    fields: [
+      {
+        name: 'owners',
+        label: ownersField.label,
+        colSpan: 2,
+        render: (field) => (
+          <FarmOwnersField
+            value={field.value ?? []}
+            onChange={field.onChange}
+            names={new Map(farm?.owners.map((owner) => [owner.contactId, owner.name]))}
+          />
+        ),
       },
     ],
   };
@@ -522,7 +551,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
     ],
   };
 
-  const sections: FormSection[] = [identification, areas, commercial, technical];
+  const sections: FormSection[] = [identification, owners, areas, commercial, technical];
 
   return (
     <div className="flex flex-col gap-gap-shell">
@@ -544,6 +573,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
           responsibleUserId: farm?.responsible.id ?? me?.id ?? '',
           totalAreaHa: farm?.totalAreaHa ?? '',
           usableAreaHa: farm?.usableAreaHa ?? null,
+          owners: farm?.owners.map(({ contactId, isPrimary }) => ({ contactId, isPrimary })) ?? [],
           commercialStatusId: farm?.commercialStatus.id,
           salesPotential: farm?.salesPotential ?? null,
           priority: farm?.priority ?? null,

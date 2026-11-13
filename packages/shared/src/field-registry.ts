@@ -232,6 +232,17 @@ export const FIELD_REGISTRY = {
       custom_fields: HIDDEN,
     },
   },
+  farm_owners: {
+    label: 'Proprietário',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      farm_id: HIDDEN,
+      contact_id: { type: 'reference', label: 'Proprietário', references: { table: 'contacts', nameColumn: 'name' } },
+      is_primary: { type: 'boolean', label: 'Proprietário principal' },
+    },
+  },
   tenant_settings: {
     label: 'Parâmetros da empresa',
     gender: 'm',
