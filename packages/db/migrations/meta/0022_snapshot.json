@@ -1,5 +1,5 @@
 {
-  "id": "c7c643d1-41ee-46c4-9884-e93e5795f4e4",
+  "id": "07b0eaf5-83b3-43c6-9e4c-4f9b465dbccd",
   "prevId": "b9a74e99-44e6-4439-b0b6-efba158f2ca9",
   "version": "7",
   "dialect": "postgresql",
@@ -1275,6 +1275,272 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.farm_aptitudes": {
+      "name": "farm_aptitudes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aptitude_id": {
+          "name": "aptitude_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "farm_aptitudes_tenant_id_aptitude_id_idx": {
+          "name": "farm_aptitudes_tenant_id_aptitude_id_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "aptitude_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "farm_aptitudes_tenant_id_tenants_id_fk": {
+          "name": "farm_aptitudes_tenant_id_tenants_id_fk",
+          "tableFrom": "farm_aptitudes",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "farm_aptitudes_farm_id_farms_id_fk": {
+          "name": "farm_aptitudes_farm_id_farms_id_fk",
+          "tableFrom": "farm_aptitudes",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "farm_aptitudes_aptitude_id_aptitudes_id_fk": {
+          "name": "farm_aptitudes_aptitude_id_aptitudes_id_fk",
+          "tableFrom": "farm_aptitudes",
+          "tableTo": "aptitudes",
+          "columnsFrom": [
+            "aptitude_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_aptitudes_farm_id_aptitude_id_unique": {
+          "name": "farm_aptitudes_farm_id_aptitude_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "aptitude_id"
+          ]
+        }
+      },
+      "policies": {
+        "tenant_isolation": {
+          "name": "tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.farm_crops": {
+      "name": "farm_crops",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "crop_id": {
+          "name": "crop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "farm_crops_tenant_id_crop_id_idx": {
+          "name": "farm_crops_tenant_id_crop_id_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "crop_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "farm_crops_tenant_id_tenants_id_fk": {
+          "name": "farm_crops_tenant_id_tenants_id_fk",
+          "tableFrom": "farm_crops",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "farm_crops_farm_id_farms_id_fk": {
+          "name": "farm_crops_farm_id_farms_id_fk",
+          "tableFrom": "farm_crops",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "farm_crops_crop_id_crops_id_fk": {
+          "name": "farm_crops_crop_id_crops_id_fk",
+          "tableFrom": "farm_crops",
+          "tableTo": "crops",
+          "columnsFrom": [
+            "crop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_crops_farm_id_crop_id_unique": {
+          "name": "farm_crops_farm_id_crop_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "crop_id"
+          ]
+        }
+      },
+      "policies": {
+        "tenant_isolation": {
+          "name": "tenant_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "public"
+          ],
+          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
+          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.farms": {
       "name": "farms",
       "schema": "",
@@ -1752,7 +2018,7 @@
         },
         "farms_pricing_check": {
           "name": "farms_pricing_check",
-          "value": "(\n        \"farms\".\"pricing_mode\" is null\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" is not null and \"farms\".\"pricing_mode\" = 'brl'\n        and \"farms\".\"asking_price\" is not null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" is not null and \"farms\".\"pricing_mode\" = 'bags'\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is not null and \"farms\".\"valuation_bags_unit\" is not null\n        and \"farms\".\"valuation_crop_id\" is not null\n        and ((\"farms\".\"valuation_bags_unit\" = 'per_alqueire') = (\"farms\".\"valuation_bags_alqueire_type\" is not null))\n      )"
+          "value": "(\n        \"farms\".\"pricing_mode\" is null\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" = 'brl'\n        and \"farms\".\"asking_price\" is not null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" = 'bags'\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is not null and \"farms\".\"valuation_bags_unit\" is not null\n        and \"farms\".\"valuation_crop_id\" is not null\n        and ((\"farms\".\"valuation_bags_unit\" = 'per_alqueire') = (\"farms\".\"valuation_bags_alqueire_type\" is not null))\n      )"
         }
       },
       "isRLSEnabled": false

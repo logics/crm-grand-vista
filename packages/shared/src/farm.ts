@@ -18,6 +18,7 @@ import {
 } from './decimal.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { municipalityOptionSchema } from './region.js';
+import { optionalText } from './text.js';
 
 /** Nível: o tipo único das colunas de potencial, prioridade e nota. A tabela as protege por `CHECK` montado desta constante. */
 export const LEVELS = ['high', 'medium', 'low'] as const;
@@ -53,6 +54,7 @@ export const VALUATION_BAGS_UNIT_LABELS: Record<ValuationBagsUnit, string> = {
 };
 
 export const FARM_NAME_MAX_LENGTH = 200;
+export const FARM_LONG_TEXT_MAX_LENGTH = 10_000;
 
 export const FARM_NOT_FOUND_MESSAGE = 'Fazenda não encontrada.';
 export const FARM_MUNICIPALITY_UNKNOWN_MESSAGE = 'Município inválido.';
@@ -61,6 +63,9 @@ export const FARM_STATUS_UNKNOWN_MESSAGE = 'Status comercial inválido.';
 export const FARM_RESPONSIBLE_UNKNOWN_MESSAGE = 'O corretor responsável precisa ter vínculo com a empresa.';
 export const FARM_RESPONSIBLE_FORBIDDEN_MESSAGE = 'Você só pode atribuir fazendas a si mesmo.';
 export const FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE = 'A área útil não pode ser maior que a área total.';
+export const FARM_APTITUDE_UNKNOWN_MESSAGE = 'Aptidão inválida.';
+export const FARM_CROP_UNKNOWN_MESSAGE = 'Cultura inválida.';
+export const FARM_COORDINATES_PAIR_MESSAGE = 'Informe a latitude e a longitude juntas.';
 export const FARM_NO_DEFAULT_STATUS_MESSAGE = 'Cadastre um status comercial ativo com o significado "Disponível" antes de cadastrar fazendas.';
 
 export const FARM_PRICING_MODE_REQUIRED_MESSAGE = 'Informe o modo de precificação.';
@@ -83,6 +88,11 @@ export const PRICE_DERIVATIVE_LABELS = {
 
 const ASKING_PRICE_SCALE = MONEY_SCALE;
 const VALUATION_BAGS_SCALE = 4;
+export const FARM_OWNER_UNKNOWN_MESSAGE = 'Proprietário inválido.';
+export const FARM_OWNER_DUPLICATED_MESSAGE = 'Um contato não pode ser proprietário duas vezes na mesma fazenda.';
+export const FARM_OWNER_PRIMARY_MESSAGE = 'Marque exatamente um proprietário principal.';
+export const FARM_OWNER_CONFLICT_MESSAGE =
+  'Outra alteração mudou os proprietários desta fazenda ao mesmo tempo. Recarregue e tente de novo.';
 
 const AREA_PATTERN = new RegExp(`^\\d{1,8}(\\.\\d{1,${AREA_SCALE}})?$`);
 
@@ -131,6 +141,68 @@ const checkAreas = (
     ctx.addIssue({ code: 'custom', path: ['usableAreaHa'], message: FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE });
   }
 };
+
+/** Coordenadas como o `numeric(10,7)` as aceita: decimal canônico, até 3 inteiros e 7 casas. */
+const COORDINATE_PATTERN = /^-?\d{1,3}(\.\d{1,7})?$/;
+const DISTANCE_PATTERN = /^\d{1,6}(\.\d{1,2})?$/;
+
+/** Distância em km como o `numeric(8,2)` aceita; o `CHECK` de ≥ 0 já sai da forma (sem sinal). */
+const distanceSchema = (label: string) =>
+  z.string({ error: `${label} inválida.` }).trim().regex(DISTANCE_PATTERN, `${label} inválida.`).nullable();
+
+const coordinateSchema = (label: 'Latitude' | 'Longitude', limit: number) =>
+  z
+    .string({ error: `${label} inválida.` })
+    .trim()
+    .regex(COORDINATE_PATTERN, `${label} inválida.`)
+    .refine(
+      (value) => !COORDINATE_PATTERN.test(value) || (compareDecimal(value, String(-limit)) >= 0 && compareDecimal(value, String(limit)) <= 0),
+      `${label} deve ficar entre -${limit} e ${limit}.`,
+    )
+    .nullable();
+
+/** Uma ou nenhuma das duas coordenadas é erro de campo, no que falta. */
+const coordinatesPairIssue = (latitude: string | null, longitude: string | null, ctx: z.RefinementCtx) => {
+  if ((latitude === null) !== (longitude === null)) {
+    ctx.addIssue({ code: 'custom', path: [latitude === null ? 'latitude' : 'longitude'], message: FARM_COORDINATES_PAIR_MESSAGE });
+  }
+};
+
+/** Na criação, coordenada ausente é coordenada nula. */
+const checkCoordinates = (
+  value: { latitude?: string | null | undefined; longitude?: string | null | undefined },
+  ctx: z.RefinementCtx,
+) => coordinatesPairIssue(value.latitude ?? null, value.longitude ?? null, ctx);
+
+/** Na edição, só o par enviado junto; um lado só é conferido contra o cadastro (serviço). */
+const checkCoordinatesSent = (
+  value: { latitude?: string | null | undefined; longitude?: string | null | undefined },
+  ctx: z.RefinementCtx,
+) => {
+  if (value.latitude !== undefined && value.longitude !== undefined) coordinatesPairIssue(value.latitude, value.longitude, ctx);
+};
+
+const uniqueIds = (message: string) =>
+  z.array(z.uuid({ error: message }), { error: message }).transform((ids) => [...new Set(ids)]);
+
+const longText = (label: string) => optionalText(FARM_LONG_TEXT_MAX_LENGTH, label);
+
+/** Proprietário como o corpo o envia: o contato e a marca de principal. */
+export const farmOwnerInputSchema = z.object({
+  contactId: z.uuid({ error: FARM_OWNER_UNKNOWN_MESSAGE }),
+  isPrimary: z.boolean({ error: FARM_OWNER_PRIMARY_MESSAGE }),
+});
+export type FarmOwnerInput = z.output<typeof farmOwnerInputSchema>;
+
+/** Conjunto de proprietários: sem repetido e, com ao menos um, exatamente um principal. */
+export const ownersSchema = z.array(farmOwnerInputSchema).superRefine((owners, ctx) => {
+  if (new Set(owners.map((owner) => owner.contactId)).size !== owners.length) {
+    ctx.addIssue({ code: 'custom', path: [], message: FARM_OWNER_DUPLICATED_MESSAGE });
+  }
+  if (owners.length > 0 && owners.filter((owner) => owner.isPrimary).length !== 1) {
+    ctx.addIssue({ code: 'custom', path: [], message: FARM_OWNER_PRIMARY_MESSAGE });
+  }
+});
 
 const pricingShape = {
   pricingMode: z.enum(PRICING_MODES, { error: FARM_PRICING_MODE_REQUIRED_MESSAGE }).nullable(),
@@ -183,13 +255,21 @@ const checkPricing = (value: PricingFields, ctx: z.RefinementCtx, { patch }: { p
   }
 };
 
-const checkFarm = (value: Parameters<typeof checkAreas>[0] & PricingFields, ctx: z.RefinementCtx) => {
+const checkFarm = (
+  value: Parameters<typeof checkAreas>[0] & Parameters<typeof checkCoordinates>[0] & PricingFields,
+  ctx: z.RefinementCtx,
+) => {
   checkAreas(value, ctx);
+  checkCoordinates(value, ctx);
   checkPricing(value, ctx, { patch: false });
 };
 
-const checkFarmPatch = (value: Parameters<typeof checkAreas>[0] & PricingFields, ctx: z.RefinementCtx) => {
+const checkFarmPatch = (
+  value: Parameters<typeof checkAreas>[0] & Parameters<typeof checkCoordinatesSent>[0] & PricingFields,
+  ctx: z.RefinementCtx,
+) => {
   checkAreas(value, ctx);
+  checkCoordinatesSent(value, ctx);
   checkPricing(value, ctx, { patch: true });
 };
 
@@ -201,7 +281,52 @@ const farmEditableShape = {
   commercialStatusId: z.uuid({ error: FARM_STATUS_UNKNOWN_MESSAGE }),
   totalAreaHa: areaSchema('Área total'),
   usableAreaHa: areaSchema('Área útil').nullable(),
+  salesPotential: levelSchema.nullable(),
+  priority: levelSchema.nullable(),
+  waterAvailability: levelSchema.nullable(),
+  irrigationPotential: levelSchema.nullable(),
+  productivePotential: levelSchema.nullable(),
+  distanceToHighwayKm: distanceSchema('Distância até a rodovia'),
+  distanceToWarehouseKm: distanceSchema('Distância até o armazém'),
+  documentStatus: z.enum(DOCUMENT_STATUSES, { error: 'Situação documental inválida.' }).nullable(),
+  documentNotes: longText('A observação documental'),
+  soil: longText('O solo'),
+  topography: longText('A topografia'),
+  water: longText('A água'),
+  historicalProductivity: longText('A produtividade histórica'),
+  infrastructure: longText('A infraestrutura'),
+  technicalSummary: longText('O resumo técnico'),
+  differentials: longText('Os diferenciais'),
+  latitude: coordinateSchema('Latitude', 90),
+  longitude: coordinateSchema('Longitude', 180),
+  /** Se presentes, substituem o conjunto de aptidões/culturas da fazenda. */
+  aptitudeIds: uniqueIds(FARM_APTITUDE_UNKNOWN_MESSAGE),
+  cropIds: uniqueIds(FARM_CROP_UNKNOWN_MESSAGE),
   ...pricingShape,
+};
+
+/** Tudo o que é opcional ao criar: a ausência é "não informado" (ou conjunto vazio). */
+const optionalOnCreate = {
+  salesPotential: farmEditableShape.salesPotential.optional(),
+  priority: farmEditableShape.priority.optional(),
+  waterAvailability: farmEditableShape.waterAvailability.optional(),
+  irrigationPotential: farmEditableShape.irrigationPotential.optional(),
+  productivePotential: farmEditableShape.productivePotential.optional(),
+  distanceToHighwayKm: farmEditableShape.distanceToHighwayKm.optional(),
+  distanceToWarehouseKm: farmEditableShape.distanceToWarehouseKm.optional(),
+  documentStatus: farmEditableShape.documentStatus.optional(),
+  documentNotes: farmEditableShape.documentNotes.optional(),
+  soil: farmEditableShape.soil.optional(),
+  topography: farmEditableShape.topography.optional(),
+  water: farmEditableShape.water.optional(),
+  historicalProductivity: farmEditableShape.historicalProductivity.optional(),
+  infrastructure: farmEditableShape.infrastructure.optional(),
+  technicalSummary: farmEditableShape.technicalSummary.optional(),
+  differentials: farmEditableShape.differentials.optional(),
+  latitude: farmEditableShape.latitude.optional(),
+  longitude: farmEditableShape.longitude.optional(),
+  aptitudeIds: farmEditableShape.aptitudeIds.optional(),
+  cropIds: farmEditableShape.cropIds.optional(),
 };
 
 const optionalPricing = {
@@ -225,6 +350,8 @@ export const createFarmSchema = z
     tradingPostId: farmEditableShape.tradingPostId.optional(),
     commercialStatusId: farmEditableShape.commercialStatusId.optional(),
     usableAreaHa: farmEditableShape.usableAreaHa.optional(),
+    owners: ownersSchema.optional(),
+    ...optionalOnCreate,
     ...optionalPricing,
   })
   .superRefine(checkFarm);
@@ -244,13 +371,18 @@ export const farmFormSchema = z
     tradingPostId: farmEditableShape.tradingPostId.optional(),
     commercialStatusId: farmEditableShape.commercialStatusId.optional(),
     usableAreaHa: farmEditableShape.usableAreaHa.optional(),
+    owners: ownersSchema,
+    ...optionalOnCreate,
     ...optionalPricing,
   })
   .superRefine(checkFarm);
 export type CreateFarmInput = z.output<typeof createFarmSchema>;
 
 /** Só o que muda. Área útil sem a total no corpo é conferida contra o cadastro (serviço). */
-export const updateFarmSchema = z.object(farmEditableShape).partial().superRefine(checkFarmPatch);
+export const updateFarmSchema = z
+  .object({ ...farmEditableShape, owners: ownersSchema })
+  .partial()
+  .superRefine(checkFarmPatch);
 export type UpdateFarmInput = z.output<typeof updateFarmSchema>;
 
 const namedReferenceSchema = z.object({ id: z.uuid(), name: z.string() });
@@ -302,6 +434,10 @@ export function priceDerivatives(farm: PriceDerivativesInput): PriceDerivatives 
   return derivatives;
 }
 
+/** Proprietário como a API o devolve, na ordem de inclusão. */
+export const farmOwnerSchema = z.object({ contactId: z.uuid(), name: z.string(), isPrimary: z.boolean() });
+export type FarmOwner = z.infer<typeof farmOwnerSchema>;
+
 /** Fazenda como a API a devolve: referências já com o nome (o do cadastro hoje, ativo ou não). */
 export const farmSchema = z.object({
   id: z.uuid(),
@@ -313,6 +449,30 @@ export const farmSchema = z.object({
   /** Hectares, decimal canônico. */
   totalAreaHa: z.string(),
   usableAreaHa: z.string().nullable(),
+  owners: z.array(farmOwnerSchema),
+  salesPotential: levelSchema.nullable(),
+  priority: levelSchema.nullable(),
+  waterAvailability: levelSchema.nullable(),
+  irrigationPotential: levelSchema.nullable(),
+  productivePotential: levelSchema.nullable(),
+  /** Quilômetros, decimal canônico. */
+  distanceToHighwayKm: z.string().nullable(),
+  distanceToWarehouseKm: z.string().nullable(),
+  documentStatus: z.enum(DOCUMENT_STATUSES).nullable(),
+  documentNotes: z.string().nullable(),
+  soil: z.string().nullable(),
+  topography: z.string().nullable(),
+  water: z.string().nullable(),
+  historicalProductivity: z.string().nullable(),
+  infrastructure: z.string().nullable(),
+  technicalSummary: z.string().nullable(),
+  differentials: z.string().nullable(),
+  /** Graus decimais; as duas ou nenhuma. */
+  latitude: z.string().nullable(),
+  longitude: z.string().nullable(),
+  /** Por nome (de hoje, ativa ou não). */
+  aptitudes: z.array(namedReferenceSchema),
+  crops: z.array(namedReferenceSchema),
   pricingMode: z.enum(PRICING_MODES).nullable(),
   /** Reais, decimal canônico. */
   askingPrice: z.string().nullable(),
@@ -332,6 +492,18 @@ export const farmListQuerySchema = listQuerySchema({ sortable: FARM_SORT_FIELDS 
 export type FarmListQuery = z.output<typeof farmListQuerySchema>;
 
 export const farmPageSchema = listPageSchema(farmSchema);
+
+/** Fazenda na seção "Fazendas" da ficha do contato: o status em qualquer valor e a marca de principal daquele contato. */
+export const contactFarmSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  municipality: municipalityOptionSchema,
+  commercialStatus: namedReferenceSchema,
+  isPrimary: z.boolean(),
+});
+export type ContactFarm = z.infer<typeof contactFarmSchema>;
+
+export const contactFarmPageSchema = listPageSchema(contactFarmSchema);
 
 /** Fazenda como a busca a devolve. Área em hectares, decimal canônico (`numeric`, nunca `float`). */
 export const farmOptionSchema = z.object({

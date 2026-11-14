@@ -1,9 +1,9 @@
 # farms
 
-Fazendas da empresa ativa: o imóvel captado. Esta issue (#145) entrega o cadastro mínimo ponta a ponta e a prova de integração do escopo de dados `own`.
+Fazendas da empresa ativa: o imóvel captado. Cadastro mínimo (#145) e ficha técnica e comercial (#147): níveis, distâncias, situação documental, textos, coordenadas, aptidões e culturas.
 
 - **Spec:** `docs/specs/fase-1-fazendas.md`; issue #145
-- **Tabela que possui:** `farms` (migration `0021_farms.sql`), já com todas as colunas do modelo — níveis, técnico, precificação com o `CHECK` completo e `custom_fields` sem uso. As colunas além do mínimo ainda não têm rota nem tela.
+- **Tabelas que possui:** `farms` (migration `0021_farms.sql`), com todas as colunas do modelo (precificação e `custom_fields` ainda sem rota), e as junções `farm_aptitudes` e `farm_crops` (migration `0022_farm_aptitudes_crops.sql`).
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/authorization`, `src/history`, `src/listing`, `modules/settings` (só `defaultEntries`)
 
 ## Convenções locais
@@ -20,3 +20,15 @@ Fazendas da empresa ativa: o imóvel captado. Esta issue (#145) entrega o cadast
 - **Precificação (#146):** `POST` e `PATCH` aceitam `pricingMode` (`brl`|`bags`|nulo) e o conjunto do modo, achatados. `PATCH` é atômico: campo de preço sem `pricingMode` no corpo é 400; com ele, o corpo é o bloco inteiro e o serviço grava as seis colunas (`pricingColumns`), com nulo nas que não pertencem ao modo — trocar de modo apaga o conjunto do outro e voltar a sem preço apaga tudo, num único `change_id`. `PATCH` sem campo de preço não toca a precificação. O Zod (`checkPricing`, em `@crm/shared`) barra toda combinação inválida antes do banco (400 no campo, nunca 500); o `CHECK` é a rede final.
 - **Cultura de referência** (`valuationCropId`): conferida em `crops` pelo serviço (passa pelo RLS; a FK não). Outra empresa ou inexistente é 400 no campo; a que **muda** tem de estar ativa, a já gravada que ficou inativa continua valendo.
 - **Derivados** (`priceDerivatives`: valor por hectare, valor por hectare útil, sacas por hectare) são calculados em `serialize` por `priceDerivatives` de `@crm/shared`, nunca colunas. Sacas por alqueire convertem pelo tipo de alqueire gravado na avaliação, nunca pelo padrão da empresa. Não há equivalente em reais para sacas (`fase-1-cotacoes`).
+- **Junções** (`aptitudeIds`, `cropIds`): se presentes no corpo, substituem o conjunto **por diferença** (insere os adicionados, remove os retirados; nunca delete + insert), numa só instância de `auditedWrites` com a fazenda — um `change_id`, e os filhos aparecem no histórico (`children` em `routes.ts`, nomeados pela referência). Ausente não toca; `[]` limpa. Id de outra empresa ou inexistente é 400 no campo; os que **entram** têm de estar ativos, o já gravado que ficou inativo passa. O `PATCH` lê a fazenda com `FOR UPDATE` antes da diferença (dois saves concorrentes não geram `23505`). Ids repetidos são deduplicados pelo schema.
+- **Coordenadas** (latitude e longitude, as duas ou nenhuma): o schema confere o par enviado junto; no `PATCH` de um lado só, o serviço confere o par efetivo contra o cadastro (senão o `CHECK` do banco viraria 500).
+- Status comercial: qualquer entrada ativa, trocada à mão pelo `PATCH`.
+
+## Proprietários (issue #148)
+
+- Tabela `farm_owners` (migration `0023_farm_owners.sql`): `contact_id` `RESTRICT`, índice único parcial de um principal por fazenda. `owners: [{ contactId, isPrimary }]` em `POST`/`PATCH` substitui o conjunto; ausente no `PATCH` não mexe.
+- `updateFarm` lê a fazenda com `FOR UPDATE` no início; `applyOwners` aplica a diferença em ordem fixa (apaga os retirados, desmarca o principal antigo, marca o novo entre os que ficam, insere os novos) com um único `auditedWrites` por save. Nunca delete + insert. `23505` em `farm_owners` vira 409 na rota.
+- Contato de outra empresa é 400 no campo `owners` (`ownerRejection`): a FK não passa pelo RLS. `ensureContactRole(…, 'owner')` roda para cada contato novo, na mesma transação.
+- `declareRoleUsage('owner', …)` fica em `routes.ts`, com `inUsePhrase` e `label.gender`.
+- `GET /by-owner/:contactId` (seção "Fazendas" da ficha do contato): escopo na lista e no total, sem filtro de status, contato inexistente ou malformado é lista vazia. Registrada antes de `/:id`.
+- Histórico: `farm_owners` é filho com `primaryFlag`; a troca vira "Proprietário principal: João → Maria" na entrada.

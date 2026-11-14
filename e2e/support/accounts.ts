@@ -23,3 +23,6 @@ export const TRADING_POST_NAME = 'Praça Sudoeste';
 
 /** Cultura semeada na primeira empresa, para a cultura de referência da avaliação em sacas. */
 export const CROP_NAME = 'Soja';
+
+/** Contatos proprietários semeados na primeira empresa, para o seletor do formulário de fazenda. */
+export const OWNER_NAMES = ['Maria Proprietária', 'João Proprietário'] as const;

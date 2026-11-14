@@ -197,6 +197,7 @@ GET    /options         → 200 { items: FarmOption[], nextCursor? }            
          ?q&cursor&ids=<id,id>
 GET    /duplicates      → 200 { items: [{ id, name, municipality, reasons: ['name_municipality'] }] }   (fazendas.ver + escopo)
          ?name&municipalityIbgeCode&excludeId
+GET    /by-owner/:contactId → 200 { items: [{ id, name, municipality, commercialStatus, isPrimary }], total, page, pageSize }   (fazendas.ver + escopo; todos os status; seção "Fazendas" da ficha do contato)
 GET    /:id             → 200 fazenda com owners, cropIds, aptitudeIds e os derivados  (fazendas.ver + escopo)
 GET    /:id/history     → 200 histórico (fundação), filhos: farm_owners, farm_crops, farm_aptitudes
 POST   /                → 201 fazenda                                                (fazendas.criar)

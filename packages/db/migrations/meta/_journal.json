@@ -145,8 +145,22 @@
     {
       "idx": 20,
       "version": "7",
+      "when": 1794497606062,
+      "tag": "0022_farm_aptitudes_crops",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794497610067,
+      "tag": "0023_farm_owners",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
       "when": 1794590565589,
-      "tag": "0022_farms_pricing_check_null_safe",
+      "tag": "0024_farms_pricing_check_null_safe",
       "breakpoints": true
     }
   ]

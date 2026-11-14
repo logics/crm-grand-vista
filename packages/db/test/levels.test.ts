@@ -13,6 +13,10 @@ describe('levelCheck', () => {
     expect(check?.name).toBe('sample_rating_check');
   });
 
+  it('aceita exatamente high, medium e low', () => {
+    expect(rendered?.sql).toBe(`"sample"."rating" in ('high', 'medium', 'low')`);
+  });
+
   it('aceita exatamente os valores de LEVELS, como literais (DDL não aceita parâmetro)', () => {
     expect(rendered?.params).toEqual([]);
     expect(rendered?.sql).toBe(`"sample"."rating" in (${LEVELS.map((level) => `'${level}'`).join(', ')})`);
