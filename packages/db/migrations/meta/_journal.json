@@ -155,6 +155,13 @@
       "when": 1794497610067,
       "tag": "0023_farm_owners",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794497700000,
+      "tag": "0024_farm_inactive_status",
+      "breakpoints": true
     }
   ]
 }

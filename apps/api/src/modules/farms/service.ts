@@ -24,6 +24,7 @@ import {
   FARM_APTITUDE_UNKNOWN_MESSAGE,
   FARM_COORDINATES_PAIR_MESSAGE,
   FARM_CROP_UNKNOWN_MESSAGE,
+  FARM_DELETE_NOT_INACTIVE_MESSAGE,
   FARM_OWNER_UNKNOWN_MESSAGE,
   FARM_MUNICIPALITY_UNKNOWN_MESSAGE,
   FARM_NO_DEFAULT_STATUS_MESSAGE,
@@ -43,7 +44,7 @@ import {
   type ListPage,
   type UpdateFarmInput,
 } from '@crm/shared';
-import { and, asc, eq, exists, inArray, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, ne, notInArray, sql, type SQL } from 'drizzle-orm';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, paginatedQuery } from '../../listing/query.js';
@@ -96,7 +97,7 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
       .from(municipalities)
       .where(inArray(municipalities.ibgeCode, unique(rows.map((row) => row.municipalityIbgeCode)))),
     tx
-      .select({ id: commercialStatuses.id, name: commercialStatuses.name })
+      .select({ id: commercialStatuses.id, name: commercialStatuses.name, systemMeaning: commercialStatuses.systemMeaning })
       .from(commercialStatuses)
       .where(inArray(commercialStatuses.id, unique(rows.map((row) => row.commercialStatusId)))),
     tx
@@ -151,7 +152,7 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
     municipality: municipalityByCode.get(row.municipalityIbgeCode)! as Farm['municipality'],
     responsible: userById.get(row.responsibleUserId)!,
     tradingPost: row.tradingPostId ? (postById.get(row.tradingPostId) ?? null) : null,
-    commercialStatus: statusById.get(row.commercialStatusId)!,
+    commercialStatus: statusById.get(row.commercialStatusId)! as Farm['commercialStatus'],
     totalAreaHa: row.totalAreaHa,
     usableAreaHa: row.usableAreaHa,
     owners: ownersByFarm.get(row.id) ?? [],
@@ -180,7 +181,14 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
 }
 
 export async function listFarms(tx: Transaction, access: EffectiveAccess, query: FarmListQuery): Promise<ListPage<Farm>> {
-  const page = await paginatedQuery(tx, farmList, query, { scope: scopeOf(access) });
+  // Sem status pedido, as desativadas ficam de fora (pelo significado, não pelo nome), da lista e do total.
+  const statusFilter = query.commercialStatusId
+    ? inArray(farms.commercialStatusId, query.commercialStatusId)
+    : notInArray(
+        farms.commercialStatusId,
+        tx.select({ id: commercialStatuses.id }).from(commercialStatuses).where(eq(commercialStatuses.systemMeaning, 'inactive')),
+      );
+  const page = await paginatedQuery(tx, farmList, query, { scope: scopeOf(access), filters: [statusFilter] });
   return { ...page, items: await serialize(tx, page.items) };
 }
 
@@ -478,6 +486,46 @@ export async function updateFarm(
   if (cropIds) await applyCrops(writes, actor.tenantId, id, currentJunctions.cropIds, cropIds);
   if (owners !== undefined) await applyOwners(tx, writes, actor, id, owners);
   return (await serialize(tx, [updated]))[0]!;
+}
+
+/** A fazenda não está desativada: a exclusão é recusada (409). */
+export interface FarmDeleteRefused {
+  conflict: string;
+}
+
+export const isDeleteRefused = (result: unknown): result is FarmDeleteRefused =>
+  typeof result === 'object' && result !== null && 'conflict' in result;
+
+/**
+ * Exclui a fazenda, só se o status é de significado `inactive`. A linha é
+ * travada (`FOR UPDATE OF farms`) antes de conferir, para uma troca de status
+ * concorrente não passar entre a conferência e o delete. Nulo se não existe ou
+ * está fora do escopo (404, sem revelar o status de fazenda alheia).
+ */
+export async function deleteFarm(
+  tx: Transaction,
+  actor: AuditActor & { tenantId: string },
+  access: EffectiveAccess,
+  id: string,
+): Promise<'deleted' | FarmDeleteRefused | null> {
+  const [row] = await tx
+    .select({ id: farms.id, systemMeaning: commercialStatuses.systemMeaning })
+    .from(farms)
+    .innerJoin(commercialStatuses, eq(commercialStatuses.id, farms.commercialStatusId))
+    .where(and(eq(farms.id, id), scopeOf(access)))
+    .for('update', { of: farms });
+  if (!row) return null;
+  if (row.systemMeaning !== 'inactive') return { conflict: FARM_DELETE_NOT_INACTIVE_MESSAGE };
+
+  // As junções têm ON DELETE cascade, que apagaria as linhas sem auditoria.
+  // Por isso saem antes, por `writes.delete(...)`, na mesma instância da
+  // fazenda (um só `change_id`): ficam auditadas como filhas.
+  const writes = auditedWrites(tx, actor);
+  await writes.delete(farmOwners, eq(farmOwners.farmId, id));
+  await writes.delete(farmCrops, eq(farmCrops.farmId, id));
+  await writes.delete(farmAptitudes, eq(farmAptitudes.farmId, id));
+  await writes.delete(farms, eq(farms.id, id));
+  return 'deleted';
 }
 
 /** Os contatos existem na empresa ativa (a FK não passa pelo RLS e o papel seria gravado em contato alheio). */

@@ -18,6 +18,9 @@ function seededRows(table: string): string[][] {
   );
 }
 
+// A 0015 é anterior ao significado `inactive`; a 0022 semeia a Desativada.
+const seededByThisMigration = TENANT_SEED.commercialStatuses.filter(({ systemMeaning }) => systemMeaning !== 'inactive');
+
 describe('migration da semente da empresa', () => {
   it('existe', () => {
     expect(file).toBeDefined();
@@ -25,14 +28,14 @@ describe('migration da semente da empresa', () => {
 
   it('semeia os status comerciais da constante, na ordem', () => {
     expect(seededRows('commercial_statuses')).toEqual(
-      TENANT_SEED.commercialStatuses.map(({ name, systemMeaning }) => [name, systemMeaning]),
+      seededByThisMigration.map(({ name, systemMeaning }) => [name, systemMeaning]),
     );
   });
 
   it('semeia os status comerciais com a ordem de exibição da constante', () => {
     const orders = [...sql.matchAll(/\('[^']*',\s*'(\w+)',\s*(\d+)\)/g)].map(([, meaning, order]) => [meaning, Number(order)]);
 
-    expect(orders).toEqual(TENANT_SEED.commercialStatuses.map(({ systemMeaning }, index) => [systemMeaning, index]));
+    expect(orders).toEqual(seededByThisMigration.map(({ systemMeaning }, index) => [systemMeaning, index]));
   });
 
   it('semeia as categorias de documento da constante', () => {
