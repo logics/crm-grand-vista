@@ -24,3 +24,4 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comer
 - `contact-farms-section.tsx` registra a seção "Fazendas" da ficha do contato (papel `owner` + `fazendas.ver`), importada por efeito em `routes.tsx`.
 - A lista mostra o proprietário principal com "+N" (`primaryOwnerLabel`).
 - Aviso de duplicata: `save` consulta `fetchFarmDuplicates` (nome + município; `excludeId` na edição) antes de gravar e mostra `FarmDuplicateWarning` (sobre o `DuplicateWarning` do DS) sem remontar o formulário. "Salvar mesmo assim" pula a consulta uma vez; consulta que falha não barra o cadastro.
+- Textos longos (#164): `documentNotes`, `soil`, `topography`, `water`, `historicalProductivity`, `infrastructure`, `technicalSummary` e `differentials` usam o `Textarea` do DS (`@crm/ui`), não o `Input` de uma linha.

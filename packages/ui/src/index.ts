@@ -18,6 +18,7 @@ export * from './primitives/popover.js';
 export * from './primitives/select.js';
 export * from './primitives/switch.js';
 export * from './primitives/tabs.js';
+export * from './primitives/textarea.js';
 export * from './components/area-input.js';
 export * from './components/level-select.js';
 export * from './components/async-combobox.js';
