@@ -227,6 +227,7 @@ describe('provisionamento de empresa', () => {
     }));
 
     expect(seeded.statuses).toEqual(TENANT_SEED.commercialStatuses);
+    expect(seeded.statuses.at(-1)).toEqual({ name: 'Desativada', systemMeaning: 'inactive' });
     expect(seeded.categories.map((row) => row.name).sort()).toEqual([...TENANT_SEED.documentCategories].sort());
     expect(seeded.crops.map((row) => row.name).sort()).toEqual([...TENANT_SEED.crops].sort());
     expect(seeded.leadSources.map((row) => row.name).sort()).toEqual([...TENANT_SEED.leadSources].sort());

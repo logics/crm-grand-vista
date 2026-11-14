@@ -159,8 +159,15 @@
     {
       "idx": 22,
       "version": "7",
+      "when": 1794497700000,
+      "tag": "0024_farm_inactive_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
       "when": 1794590565589,
-      "tag": "0024_farms_pricing_check_null_safe",
+      "tag": "0025_farms_pricing_check_null_safe",
       "breakpoints": true
     }
   ]

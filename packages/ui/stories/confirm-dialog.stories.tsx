@@ -48,3 +48,14 @@ export const Descartar: Story = {
   },
   render: (args) => <WithTrigger {...args} trigger="Cancelar cadastro" />,
 };
+
+export const ExcluirDigitandoONome: Story = {
+  args: {
+    title: 'Excluir Fazenda Boa Vista?',
+    description: 'A exclusão não pode ser desfeita.',
+    confirmLabel: 'Excluir',
+    confirmationText: 'Fazenda Boa Vista',
+    confirmationLabel: 'Digite o nome da fazenda para confirmar',
+  },
+  render: (args) => <WithTrigger {...args} trigger="Excluir fazenda" />,
+};

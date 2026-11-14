@@ -19,9 +19,11 @@ import type { TenantEnv } from '../../tenant-context.js';
 import { declareRoleUsage } from '../contacts/role-usage.js';
 import {
   createFarm,
+  deleteFarm,
   farmVisible,
   findFarmDuplicates,
   getFarm,
+  isDeleteRefused,
   isForbidden,
   isRejection,
   listFarms,
@@ -36,6 +38,7 @@ declareRoleUsage('owner', {
   label: { singular: 'fazenda', plural: 'fazendas', gender: 'f' },
   inUsePhrase: 'é proprietário de fazenda',
 });
+
 
 const notFound = { error: { code: 'not_found', message: FARM_NOT_FOUND_MESSAGE } } as const;
 const idSchema = z.uuid();
@@ -108,6 +111,14 @@ export function createFarmsRoutes() {
       if (isForbidden(result)) return c.json(forbidden(result.forbidden), 403);
       if (isRejection(result)) return c.json(rejection(result.rejected, result.field), 400);
       return c.json(result, 200);
+    })
+    .delete('/:id', requirePermission('fazendas.excluir'), async (c) => {
+      if (!isId(c)) return c.json(notFound, 404);
+      const { tenant, userId, access, withTenant } = c.var;
+      const result = await withTenant((tx) => deleteFarm(tx, { tenantId: tenant.id, userId }, access, c.req.param('id')));
+      if (result === null) return c.json(notFound, 404);
+      if (isDeleteRefused(result)) return c.json({ error: { code: 'conflict', message: result.conflict } }, 409);
+      return c.body(null, 204);
     })
     .route(
       '/',

@@ -1,5 +1,5 @@
 {
-  "id": "69857caa-341f-41c6-b480-289061a30083",
+  "id": "98247cb5-649e-4164-b66d-a871310be3c6",
   "prevId": "e8ee153f-58d8-4a0f-8fa0-c53e9a706c8a",
   "version": "7",
   "dialect": "postgresql",
@@ -637,7 +637,7 @@
       "checkConstraints": {
         "commercial_statuses_system_meaning_check": {
           "name": "commercial_statuses_system_meaning_check",
-          "value": "\"commercial_statuses\".\"system_meaning\" in ('available', 'negotiating', 'sold', 'suspended')"
+          "value": "\"commercial_statuses\".\"system_meaning\" in ('available', 'negotiating', 'sold', 'suspended', 'inactive')"
         }
       },
       "isRLSEnabled": false
@@ -2173,7 +2173,7 @@
         },
         "farms_pricing_check": {
           "name": "farms_pricing_check",
-          "value": "(\n        \"farms\".\"pricing_mode\" is null\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" is not null and \"farms\".\"pricing_mode\" = 'brl'\n        and \"farms\".\"asking_price\" is not null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" is not null and \"farms\".\"pricing_mode\" = 'bags'\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is not null and \"farms\".\"valuation_bags_unit\" is not null\n        and \"farms\".\"valuation_crop_id\" is not null\n        and ((\"farms\".\"valuation_bags_unit\" = 'per_alqueire') = (\"farms\".\"valuation_bags_alqueire_type\" is not null))\n      )"
+          "value": "(\n        \"farms\".\"pricing_mode\" is null\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" = 'brl'\n        and \"farms\".\"asking_price\" is not null and \"farms\".\"valuation_bags\" is null and \"farms\".\"valuation_bags_unit\" is null\n        and \"farms\".\"valuation_bags_alqueire_type\" is null and \"farms\".\"valuation_crop_id\" is null\n      ) or (\n        \"farms\".\"pricing_mode\" = 'bags'\n        and \"farms\".\"asking_price\" is null and \"farms\".\"valuation_bags\" is not null and \"farms\".\"valuation_bags_unit\" is not null\n        and \"farms\".\"valuation_crop_id\" is not null\n        and ((\"farms\".\"valuation_bags_unit\" = 'per_alqueire') = (\"farms\".\"valuation_bags_alqueire_type\" is not null))\n      )"
         }
       },
       "isRLSEnabled": false

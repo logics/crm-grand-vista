@@ -20,7 +20,7 @@ try {
     // a primeira empresa é a do formulário de fazenda: perfil com escopo `all`, parâmetros, status e uma praça
     if (!isDefault) continue;
     await createLinkedAccessProfile(db, tenant.id, user.id, 'Gestor do E2E', {
-      permissions: ['fazendas.ver', 'fazendas.criar', 'fazendas.editar', 'contatos.ver'],
+      permissions: ['fazendas.ver', 'fazendas.criar', 'fazendas.editar', 'fazendas.excluir', 'contatos.ver'],
       dataScopes: { fazendas: 'all' },
     });
     await db.withTenant(tenant.id, async (tx) => {
@@ -29,7 +29,10 @@ try {
         { tenantId: tenant.id, name: 'Agricultura' },
         { tenantId: tenant.id, name: 'Pecuária' },
       ]);
-      await tx.insert(commercialStatuses).values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available' });
+      await tx.insert(commercialStatuses).values([
+        { tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 },
+        { tenantId: tenant.id, name: 'Desativada', systemMeaning: 'inactive', displayOrder: 1 },
+      ]);
       await tx.insert(crops).values({ tenantId: tenant.id, name: CROP_NAME });
       // contatos para o seletor de proprietários do formulário de fazenda
       const owners = await tx
@@ -37,6 +40,7 @@ try {
         .values(PROPRIETARIOS.map((ownerName) => ({ tenantId: tenant.id, personType: 'pf' as const, name: ownerName })))
         .returning({ id: contacts.id });
       await tx.insert(contactRoles).values(owners.map(({ id }) => ({ tenantId: tenant.id, contactId: id, role: 'owner' })));
+
       const [post] = await tx.insert(tradingPosts).values({ tenantId: tenant.id, name: TRADING_POST_NAME }).returning();
       await tx
         .insert(tradingPostMunicipalities)

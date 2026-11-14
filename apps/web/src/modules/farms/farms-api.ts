@@ -73,6 +73,12 @@ export const fetchFarmHistory = (slug: string, id: string, cursor: string | unde
     query: cursor ? { cursor } : {},
   });
 
+/** Exclui a fazenda (só desativada). 409 traz a mensagem pronta da API. */
+export async function deleteFarm(slug: string, id: string): Promise<void> {
+  const response = await api.e[':tenant'].farms[':id'].$delete({ param: { tenant: slug, id } });
+  if (response.status !== 204) throw await failure(response);
+}
+
 /** Fazendas de que o contato é proprietário, em qualquer status, no escopo de quem lê. */
 export async function fetchFarmsByOwner(slug: string, contactId: string, page: number): Promise<ListPage<ContactFarm>> {
   const response = await api.e[':tenant'].farms['by-owner'][':contactId'].$get({
@@ -81,4 +87,5 @@ export async function fetchFarmsByOwner(slug: string, contactId: string, page: n
   });
   if (!response.ok) throw new Error(`Falha ao listar as fazendas do contato: HTTP ${response.status}.`);
   return (await response.json()) as ListPage<ContactFarm>;
+
 }

@@ -33,7 +33,7 @@ test('preenche o técnico, troca a aptidão e vê no histórico; sair sujo pergu
   await page.getByRole('button', { name: 'Cadastrar fazenda' }).click();
 
   await expect(page).toHaveURL(/\/farms\/[0-9a-f-]{36}$/);
-  await expect(page.getByText('CAR em retificação')).toBeVisible();
+  await expect(page.getByText('CAR em retificação').first()).toBeVisible();
   await expect(page.getByText('12,5 km')).toBeVisible();
   await expect(page.getByText('Agricultura').first()).toBeVisible();
 

@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import {
   Dialog,
   DialogClose,
@@ -8,7 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../primitives/dialog.js';
+import { Input } from '../primitives/input.js';
 import { Button } from './button.js';
+import { Field } from './field.js';
 import type { IconName } from './icon.js';
 
 // Pergunta antes de uma ação que não se desfaz (o botão de confirmar é `danger`): remover um arquivo, descartar
@@ -28,6 +30,14 @@ export type ConfirmDialogProps = {
   confirmIcon?: IconName;
   cancelLabel?: string;
   onConfirm: () => void;
+  /**
+   * Confirmação digitada: o botão de confirmar só habilita quando a pessoa
+   * digita exatamente este texto (caixa e acento contam; espaços nas pontas
+   * do que foi digitado não). Para exclusão que não se desfaz, como a de uma fazenda.
+   */
+  confirmationText?: string;
+  /** Rótulo do campo da confirmação digitada: "Digite o nome da fazenda para confirmar". */
+  confirmationLabel?: string;
   /** Destino do foco depois de confirmar, quando quem abriu não existe mais. */
   focusAfterConfirm?: () => HTMLElement | null | undefined;
 };
@@ -42,12 +52,17 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   onConfirm,
   focusAfterConfirm,
+  confirmationText,
+  confirmationLabel = 'Digite para confirmar',
 }: ConfirmDialogProps) {
   const confirmed = useRef(false);
+  const [typed, setTyped] = useState('');
+  const blocked = confirmationText !== undefined && typed.trim() !== confirmationText;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
+        onOpenAutoFocus={() => setTyped('')}
         onCloseAutoFocus={(event) => {
           if (!confirmed.current) return;
           confirmed.current = false;
@@ -61,6 +76,11 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {confirmationText !== undefined && (
+          <Field label={confirmationLabel}>
+            <Input value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" />
+          </Field>
+        )}
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="ghost">{cancelLabel}</Button>
@@ -68,6 +88,7 @@ export function ConfirmDialog({
           <Button
             variant="danger"
             icon={confirmIcon}
+            disabled={blocked}
             onClick={() => {
               confirmed.current = true;
               onConfirm();
