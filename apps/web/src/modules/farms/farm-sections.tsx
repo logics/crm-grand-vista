@@ -1,4 +1,15 @@
-import { DOCUMENT_STATUS_LABELS, FIELD_REGISTRY, LEVEL_LABELS, formatDecimal, municipalityLabel, type Farm, type Level } from '@crm/shared';
+import {
+  ALQUEIRE_LABELS,
+  DOCUMENT_STATUS_LABELS,
+  FIELD_REGISTRY,
+  LEVEL_LABELS,
+  PRICE_DERIVATIVE_LABELS,
+  formatDecimal,
+  formatMoney,
+  municipalityLabel,
+  type Farm,
+  type Level,
+} from '@crm/shared';
 import { SpecList } from '@crm/ui';
 import type { ReactNode } from 'react';
 import { RecordHistory } from '../../history/record-history.js';
@@ -14,6 +25,38 @@ import { fetchFarmHistory } from './farms-api.js';
 export const farmSections = createRecordSectionRegistry<Farm>();
 
 const fields = FIELD_REGISTRY.farms.fields;
+
+const BAGS_FORMAT = { minScale: 0, maxScale: 2 };
+const formatBags = (value: string) => `${formatDecimal(value, BAGS_FORMAT)} sacas`;
+
+/** Preço da fazenda como foi informado, mais os derivados; sem preço, "Preço não informado". */
+function pricingItems(record: Farm) {
+  const { priceDerivatives: derived } = record;
+  if (record.pricingMode === 'brl' && record.askingPrice) {
+    return [
+      { label: fields.asking_price.label, value: formatMoney(record.askingPrice) },
+      { label: PRICE_DERIVATIVE_LABELS.pricePerHectare, value: derived.pricePerHectare ? formatMoney(derived.pricePerHectare) : null },
+      {
+        label: PRICE_DERIVATIVE_LABELS.pricePerUsableHectare,
+        value: derived.pricePerUsableHectare ? formatMoney(derived.pricePerUsableHectare) : null,
+      },
+    ];
+  }
+  if (record.pricingMode === 'bags' && record.valuationBags && record.valuationBagsUnit) {
+    const unit =
+      record.valuationBagsUnit === 'per_alqueire' && record.valuationBagsAlqueireType
+        ? `por ${ALQUEIRE_LABELS[record.valuationBagsAlqueireType].replace('alq. ', 'alqueire ')}`
+        : record.valuationBagsUnit === 'per_alqueire'
+          ? 'por alqueire'
+          : 'por hectare';
+    return [
+      { label: fields.valuation_bags.label, value: `${formatBags(record.valuationBags)} ${unit}` },
+      { label: fields.valuation_crop_id.label, value: record.valuationCrop?.name ?? null },
+      { label: PRICE_DERIVATIVE_LABELS.bagsPerHectare, value: derived.bagsPerHectare ? formatBags(derived.bagsPerHectare) : null },
+    ];
+  }
+  return [{ label: fields.pricing_mode.label, value: PRICE_DERIVATIVE_LABELS.noPrice }];
+}
 
 const level = (value: Level | null) => (value ? LEVEL_LABELS[value] : null);
 const km = (value: string | null) => (value === null ? null : `${formatDecimal(value, { minScale: 0, maxScale: 2 })} km`);
@@ -119,12 +162,21 @@ function TechnicalBlock({ record }: { record: Farm }) {
   );
 }
 
+function PricingBlock({ record }: { record: Farm }) {
+  return (
+    <Block title="Precificação">
+      <SpecList items={pricingItems(record)} />
+    </Block>
+  );
+}
+
 function DataSection({ record }: { record: Farm }) {
   return (
     <div className="flex flex-col gap-gap-shell">
       <IdentificationBlock record={record} />
       <OwnersBlock record={record} />
       <AreasBlock record={record} />
+      <PricingBlock record={record} />
       <CommercialBlock record={record} />
       <TechnicalBlock record={record} />
     </div>
