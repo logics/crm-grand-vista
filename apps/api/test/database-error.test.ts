@@ -14,6 +14,11 @@ describe('databaseError', () => {
     expect(databaseError(driverError({ code: '22P02' }))).toEqual({ code: '22P02' });
   });
 
+  it('junta a constraint de um nível interno ao código de um nível externo', () => {
+    const error = Object.assign(new Error('externo'), { code: '23505', cause: driverError({ constraint: 'uq' }) });
+    expect(databaseError(error)).toEqual({ code: '23505', constraint: 'uq' });
+  });
+
   it('devolve vazio quando não há SQLSTATE na cadeia', () => {
     expect(databaseError(new Error('x'))).toEqual({});
     expect(databaseError(driverError({ code: 'ECONNRESET' }))).toEqual({});
