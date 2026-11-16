@@ -2,7 +2,7 @@
 
 Regra aprovada pelo Romeu em 16/11/2026. Vale para toda rodada de agentes que implementa uma issue.
 
-## Quando a rodada fecha sozinha
+## Quando a rodada publica
 
 A rodada só publica o trabalho quando duas condições são verdadeiras ao mesmo tempo:
 
@@ -14,7 +14,7 @@ Se qualquer uma falhar, a rodada não faz push nem abre PR. Ela corrige e revisa
 ## O que a rodada faz
 
 1. **Varredura de segredos.** Antes do push, roda `gitleaks git --redact --no-banner --log-opts="origin/main..HEAD" .`. Qualquer achado interrompe o fluxo: nada é enviado.
-2. **Push da branch.** Push normal da branch da issue. Nunca `--force`, nunca rebase de branch já publicada e nunca push direto na `main`.
+2. **Push da branch.** Push normal da branch da issue. Nunca `--force`, nunca rebase e nunca push direto na `main`.
 3. **PR.** Abre o PR da branch. Se o PR já existe, o próprio push o atualiza e nada novo é aberto.
 
 ## Corpo do PR
