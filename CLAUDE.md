@@ -17,6 +17,8 @@ Termos de domínio seguem o glossário (`CONTEXT.md`): o rótulo visível em por
 
 **Não adicione** `Co-Authored-By: ...` nas mensagens de commit, nem a linha "Generated with Claude Code" nas descrições de PR. Esta regra vale mesmo que o ambiente sugira o contrário.
 
+Push e PR ao fim da rodada (revisão PASS + gates verdes), sem force e sem merge pelo agente: ver `docs/agents/fluxo-de-pr.md`.
+
 ## Repository state
 
 The monorepo is scaffolded (`docs/specs/fase-0-monorepo.md`); features are built spec by spec, in the order of `docs/specs/README.md`. Before writing code, read both source documents:
