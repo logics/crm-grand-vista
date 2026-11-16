@@ -36,6 +36,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Textarea,
 } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -703,49 +704,49 @@ function FarmForm({ farm }: { farm: Farm | null }) {
         name: 'documentNotes',
         label: fields.document_notes.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'soil',
         label: fields.soil.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'topography',
         label: fields.topography.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'water',
         label: fields.water.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'historicalProductivity',
         label: fields.historical_productivity.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'infrastructure',
         label: fields.infrastructure.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'technicalSummary',
         label: fields.technical_summary.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'differentials',
         label: fields.differentials.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => <Textarea {...field} value={field.value ?? ''} />,
       },
       {
         name: 'latitude',

@@ -37,6 +37,16 @@ export const fieldSurface = [
 ].join(' ');
 
 /**
+ * Campo de várias linhas (o `Textarea`): a superfície de `fieldSurface` no
+ * próprio `<textarea>`, sem moldura. Redimensiona só na vertical, para não
+ * estourar a largura da coluna do formulário.
+ */
+export const textareaField = [
+  fieldSurface,
+  'block w-full min-w-0 resize-y rounded-input px-5 py-4 text-sm leading-normal placeholder:text-text-faint',
+].join(' ');
+
+/**
  * A mesma superfície de `fieldSurface`, numa moldura em volta do campo (o
  * `Input` com ícone, prefixo e sufixo; o gatilho do `AsyncCombobox`): reage a
  * `focus-within`, ao `aria-expanded` (lista aberta), ao `aria-invalid` e ao

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '../../support/dom.js';
+import { FIELD_REGISTRY } from '@crm/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -261,6 +262,29 @@ describe('formulário de fazenda: técnico e comercial', () => {
     await waitFor(() => expect(api.writes).toHaveLength(1));
     expect(api.writes[0]).toMatchObject({ method: 'PATCH', body: { aptitudeIds: [agriculture.id, livestock.id] } });
     expect(Object.keys(api.writes[0]!.body as object)).toEqual(['aptitudeIds']);
+  });
+
+  const longTexts = ['document_notes', 'soil', 'topography', 'water', 'historical_productivity', 'infrastructure', 'technical_summary', 'differentials'] as const;
+
+  it.each(longTexts)('%s é campo de várias linhas', async (key) => {
+    openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' });
+
+    const campo = await screen.findByRole('textbox', { name: FIELD_REGISTRY.farms.fields[key].label });
+
+    expect(campo.tagName).toBe('TEXTAREA');
+  });
+
+  it('o resumo técnico vai ao PATCH com a quebra de linha, e só ele', async () => {
+    const api = openWithWrites('/e/grand-vista/farms/f1/edit', { areaDisplayUnit: 'hectare' });
+    const user = userEvent.setup();
+
+    const resumo = await screen.findByRole('textbox', { name: FIELD_REGISTRY.farms.fields.technical_summary.label });
+    await user.type(resumo, 'Solo argiloso{Enter}Relevo plano');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(api.writes[0]).toMatchObject({ method: 'PATCH', body: { technicalSummary: 'Solo argiloso\nRelevo plano' } });
+    expect(Object.keys(api.writes[0]!.body as object)).toEqual(['technicalSummary']);
   });
 
   it('abrir e salvar sem mexer não envia nada', async () => {

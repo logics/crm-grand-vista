@@ -14,7 +14,7 @@ import {
   formatPhone,
   type PersonType,
 } from '@crm/shared';
-import { Checkbox, ConfirmDialog, EntityForm, type EntityFormField, Input, PhoneInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TaxIdInput } from '@crm/ui';
+import { Checkbox, ConfirmDialog, EntityForm, type EntityFormField, Input, PhoneInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TaxIdInput, Textarea } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -310,7 +310,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                 name: 'strategicNotes',
                 label: FIELD_REGISTRY.contacts.fields.strategic_notes.label,
                 colSpan: 2,
-                render: (field) => <Input {...field} value={field.value ?? ''} />,
+                render: (field) => <Textarea {...field} value={field.value ?? ''} />,
               },
             ],
           },
