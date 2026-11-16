@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '../../support/dom.js';
+import { FIELD_REGISTRY } from '@crm/shared';
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -112,5 +113,21 @@ describe('lista de contatos', () => {
 
     expect(await screen.findByText('***.982.247-**')).toBeInTheDocument();
     expect(screen.getByText('12.ABC.345/01DE-35')).toBeInTheDocument();
+  });
+});
+
+describe('observações estratégicas no formulário de contato', () => {
+  it('é campo de várias linhas e vai ao PATCH com a quebra de linha', async () => {
+    const api = stubContact(() => json({ ...contact, strategicNotes: 'Prefere ligação\nSó à tarde' }));
+    renderApp('/e/grand-vista/contacts/c1/edit');
+    const user = userEvent.setup();
+
+    const campo = await screen.findByRole('textbox', { name: FIELD_REGISTRY.contacts.fields.strategic_notes.label });
+    expect(campo.tagName).toBe('TEXTAREA');
+    await user.type(campo, 'Prefere ligação{Enter}Só à tarde');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await vi.waitFor(() => expect(api.writes).toHaveLength(1));
+    expect(JSON.parse(api.writes[0]!).strategicNotes).toBe('Prefere ligação\nSó à tarde');
   });
 });
