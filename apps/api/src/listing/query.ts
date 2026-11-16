@@ -21,6 +21,8 @@ export interface ListDefinition<TTable extends ListTable, TSortField extends str
   table: TTable;
   /** Coluna, ou expressão quando a ordem pede collation (`name collate "pt-BR-x-icu"`). */
   sortable: Record<TSortField, Column | SQL>;
+  /** Campos cuja coluna aceita nulo e que o corretor quer com os nulos no fim, crescente ou decrescente (o Postgres os poria primeiro no `desc`). */
+  nullsLast?: readonly NoInfer<TSortField>[];
   defaultSort?: SortParam<NoInfer<TSortField>>;
   searchable: readonly TextColumn[];
 }
@@ -46,7 +48,8 @@ export function listOrderBy<TSortField extends string>(
 
   const { field, direction } = parseSort(requested);
   const column = list.sortable[field];
-  return [direction === 'desc' ? desc(column) : asc(column), tiebreak];
+  const ordered = direction === 'desc' ? desc(column) : asc(column);
+  return [list.nullsLast?.includes(field) ? sql`${ordered} nulls last` : ordered, tiebreak];
 }
 
 /** Escapa os curingas do `LIKE`: "100%" procura o texto "100%", não "100" seguido de qualquer coisa. */

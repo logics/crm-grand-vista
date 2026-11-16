@@ -7,6 +7,7 @@ import {
   createFarmSchema,
   farmDuplicatesQuerySchema,
   farmListQuerySchema,
+  farmOptionsQuerySchema,
   updateFarmSchema,
 } from '@crm/shared';
 import { zValidator } from '@hono/zod-validator';
@@ -14,6 +15,7 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { databaseError } from '../../database-error.js';
 import { requirePermission } from '../../authorization/route-access.js';
+import { listFarmOptions } from './options.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import { declareRoleUsage } from '../contacts/role-usage.js';
@@ -85,6 +87,11 @@ export function createFarmsRoutes() {
       // Contato malformado, inexistente ou de outra empresa: lista vazia, sem revelar.
       if (!idSchema.safeParse(contactId).success) return c.json({ items: [], total: 0, page: query.page, pageSize: query.pageSize }, 200);
       return c.json(await c.var.withTenant((tx) => listFarmsOfOwner(tx, c.var.access, contactId, query)), 200);
+    })
+    // Antes de `/:id`, senão "options" seria lido como id.
+    .get('/options', canView(), zValidator('query', farmOptionsQuerySchema), async (c) => {
+      const query = c.req.valid('query');
+      return c.json(await c.var.withTenant((tx) => listFarmOptions(tx, c.var.access, query)), 200);
     })
     // Antes de `/:id`, senão "duplicates" seria lido como id.
     .get('/duplicates', canView(), zValidator('query', farmDuplicatesQuerySchema), async (c) => {

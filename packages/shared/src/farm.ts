@@ -13,12 +13,13 @@ import {
   compareDecimal,
   divideDecimal,
   formatDecimal,
+  formatMoney,
   hectaresToAlqueires,
   roundDecimal,
 } from './decimal.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
-import { municipalityOptionSchema } from './region.js';
+import { UFS, municipalityOptionSchema } from './region.js';
 import { optionalText } from './text.js';
 
 /** Nível: o tipo único das colunas de potencial, prioridade e nota. A tabela as protege por `CHECK` montado desta constante. */
@@ -491,20 +492,68 @@ export const farmSchema = z.object({
 });
 export type Farm = z.infer<typeof farmSchema>;
 
-export const FARM_SORT_FIELDS = ['createdAt', 'name', 'totalAreaHa'] as const;
+export const FARM_SORT_FIELDS = ['createdAt', 'name', 'totalAreaHa', 'askingPrice'] as const;
+
+export const FARM_REGION_INVALID_MESSAGE = 'Região inválida: informe o código IBGE do município ou a sigla da UF.';
+export const FARM_NO_PRICE_WITH_PRICE_MESSAGE = '"Sem preço" não combina com valor mínimo ou máximo.';
+
+/** Lista separada por vírgula, sem repetição e sem item vazio; cada item passa por `item`. */
+const commaListSchema = <TItem extends z.ZodType<unknown, string>>(item: TItem, message: string) =>
+  z
+    .string()
+    .transform((value) => [...new Set(value.split(',').map((token) => token.trim()))])
+    .pipe(z.array(item, { error: message }).min(1, message));
 
 /**
  * Status comercial da lista: ids separados por vírgula. Sem o parâmetro, a lista
  * e o total deixam de fora as fazendas de significado `inactive`.
  */
-const statusFilterSchema = z
-  .string()
-  .transform((value) => [...new Set(value.split(',').map((id) => id.trim()))])
-  .pipe(z.array(z.uuid({ error: FARM_STATUS_UNKNOWN_MESSAGE })).min(1, FARM_STATUS_UNKNOWN_MESSAGE));
+const statusFilterSchema = commaListSchema(z.uuid({ error: FARM_STATUS_UNKNOWN_MESSAGE }), FARM_STATUS_UNKNOWN_MESSAGE);
 
-export const farmListQuerySchema = listQuerySchema({
-  sortable: FARM_SORT_FIELDS,
-  filters: { commercialStatusId: statusFilterSchema.optional() },
+const UF_SET: ReadonlySet<string> = new Set(UFS);
+
+/** Região: código IBGE de município (7 dígitos) ou sigla de UF, misturados. */
+const regionFilterSchema = commaListSchema(
+  z.string({ error: FARM_REGION_INVALID_MESSAGE }).refine((token) => /^\d{7}$/.test(token) || UF_SET.has(token), FARM_REGION_INVALID_MESSAGE),
+  FARM_REGION_INVALID_MESSAGE,
+);
+
+const idsFilter = (message: string) => commaListSchema(z.uuid({ error: message }), message).optional();
+
+/** Decimal de filtro como texto até o SQL: hectares (4 casas) e reais (2 casas), maiores que zero. */
+const areaFilterSchema = (invalid: string) => positiveDecimalSchema(8, AREA_SCALE, invalid, invalid);
+const priceFilterSchema = (invalid: string) => positiveDecimalSchema(14, ASKING_PRICE_SCALE, invalid, invalid);
+/** Distância máxima em km: zero vale (só a que está a 0 km), nulo fica fora. */
+const distanceFilterSchema = (invalid: string) => z.string().trim().regex(DISTANCE_PATTERN, invalid);
+
+/** Filtros da listagem; todos opcionais. Lista = qualquer um dos valores; filtros diferentes se somam. */
+export const farmListFilters = {
+  region: regionFilterSchema.optional(),
+  tradingPostId: idsFilter(FARM_TRADING_POST_UNKNOWN_MESSAGE),
+  aptitudeId: idsFilter(FARM_APTITUDE_UNKNOWN_MESSAGE),
+  cropId: idsFilter(FARM_CROP_UNKNOWN_MESSAGE),
+  commercialStatusId: statusFilterSchema.optional(),
+  responsibleUserId: idsFilter('Corretor responsável inválido.'),
+  salesPotential: commaListSchema(levelSchema, 'Nível inválido.').optional(),
+  priority: commaListSchema(levelSchema, 'Nível inválido.').optional(),
+  waterAvailability: commaListSchema(levelSchema, 'Nível inválido.').optional(),
+  irrigationPotential: commaListSchema(levelSchema, 'Nível inválido.').optional(),
+  productivePotential: commaListSchema(levelSchema, 'Nível inválido.').optional(),
+  documentStatus: commaListSchema(z.enum(DOCUMENT_STATUSES), 'Situação documental inválida.').optional(),
+  areaMin: areaFilterSchema('Área mínima inválida.').optional(),
+  areaMax: areaFilterSchema('Área máxima inválida.').optional(),
+  priceMin: priceFilterSchema('Valor mínimo inválido.').optional(),
+  priceMax: priceFilterSchema('Valor máximo inválido.').optional(),
+  noPrice: z.literal('true', { error: 'Sem preço aceita só "true".' }).transform(() => true as const).optional(),
+  maxDistanceToHighwayKm: distanceFilterSchema('Distância até a rodovia inválida.').optional(),
+  maxDistanceToWarehouseKm: distanceFilterSchema('Distância até o armazém inválida.').optional(),
+  ownerContactId: z.uuid({ error: FARM_OWNER_UNKNOWN_MESSAGE }).optional(),
+};
+
+export const farmListQuerySchema = listQuerySchema({ sortable: FARM_SORT_FIELDS, filters: farmListFilters }).superRefine((query, ctx) => {
+  if (query.noPrice && (query.priceMin !== undefined || query.priceMax !== undefined)) {
+    ctx.addIssue({ code: 'custom', path: ['noPrice'], message: FARM_NO_PRICE_WITH_PRICE_MESSAGE });
+  }
 });
 export type FarmListQuery = z.output<typeof farmListQuerySchema>;
 
@@ -565,3 +614,52 @@ export const farmDuplicateSchema = z.object({
   reasons: z.array(z.enum(FARM_DUPLICATE_REASONS)),
 });
 export type FarmDuplicate = z.infer<typeof farmDuplicateSchema>;
+
+export const FARM_OPTIONS_PAGE_SIZE = 20;
+export const FARM_OPTIONS_MAX_PAGE_SIZE = 50;
+
+/**
+ * Parâmetros de `/options`: busca por nome ou município, paginação por cursor
+ * opaco e hidratação por ids (lista separada por vírgula, que ignora busca e cursor).
+ */
+export const farmOptionsQuerySchema = z.object({
+  q: z.string().trim().max(FARM_NAME_MAX_LENGTH).optional(),
+  cursor: z.string().regex(/^\d{1,9}$/, 'Cursor inválido.').optional(),
+  limit: z.coerce.number().int().min(1).max(FARM_OPTIONS_MAX_PAGE_SIZE).default(FARM_OPTIONS_PAGE_SIZE),
+  ids: z
+    .string()
+    .optional()
+    .transform((value) => (value ? value.split(',').filter((id) => id !== '') : []))
+    .pipe(z.array(z.uuid()).max(FARM_OPTIONS_MAX_PAGE_SIZE)),
+});
+export type FarmOptionsQuery = z.output<typeof farmOptionsQuerySchema>;
+
+export const farmOptionsPageSchema = z.object({
+  items: z.array(farmOptionSchema),
+  nextCursor: z.string().optional(),
+});
+export type FarmOptionsPage = z.infer<typeof farmOptionsPageSchema>;
+
+const BAGS_SUMMARY_FORMAT = { minScale: 0, maxScale: 2 };
+
+/**
+ * O preço da fazenda numa linha, como a lista e o cartão mostram: reais, a
+ * avaliação em sacas com a unidade e a cultura, ou "Preço não informado".
+ * Sacas não viram reais (sem cotação nesta spec).
+ */
+export function farmPriceSummary(
+  farm: Pick<Farm, 'pricingMode' | 'askingPrice' | 'valuationBags' | 'valuationBagsUnit' | 'valuationBagsAlqueireType' | 'valuationCrop'>,
+): string {
+  if (farm.pricingMode === 'brl' && farm.askingPrice) return formatMoney(farm.askingPrice);
+  if (farm.pricingMode === 'bags' && farm.valuationBags && farm.valuationBagsUnit) {
+    const unit =
+      farm.valuationBagsUnit === 'per_alqueire'
+        ? farm.valuationBagsAlqueireType
+          ? `por ${ALQUEIRE_LABELS[farm.valuationBagsAlqueireType].replace('alq. ', 'alqueire ')}`
+          : 'por alqueire'
+        : 'por hectare';
+    const bags = `${formatDecimal(farm.valuationBags, BAGS_SUMMARY_FORMAT)} sacas ${unit}`;
+    return farm.valuationCrop ? `${bags} · ${farm.valuationCrop.name}` : bags;
+  }
+  return PRICE_DERIVATIVE_LABELS.noPrice;
+}
