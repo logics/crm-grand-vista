@@ -35,4 +35,10 @@ Se a `main` andou e a branch conflita, a rodada faz merge commit da `main` na br
 
 ## Antes de seguir para a próxima issue
 
-Não há aviso automático de merge. Antes de começar a issue seguinte, o agente confere no GitHub se o PR anterior foi mergeado, com `gh pr view <n>` ou `gh pr list`. Se ainda estiver aberto, a próxima issue espera ou parte de uma base explicitamente combinada com o Romeu.
+Não há aviso automático de merge.
+
+Se a próxima issue depende de um PR ainda aberto (mesmos arquivos, migrations em sequência ou dependência declarada na issue), o agente confere no GitHub com `gh pr view <n>` ou `gh pr list` e só começa depois do merge, ou parte de uma base combinada com o Romeu.
+
+Issues sem dependência partem da `main` atualizada e podem ter PRs abertos em paralelo.
+
+Quando um PR mergeia e outro PR aberto passa a conflitar, aplica-se a seção "Conflito com a main": merge commit da `main`, gates e nova revisão.
