@@ -153,6 +153,20 @@ describe('alqueire ↔ hectare', () => {
     expect(hectaresToAlqueires(hectares, type)).toBe(alqueires);
   });
 
+  it.each(['goiano', 'paulista', 'norte'] as const)(
+    'ida e volta hectare → alqueire → hectare no alqueire %s não deriva na escala gravada',
+    (type) => {
+      for (const hectares of ['1', '0.0001', '1480.5', '48.4', '99999999', '7.3333']) {
+        const alqueires = hectaresToAlqueires(hectares, type, 8);
+        expect(alqueiresToHectares(alqueires, type)).toBe(hectares);
+      }
+    },
+  );
+
+  it('a conversão de exibição, em quatro casas, não volta ao mesmo hectare: por isso a área não editada não é reenviada', () => {
+    expect(alqueiresToHectares(hectaresToAlqueires('1', 'goiano'), 'goiano')).toBe('0.9999');
+  });
+
   it('arredonda nas quatro casas da área', () => {
     expect(alqueiresToHectares('1.23456', 'goiano')).toBe('5.9753');
     expect(hectaresToAlqueires('1', 'goiano')).toBe('0.2066');

@@ -1,11 +1,11 @@
 // Semeia o banco do E2E: zera o database de teste, aplica as migrations e cria
 // as contas de `accounts.ts`. Roda num processo próprio (`global-setup.ts`),
 // com o ambiente do `.env.test`, pelos mesmos fixtures da suíte de integração.
-import { aptitudes, commercialStatuses, contactRoles, contacts, createDatabase, createPool, tenantSettings, tradingPostMunicipalities, tradingPosts } from '../../packages/db/src/index.js';
+import { aptitudes, commercialStatuses, contactRoles, contacts, createDatabase, createPool, crops, tenantSettings, tradingPostMunicipalities, tradingPosts } from '../../packages/db/src/index.js';
 import { resetTestDatabase } from '../../packages/db/test/support/reset-database.js';
 import { loadCliEnv, loadMigrationEnv } from '../../packages/shared/src/env.js';
 import { createLinkedAccessProfile, createMembership, createTenant, createUserWithPassword } from '../../apps/api/test/support/fixtures.js';
-import { OWNER_NAMES as PROPRIETARIOS, RIO_VERDE_IBGE, TRADING_POST_NAME, twoTenantUser } from './accounts.js';
+import { CROP_NAME, OWNER_NAMES as PROPRIETARIOS, RIO_VERDE_IBGE, TRADING_POST_NAME, twoTenantUser } from './accounts.js';
 
 await resetTestDatabase(loadMigrationEnv().MIGRATION_DATABASE_URL);
 
@@ -33,6 +33,7 @@ try {
         { tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 },
         { tenantId: tenant.id, name: 'Desativada', systemMeaning: 'inactive', displayOrder: 1 },
       ]);
+      await tx.insert(crops).values({ tenantId: tenant.id, name: CROP_NAME });
       // contatos para o seletor de proprietários do formulário de fazenda
       const owners = await tx
         .insert(contacts)
