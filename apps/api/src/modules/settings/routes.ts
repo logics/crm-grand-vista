@@ -26,6 +26,7 @@ import { createMiddleware } from 'hono/factory';
 import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
 import { readTenantSettings, updateTenantSettings } from './parameters.js';
 import { suggestTradingPost } from './trading-post-municipalities.js';
+import { databaseError, SQLSTATE } from '../../database-error.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import { createEntry, defaultEntries, deleteEntry, listEntries, listOptions, reorderEntries, updateEntry } from './service.js';
 
@@ -37,33 +38,6 @@ const notFound = (message: string) => ({ error: { code: 'not_found', message } }
 const validationError = (message: string) => ({ error: { code: 'validation_error', message } });
 const conflict = (message: string) => ({ error: { code: 'conflict', message } });
 
-/** Código SQLSTATE do erro do driver, que o Drizzle embrulha em `cause`. */
-function sqlState(error: unknown): string | undefined {
-  for (let current = error; current instanceof Error; current = current.cause) {
-    const code = (current as { code?: unknown }).code;
-    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
-  }
-  return undefined;
-}
-
-/** Nome da constraint que o driver aponta no erro, quando há. */
-function violatedConstraint(error: unknown): string | undefined {
-  for (let current = error; current instanceof Error; current = current.cause) {
-    const constraint = (current as { constraint?: unknown }).constraint;
-    if (typeof constraint === 'string') return constraint;
-  }
-  return undefined;
-}
-
-/** SQLSTATE que as escritas dos cadastros sabem traduzir. */
-const SQLSTATE = {
-  uniqueViolation: '23505',
-  // `ON DELETE RESTRICT` falha com 23001; `NO ACTION`, com 23503. A regra é do RESTRICT, mas os dois são "em uso".
-  restrictViolation: '23001',
-  foreignKeyViolation: '23503',
-  invalidText: '22P02',
-} as const;
-
 const ENTRY_NOT_FOUND = 'Entrada não encontrada.';
 
 /**
@@ -73,10 +47,11 @@ const ENTRY_NOT_FOUND = 'Entrada não encontrada.';
  * entrada em uso (a FK `RESTRICT` de quem consome o cadastro) e id que não é uuid.
  */
 function databaseRefusal(error: unknown) {
-  switch (sqlState(error)) {
+  const { code, constraint } = databaseError(error);
+  switch (code) {
     case SQLSTATE.uniqueViolation:
       // Duas praças gravando o mesmo município ao mesmo tempo: o UNIQUE do município, não o do nome.
-      return violatedConstraint(error)?.startsWith('trading_post_municipalities')
+      return constraint?.startsWith('trading_post_municipalities')
         ? ({ status: 409, body: conflict(VOCABULARY_MUNICIPALITY_TAKEN_MESSAGE) } as const)
         : ({ status: 409, body: conflict(VOCABULARY_NAME_TAKEN_MESSAGE) } as const);
     case SQLSTATE.restrictViolation:

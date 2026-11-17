@@ -13,7 +13,7 @@ import {
 import { zValidator } from '@hono/zod-validator';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { databaseError } from '../../database-error.js';
+import { databaseError, isForeignKeyInUse, SQLSTATE } from '../../database-error.js';
 import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import { hydrateContactNames, listContactOptions } from './options.js';
@@ -48,19 +48,14 @@ const taxIdMismatch = (message: string) =>
 const TAX_ID_UNIQUE_INDEX = 'contacts_tenant_id_tax_id_unique';
 
 function violatesTaxIdUniqueIndex(error: unknown): boolean {
-  for (let current = error; current instanceof Error; current = current.cause) {
-    if ((current as { constraint?: unknown }).constraint === TAX_ID_UNIQUE_INDEX) return true;
-  }
-  return false;
+  const { code, constraint } = databaseError(error);
+  return code === SQLSTATE.uniqueViolation && constraint === TAX_ID_UNIQUE_INDEX;
 }
 
 /** Id malformado é contato que não existe (404), não requisição inválida. */
 const isId = (c: Context<TenantEnv>) => idSchema.safeParse(c.req.param('id')).success;
 
 const conflict = (message: string) => ({ error: { code: 'conflict', message } }) as const;
-
-// `ON DELETE RESTRICT` falha com 23001; `NO ACTION`, com 23503: os dois são "em uso".
-const IN_USE_SQLSTATES = ['23001', '23503'];
 
 const canView = () => requirePermission('contatos.ver');
 
@@ -150,7 +145,7 @@ export function createContactsRoutes() {
         return removed ? c.body(null, 204) : c.json(notFound, 404);
       } catch (error) {
         const { code, table } = databaseError(error);
-        if (code && IN_USE_SQLSTATES.includes(code)) return c.json(conflict(contactInUseMessage(table)), 409);
+        if (isForeignKeyInUse(code)) return c.json(conflict(contactInUseMessage(table)), 409);
         throw error;
       }
     })
