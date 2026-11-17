@@ -17,7 +17,7 @@ import { Card } from './card.js';
 import { ConfirmDialog } from './confirm-dialog.js';
 import { Field } from './field.js';
 import { Icon } from './icon.js';
-import { actionDock, textLink } from '../lib/styles.js';
+import { actionDock, textLink, unsavedNotice } from '../lib/styles.js';
 
 // Formulário de cadastro em seções (fazenda, contato, oportunidade), validado
 // pelo mesmo schema Zod da fronteira HTTP. Cada seção é um `Card` com grade de
@@ -117,7 +117,8 @@ export function EntityForm<TSchema extends FormSchema>({
       ),
   });
   const { isSubmitting, isDirty } = form.formState;
-  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
+  // seções recolhidas abertas pela pessoa, pela âncora (`id`) ou, sem ela, pela posição
+  const [opened, setOpened] = useState<ReadonlySet<string | number>>(new Set());
   const anchored = sections.filter((section) => section.id);
   const fieldNames = sections.flatMap((section) => section.fields.map((field) => field.name));
 
@@ -191,8 +192,8 @@ export function EntityForm<TSchema extends FormSchema>({
               href={`#${section.id}`}
               className={textLink}
               onClick={() => {
-                const index = sections.indexOf(section);
-                if (section.collapsed) setOpened((current) => new Set(current).add(index));
+                const key = section.id;
+                if (section.collapsed && key) setOpened((current) => new Set(current).add(key));
               }}
             >
               {section.title}
@@ -204,12 +205,13 @@ export function EntityForm<TSchema extends FormSchema>({
         const titleId = `${baseId}section-${index}`;
         const bodyId = `${baseId}body-${index}`;
         const hasError = section.fields.some((item) => form.getFieldState(item.name, form.formState).error);
-        const expanded = !section.collapsed || opened.has(index) || hasError;
+        const key = section.id ?? index;
+        const expanded = !section.collapsed || opened.has(key) || hasError;
         const toggle = () =>
           setOpened((current) => {
             const next = new Set(current);
-            if (next.has(index)) next.delete(index);
-            else next.add(index);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
             return next;
           });
         return (
@@ -264,8 +266,8 @@ export function EntityForm<TSchema extends FormSchema>({
       {/* sempre à vista: acompanha a rolagem, sem obrigar a ir até o fim do formulário */}
       <div data-slot="entity-form-actions" className={actionDock}>
         {isDirty && (
-          <p role="status" className="mr-auto flex items-center gap-3 text-sm text-text-body max-mobile:w-full">
-            <span aria-hidden className="size-2 rounded-pill bg-brand-accent" />
+          <p role="status" className={unsavedNotice.text}>
+            <span aria-hidden className={unsavedNotice.dot} />
             Alterações não salvas
           </p>
         )}

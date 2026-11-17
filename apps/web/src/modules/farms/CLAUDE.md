@@ -8,7 +8,7 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comer
 ## Convenções locais
 
 - Rotas: `farms`, `farms/new`, `farms/:id`, `farms/:id/edit`; menu "Fazendas" com `fazendas.ver`.
-- A ficha é `RecordSections` sobre `farmSections` (`farm-sections.tsx`), o mesmo mecanismo da ficha do contato: quem pendura algo registra a seção ali. Dados e Histórico de alterações são as desta issue.
+- A ficha é `RecordSections` sobre `farmSections` (`farm-sections.tsx`), o mesmo mecanismo da ficha do contato: quem pendura algo registra a seção ali. Dados é a desta issue; o histórico não é seção (abre pelo botão, ver #165).
 - Formulário de uma página, em seções ancoradas (`identificacao`, `areas`, `comercial`, `tecnico`; índice de âncoras no topo): `farmFormSchema` de `@crm/shared`. Cada seção é uma constante em `farm-form-page.tsx`, compostas na lista `sections`; seção nova (proprietários, precificação) entra por inserção nessa lista, e na ficha por um bloco novo em `DataSection` (`farm-sections.tsx`), sem placeholder vazio. Área pelo `AreaInput` na unidade da empresa, entregando hectares. Na edição só vai ao `PATCH` o que mudou — a área não editada não é reenviada, para a exibição em alqueire não gerar deriva nem histórico.
 - Exclusão na ficha (#150): botão "Excluir" com `fazendas.excluir`. Status de significado `inactive` abre o `ConfirmDialog` com confirmação digitada (o nome exato da fazenda habilita o botão); outro status abre só a explicação "Desative a fazenda antes de excluir.". Recusa da API (409) aparece na ficha, sem sair dela.
 - Praça: sugerida pelo município (`fetchTradingPostSuggestion`) só enquanto a pessoa não a escolheu à mão nesta edição.

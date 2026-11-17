@@ -151,3 +151,9 @@ export const warningBanner = 'flex flex-col gap-4 rounded-input bg-status-warnin
  */
 export const actionDock =
   'sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-x-6 gap-y-3 rounded-card bg-surface-muted px-6 py-4 shadow-lg max-mobile:rounded-card-mobile max-mobile:px-5';
+
+/** Aviso de alterações não salvas na `actionDock`: texto à esquerda dos botões (linha própria no mobile) e ponto dourado. */
+export const unsavedNotice = {
+  text: 'mr-auto flex items-center gap-3 text-sm text-text-body max-mobile:w-full',
+  dot: 'size-2 shrink-0 rounded-pill bg-brand-accent',
+} as const;
