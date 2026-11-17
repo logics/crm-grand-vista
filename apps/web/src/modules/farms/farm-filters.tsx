@@ -124,30 +124,33 @@ export function FarmFilters({ query, update }: FarmList) {
   const hasPrice = query.priceMin !== undefined || query.priceMax !== undefined;
   const moreCount = activeMoreFilters(query);
 
+  // Uma segunda linha, abaixo da busca: todo filtro com rótulo em cima, alinhados pela base.
   return (
-    <>
+    <div className="order-last flex basis-full flex-wrap items-end gap-4">
+      <Field label="Região" className="w-64">
       <MunicipalityPicker
         multiple
         allowUf
         aria-label="Região"
         size="sm"
-        className="w-64"
         search={searchRegion}
         resolve={resolveRegion}
         value={query.region ?? []}
         onChange={(selected) => update({ region: selected.length > 0 ? selected.map(regionKey) : undefined })}
       />
+      </Field>
+      <Field label={fields.commercial_status_id.label} className="w-56">
       <VocabularyField
         multiple
         vocabulary="commercial-statuses"
         mode="filter"
         size="sm"
-        className="w-56"
         aria-label={fields.commercial_status_id.label}
         placeholder="Todos menos desativadas"
         value={query.commercialStatusId ?? []}
         onChange={(entries) => update({ commercialStatusId: idList(entries) })}
       />
+      </Field>
       <Field label={`${fields.total_area_ha.label} mín.`} className="w-36">
         <AreaInput
           size="sm"
@@ -166,7 +169,7 @@ export function FarmFilters({ query, update }: FarmList) {
           onChange={(value) => update({ areaMax: value ?? undefined })}
         />
       </Field>
-      <Field label={`${fields.asking_price.label} mín.`} hint={PRICE_NOTICE} className="w-44">
+      <Field label={`${fields.asking_price.label} mín.`} className="w-44">
         <MoneyInput size="sm" disabled={query.noPrice} value={query.priceMin ?? null} onChange={(value) => update({ priceMin: value ?? undefined })} />
       </Field>
       <Field label={`${fields.asking_price.label} máx.`} className="w-44">
@@ -280,6 +283,8 @@ export function FarmFilters({ query, update }: FarmList) {
           )}
         </PopoverContent>
       </Popover>
-    </>
+      {/* o aviso só aparece quando o filtro de valor está em uso: fora disso, é ruído */}
+      {hasPrice && <p className="basis-full text-xs text-text-faint">{PRICE_NOTICE}</p>}
+    </div>
   );
 }

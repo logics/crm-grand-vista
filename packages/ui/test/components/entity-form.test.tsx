@@ -291,4 +291,25 @@ describe('EntityForm', () => {
     renderForm({ submitLabel: 'Cadastrar fazenda' });
     expect(screen.getByRole('button', { name: 'Cadastrar fazenda' })).toHaveAttribute('type', 'submit');
   });
+
+  describe('seção recolhida', () => {
+    const collapsible = sections.map((section, index) => ({ ...section, id: `s${index}`, collapsed: index === 1 }));
+
+    it('nasce recolhida, abre no clique e a barra de ações fica fixa', async () => {
+      const user = userEvent.setup();
+      render(<EntityForm schema={farmSchema} defaultValues={defaultValues} sections={collapsible} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+      const toggle = screen.getAllByRole('button', { name: 'Preencher' })[0]!;
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await user.click(toggle);
+      expect(screen.getByRole('button', { name: 'Recolher' })).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('button', { name: 'Cancelar' }).parentElement).toHaveClass('sticky');
+    });
+
+    it('abre sozinha quando um campo dela tem erro', async () => {
+      const user = userEvent.setup();
+      render(<EntityForm schema={farmSchema} defaultValues={defaultValues} sections={collapsible} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+      await user.click(screen.getByRole('button', { name: 'Salvar' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Recolher' })).toBeInTheDocument());
+    });
+  });
 });

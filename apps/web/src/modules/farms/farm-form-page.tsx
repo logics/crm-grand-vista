@@ -114,6 +114,23 @@ function DocumentStatusSelect({
 /** Texto digitado de um decimal: vírgula vira ponto e vazio vira nulo (o schema confere o formato). */
 const decimalText = (typed: string) => typed.trim().replace(',', '.') || null;
 
+/** Se a fazenda já tem algum dado da seção Técnico (para ela nascer aberta na edição). */
+function hasTechnicalData(farm: Farm | null): boolean {
+  if (!farm) return false;
+  const filled = [
+    farm.waterAvailability,
+    farm.irrigationPotential,
+    farm.productivePotential,
+    farm.distanceToHighwayKm,
+    farm.distanceToWarehouseKm,
+    farm.documentStatus,
+    farm.latitude,
+    farm.longitude,
+    ...TEXT_FIELDS.map((key) => farm[key]),
+  ];
+  return filled.some((value) => value !== null && value !== '') || farm.aptitudes.length > 0 || farm.crops.length > 0;
+}
+
 const sameIds = (a: readonly string[], b: readonly string[]) => {
   const left = [...a].sort();
   const right = [...b].sort();
@@ -606,6 +623,9 @@ function FarmForm({ farm }: { farm: Farm | null }) {
   const technical: FormSection = {
     id: 'tecnico',
     title: 'Técnico',
+    description: 'Opcional: preencha o que já souber.',
+    // na edição, abre se já há dado técnico; no cadastro novo nasce recolhida
+    collapsed: !hasTechnicalData(farm),
     fields: [
       {
         name: 'aptitudeIds',

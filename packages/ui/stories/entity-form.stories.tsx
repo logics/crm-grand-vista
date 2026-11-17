@@ -162,3 +162,10 @@ export const SecoesAncoradas: Story = {
   name: 'Seções ancoradas',
   args: { sections: sections.map((section, index) => ({ ...section, id: index === 0 ? 'identificacao' : 'area-e-valor' })) },
 };
+
+export const SecaoRecolhida: Story = {
+  name: 'Seção recolhida',
+  args: {
+    sections: sections.map((section, index) => ({ ...section, id: index === 0 ? 'identificacao' : 'area-e-valor', collapsed: index === 1 })),
+  },
+};

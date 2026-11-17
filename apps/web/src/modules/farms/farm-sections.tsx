@@ -12,11 +12,8 @@ import {
 } from '@crm/shared';
 import { SpecList } from '@crm/ui';
 import type { ReactNode } from 'react';
-import { RecordHistory } from '../../history/record-history.js';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
-import { useTenantSlug } from '../../shell/tenant-query.js';
 import { useAreaFormatter } from '../settings/display-context.js';
-import { fetchFarmHistory } from './farms-api.js';
 
 // Seções da ficha da fazenda, sobre o mesmo mecanismo da ficha do contato. Cada
 // spec que pendura algo na ficha (mapa, galerias, documentos, cadeia de
@@ -183,15 +180,4 @@ function DataSection({ record }: { record: Farm }) {
   );
 }
 
-function HistorySection({ record }: { record: Farm }) {
-  const slug = useTenantSlug();
-  return (
-    <RecordHistory
-      queryKey={['farms', record.id]}
-      fetchPage={(_slug, cursor) => fetchFarmHistory(slug, record.id, cursor)}
-    />
-  );
-}
-
 farmSections.register({ key: 'data', title: 'Dados', order: 10, component: DataSection });
-farmSections.register({ key: 'record-history', title: 'Histórico de alterações', order: 1000, component: HistorySection });

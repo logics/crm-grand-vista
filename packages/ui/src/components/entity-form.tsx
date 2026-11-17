@@ -59,6 +59,8 @@ export type EntityFormSection<TValues extends FieldValues> = {
   id?: string;
   title: ReactNode;
   description?: ReactNode;
+  /** Seção opcional: nasce recolhida (só o cabeçalho); abre no clique, pela âncora do índice ou quando um campo dela tem erro. */
+  collapsed?: boolean;
   fields: EntityFormField<TValues>[];
 };
 
@@ -115,6 +117,7 @@ export function EntityForm<TSchema extends FormSchema>({
       ),
   });
   const { isSubmitting, isDirty } = form.formState;
+  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
   const anchored = sections.filter((section) => section.id);
   const fieldNames = sections.flatMap((section) => section.fields.map((field) => field.name));
 
@@ -183,7 +186,15 @@ export function EntityForm<TSchema extends FormSchema>({
       {anchored.length > 1 && (
         <nav aria-label="Seções do formulário" className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           {anchored.map((section) => (
-            <a key={section.id} href={`#${section.id}`} className={textLink}>
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              className={textLink}
+              onClick={() => {
+                const index = sections.indexOf(section);
+                if (section.collapsed) setOpened((current) => new Set(current).add(index));
+              }}
+            >
               {section.title}
             </a>
           ))}
@@ -191,6 +202,16 @@ export function EntityForm<TSchema extends FormSchema>({
       )}
       {sections.map((section, index) => {
         const titleId = `${baseId}section-${index}`;
+        const bodyId = `${baseId}body-${index}`;
+        const hasError = section.fields.some((item) => form.getFieldState(item.name, form.formState).error);
+        const expanded = !section.collapsed || opened.has(index) || hasError;
+        const toggle = () =>
+          setOpened((current) => {
+            const next = new Set(current);
+            if (next.has(index)) next.delete(index);
+            else next.add(index);
+            return next;
+          });
         return (
           <Card
             // a seção é uma região nomeada pelo título
@@ -200,8 +221,23 @@ export function EntityForm<TSchema extends FormSchema>({
             className="scroll-mt-6"
             title={<span id={titleId}>{section.title}</span>}
             subtitle={section.description}
+            action={
+              section.collapsed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={expanded ? 'chevron-up' : 'chevron-down'}
+                  aria-expanded={expanded}
+                  aria-controls={bodyId}
+                  onClick={toggle}
+                >
+                  {expanded ? 'Recolher' : 'Preencher'}
+                </Button>
+              )
+            }
           >
-            <div className="grid grid-cols-2 gap-x-6 gap-y-7 max-mobile:grid-cols-1">
+            {/* recolhida, a seção segue montada: os valores e as regras do formulário não se perdem */}
+            <div id={bodyId} className={cn('grid grid-cols-2 gap-x-6 gap-y-7 max-mobile:grid-cols-1', !expanded && 'hidden')}>
               {section.fields.map((item) => (
                 <Controller
                   key={item.name}
@@ -225,7 +261,8 @@ export function EntityForm<TSchema extends FormSchema>({
           </Card>
         );
       })}
-      <div className="flex flex-wrap justify-end gap-4">
+      {/* sempre à vista: acompanha a rolagem, sem obrigar a ir até o fim do formulário */}
+      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap justify-end gap-4 rounded-card bg-surface-card p-4 shadow-md max-mobile:rounded-card-mobile">
         <Button variant="ghost" onClick={cancel}>
           Cancelar
         </Button>

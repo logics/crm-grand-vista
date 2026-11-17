@@ -10,6 +10,7 @@ import { PageHeader } from '../../shell/page-header.js';
 import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
+import { FarmHistoryDialog } from './farm-history-dialog.js';
 import { farmSections } from './farm-sections.js';
 import { deleteFarm, fetchFarm } from './farms-api.js';
 
@@ -22,6 +23,7 @@ export function FarmPage() {
   const canDelete = useCan('fazendas.excluir');
   const queryClient = useQueryClient();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [showingHistory, setShowingHistory] = useState(false);
   // A recusa (409: a fazenda deixou de estar desativada) traz a mensagem pronta e a ficha continua na tela.
   const remove = useMutation({
     mutationFn: () => deleteFarm(slug, id),
@@ -42,8 +44,12 @@ export function FarmPage() {
       <PageHeader
         title={record.name}
         action={
-          (canEdit || canDelete) && (
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            <Button variant="ghost" icon="clock" onClick={() => setShowingHistory(true)}>
+              Histórico
+            </Button>
+            {(canEdit || canDelete) && (
+              <>
               {canEdit && (
                 <Button icon="pencil" onClick={() => navigate(tenantPath(slug, `farms/${id}/edit`))}>
                   Editar
@@ -61,10 +67,12 @@ export function FarmPage() {
                   Excluir
                 </Button>
               )}
-            </div>
-          )
+              </>
+            )}
+          </div>
         }
       />
+      <FarmHistoryDialog farmId={id} open={showingHistory} onOpenChange={setShowingHistory} />
       {remove.error && <ErrorMessage>{remove.error.message}</ErrorMessage>}
       {record.commercialStatus.systemMeaning === 'inactive' ? (
         <ConfirmDialog
