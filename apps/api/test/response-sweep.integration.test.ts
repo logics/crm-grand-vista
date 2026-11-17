@@ -117,6 +117,7 @@ const SAMPLES: Record<string, (actor: Actor, tenantSlug: string) => Sample> = {
   'GET /e/:tenant/farms/duplicates': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/farms/duplicates?name=Varredura&municipalityIbgeCode=5218805`,
   }),
+  'GET /e/:tenant/farms/options': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/farms/options?q=Varredura` }),
   'GET /e/:tenant/farms': (_actor, tenantSlug) => ({ path: `/e/${tenantSlug}/farms` }),
   'POST /e/:tenant/farms': (_actor, tenantSlug) => ({
     path: `/e/${tenantSlug}/farms`,

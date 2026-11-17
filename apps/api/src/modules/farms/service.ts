@@ -49,25 +49,43 @@ import {
   type ListPage,
   type UpdateFarmInput,
 } from '@crm/shared';
-import { and, asc, eq, exists, inArray, ne, notInArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, isNull, ne, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
-import { defineList, paginatedQuery } from '../../listing/query.js';
+import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { ensureContactRole } from '../contacts/service.js';
 import { defaultEntries } from '../settings/service.js';
 
 type FarmRow = typeof farms.$inferSelect;
 
-/** Lista de fazendas: mais recentes primeiro, desempate por `id` (feito pelo helper). `q` e filtros chegam em issue seguinte. */
+/**
+ * Lista de fazendas: mais recentes primeiro, desempate por `id` (feito pelo
+ * helper). `q` procura no nome, nos sete textos livres e na observação
+ * documental; município e proprietários entram por `farmSearchAlso`. Preço:
+ * quem não tem (sem preço e em sacas) fica no fim nas duas direções.
+ */
 export const farmList = defineList({
   table: farms,
   sortable: {
     createdAt: farms.createdAt,
     name: sql`${farms.name} collate "pt-BR-x-icu"`,
     totalAreaHa: farms.totalAreaHa,
+    askingPrice: farms.askingPrice,
   },
+  nullsLast: ['askingPrice'],
   defaultSort: '-createdAt',
-  searchable: [],
+  searchable: [
+    farms.name,
+    farms.soil,
+    farms.topography,
+    farms.water,
+    farms.historicalProductivity,
+    farms.infrastructure,
+    farms.technicalSummary,
+    farms.differentials,
+    farms.documentNotes,
+  ],
 });
 
 /** Recusa de regra de negócio (400), com a mensagem pronta para exibir e o campo, se há um. */
@@ -205,15 +223,97 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
   }));
 }
 
-export async function listFarms(tx: Transaction, access: EffectiveAccess, query: FarmListQuery): Promise<ListPage<Farm>> {
+/** Outras maneiras de `q` achar a fazenda: o nome do município e o nome de qualquer proprietário. */
+function farmSearchAlso(tx: Transaction, q: string | undefined): (SQL | undefined)[] {
+  if (q === undefined) return [];
+  const pattern = normalizedText(`%${escapeLike(q)}%`);
+  return [
+    exists(
+      tx
+        .select({ one: sql`1` })
+        .from(municipalities)
+        .where(and(eq(municipalities.ibgeCode, farms.municipalityIbgeCode), sql`${normalizedText(municipalities.name)} like ${pattern}`)),
+    ),
+    exists(
+      tx
+        .select({ one: sql`1` })
+        .from(farmOwners)
+        .innerJoin(contacts, eq(contacts.id, farmOwners.contactId))
+        .where(and(eq(farmOwners.farmId, farms.id), sql`${normalizedText(contacts.name)} like ${pattern}`)),
+    ),
+  ];
+}
+
+/** Existe linha da junção da fazenda com algum dos ids (qualquer um dos escolhidos). */
+const joinedWithAny = (tx: Transaction, join: typeof farmAptitudes | typeof farmCrops | typeof farmOwners, column: AnyPgColumn, ids: readonly string[]) =>
+  exists(
+    tx
+      .select({ one: sql`1` })
+      .from(join)
+      .where(and(eq(join.farmId, farms.id), inArray(column, [...ids]))),
+  );
+
+function farmFilters(tx: Transaction, access: EffectiveAccess, query: FarmListQuery): (SQL | undefined)[] {
+  const ibgeCodes = query.region?.filter((token) => /^\d{7}$/.test(token));
+  const ufs = query.region?.filter((token) => !/^\d{7}$/.test(token));
+  const region = query.region
+    ? or(
+        ibgeCodes!.length > 0 ? inArray(farms.municipalityIbgeCode, ibgeCodes!) : undefined,
+        ufs!.length > 0
+          ? exists(
+              tx
+                .select({ one: sql`1` })
+                .from(municipalities)
+                .where(and(eq(municipalities.ibgeCode, farms.municipalityIbgeCode), inArray(municipalities.uf, ufs!))),
+            )
+          : undefined,
+      )
+    : undefined;
   // Sem status pedido, as desativadas ficam de fora (pelo significado, não pelo nome), da lista e do total.
-  const statusFilter = query.commercialStatusId
+  const status = query.commercialStatusId
     ? inArray(farms.commercialStatusId, query.commercialStatusId)
     : notInArray(
         farms.commercialStatusId,
         tx.select({ id: commercialStatuses.id }).from(commercialStatuses).where(eq(commercialStatuses.systemMeaning, 'inactive')),
       );
-  const page = await paginatedQuery(tx, farmList, query, { scope: scopeOf(access), filters: [statusFilter] });
+  // Decimais seguem como texto até o `numeric`: nunca passam por `Number`.
+  const numeric = (column: AnyPgColumn, operator: '>=' | '<=', value: string | undefined) =>
+    value === undefined ? undefined : sql`${column} ${sql.raw(operator)} ${value}::numeric`;
+  const inBrl = sql`${farms.pricingMode} = 'brl'`;
+
+  return [
+    region,
+    query.tradingPostId ? inArray(farms.tradingPostId, query.tradingPostId) : undefined,
+    query.aptitudeId ? joinedWithAny(tx, farmAptitudes, farmAptitudes.aptitudeId, query.aptitudeId) : undefined,
+    query.cropId ? joinedWithAny(tx, farmCrops, farmCrops.cropId, query.cropId) : undefined,
+    status,
+    // `own` já vê só as próprias: o filtro de corretor não tem o que acrescentar.
+    query.responsibleUserId && dataScopeOf(access, 'fazendas') === 'all' ? inArray(farms.responsibleUserId, query.responsibleUserId) : undefined,
+    query.salesPotential ? inArray(farms.salesPotential, query.salesPotential) : undefined,
+    query.priority ? inArray(farms.priority, query.priority) : undefined,
+    query.waterAvailability ? inArray(farms.waterAvailability, query.waterAvailability) : undefined,
+    query.irrigationPotential ? inArray(farms.irrigationPotential, query.irrigationPotential) : undefined,
+    query.productivePotential ? inArray(farms.productivePotential, query.productivePotential) : undefined,
+    query.documentStatus ? inArray(farms.documentStatus, query.documentStatus) : undefined,
+    numeric(farms.totalAreaHa, '>=', query.areaMin),
+    numeric(farms.totalAreaHa, '<=', query.areaMax),
+    // Valor só vale para fazenda em reais: em sacas e sem preço ficam fora.
+    query.priceMin !== undefined || query.priceMax !== undefined
+      ? and(inBrl, numeric(farms.askingPrice, '>=', query.priceMin), numeric(farms.askingPrice, '<=', query.priceMax))
+      : undefined,
+    query.noPrice ? isNull(farms.pricingMode) : undefined,
+    numeric(farms.distanceToHighwayKm, '<=', query.maxDistanceToHighwayKm),
+    numeric(farms.distanceToWarehouseKm, '<=', query.maxDistanceToWarehouseKm),
+    query.ownerContactId ? joinedWithAny(tx, farmOwners, farmOwners.contactId, [query.ownerContactId]) : undefined,
+  ];
+}
+
+export async function listFarms(tx: Transaction, access: EffectiveAccess, query: FarmListQuery): Promise<ListPage<Farm>> {
+  const page = await paginatedQuery(tx, farmList, query, {
+    scope: scopeOf(access),
+    filters: farmFilters(tx, access, query),
+    searchAlso: farmSearchAlso(tx, query.q),
+  });
   return { ...page, items: await serialize(tx, page.items) };
 }
 

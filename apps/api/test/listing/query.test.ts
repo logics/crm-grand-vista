@@ -38,6 +38,14 @@ describe('ordenação da listagem', () => {
     expect(renderOrderBy(listOrderBy(list, undefined))).toBe('"records"."id" asc');
   });
 
+  it('campo declarado com nulos no fim os põe no fim nas duas direções', () => {
+    const nullable = defineList({ ...list, nullsLast: ['totalAreaHa'] });
+
+    expect(renderOrderBy(listOrderBy(nullable, 'totalAreaHa'))).toBe('"records"."total_area_ha" asc nulls last, "records"."id" asc');
+    expect(renderOrderBy(listOrderBy(nullable, '-totalAreaHa'))).toBe('"records"."total_area_ha" desc nulls last, "records"."id" asc');
+    expect(renderOrderBy(listOrderBy(nullable, 'name'))).toBe('"records"."name" asc, "records"."id" asc');
+  });
+
   it('sem sort, aplica o padrão da lista e termina em id', () => {
     const byName = defineList({ ...list, defaultSort: '-name' });
 

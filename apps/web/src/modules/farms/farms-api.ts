@@ -1,13 +1,16 @@
 import { FormSubmitError } from '@crm/ui';
-import type {
-  ContactFarm,
-  CreateFarmInput,
-  Farm,
-  FarmDuplicate,
-  FarmDuplicatesQuery,
-  FarmListQuery,
-  ListPage,
-  UpdateFarmInput,
+import {
+  farmOptionsPageSchema,
+  type ContactFarm,
+  type CreateFarmInput,
+  type Farm,
+  type FarmDuplicate,
+  type FarmDuplicatesQuery,
+  type FarmListQuery,
+  type FarmOption,
+  type FarmOptionsPage,
+  type ListPage,
+  type UpdateFarmInput,
 } from '@crm/shared';
 import { api } from '../../lib/api.js';
 import { ResourceNotFoundError } from '../../shell/tenant-query.js';
@@ -26,18 +29,45 @@ async function failure(response: Response): Promise<FormSubmitError> {
   return new FormSubmitError(message, typeof error?.field === 'string' ? { [error.field]: message } : {});
 }
 
+/** Todo parâmetro da lista, como texto: listas viram `a,b`, o resto sai como o schema o leu. */
+function listParams(query: FarmListQuery): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === '') continue;
+    params[key] = Array.isArray(value) ? value.join(',') : String(value);
+  }
+  return params;
+}
+
 export async function fetchFarms(slug: string, query: FarmListQuery): Promise<ListPage<Farm>> {
-  const response = await api.e[':tenant'].farms.$get({
-    param: { tenant: slug },
-    query: {
-      page: String(query.page),
-      pageSize: String(query.pageSize),
-      ...(query.q ? { q: query.q } : {}),
-      ...(query.sort ? { sort: query.sort } : {}),
-    },
-  });
+  const response = await api.e[':tenant'].farms.$get({ param: { tenant: slug }, query: listParams(query) });
   if (!response.ok) throw new Error(`Falha ao listar as fazendas: HTTP ${response.status}.`);
   return (await response.json()) as ListPage<Farm>;
+}
+
+async function readOptions(response: Response): Promise<FarmOptionsPage> {
+  if (!response.ok) throw new Error(`Falha ao buscar as fazendas: HTTP ${response.status}.`);
+  return farmOptionsPageSchema.parse(await response.json());
+}
+
+/** Busca do `FarmPicker` em `GET /farms/options`: sem desativadas, no escopo de quem busca. */
+export function searchFarmOptions(slug: string) {
+  return async (term: string, { signal, cursor }: { signal: AbortSignal; cursor?: string }): Promise<FarmOptionsPage> => {
+    const response = await api.e[':tenant'].farms.options.$get(
+      { param: { tenant: slug }, query: { ...(term ? { q: term } : {}), ...(cursor ? { cursor } : {}) } },
+      { init: { signal } },
+    );
+    return readOptions(response);
+  };
+}
+
+/** Hidrata os ids gravados, desativadas inclusive. */
+export function resolveFarmOptions(slug: string) {
+  return async (ids: string[]): Promise<FarmOption[]> => {
+    if (ids.length === 0) return [];
+    const response = await api.e[':tenant'].farms.options.$get({ param: { tenant: slug }, query: { ids: ids.join(',') } });
+    return (await readOptions(response)).items;
+  };
 }
 
 export async function fetchFarm(slug: string, id: string): Promise<Farm> {
