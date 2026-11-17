@@ -13,7 +13,7 @@ import {
 import { zValidator } from '@hono/zod-validator';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { databaseError } from '../../database-error.js';
+import { databaseError, SQLSTATE } from '../../database-error.js';
 import { requirePermission } from '../../authorization/route-access.js';
 import { listFarmOptions } from './options.js';
 import { createHistoryRoutes } from '../../history/routes.js';
@@ -57,7 +57,7 @@ const conflict = (message: string) => ({ error: { code: 'conflict', message } })
 /** Violação de unicidade em `farm_owners` (dois saves trocando o principal): 409, nunca 500. Outro erro sobe. */
 function ownersConflict(error: unknown) {
   const { code, table } = databaseError(error);
-  if (code === '23505' && table === 'farm_owners') return conflict(FARM_OWNER_CONFLICT_MESSAGE);
+  if (code === SQLSTATE.uniqueViolation && table === 'farm_owners') return conflict(FARM_OWNER_CONFLICT_MESSAGE);
   throw error;
 }
 

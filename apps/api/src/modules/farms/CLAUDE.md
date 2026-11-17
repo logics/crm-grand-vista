@@ -30,7 +30,7 @@ Fazendas da empresa ativa: o imóvel captado. Cadastro mínimo (#145) e ficha t�
 ## Proprietários (issue #148)
 
 - Tabela `farm_owners` (migration `0023_farm_owners.sql`): `contact_id` `RESTRICT`, índice único parcial de um principal por fazenda. `owners: [{ contactId, isPrimary }]` em `POST`/`PATCH` substitui o conjunto; ausente no `PATCH` não mexe.
-- `updateFarm` lê a fazenda com `FOR UPDATE` no início; `applyOwners` aplica a diferença em ordem fixa (apaga os retirados, desmarca o principal antigo, marca o novo entre os que ficam, insere os novos) com um único `auditedWrites` por save. Nunca delete + insert. `23505` em `farm_owners` vira 409 na rota.
+- `updateFarm` lê a fazenda com `FOR UPDATE` no início; `applyOwners` aplica a diferença em ordem fixa (apaga os retirados, desmarca o principal antigo, marca o novo entre os que ficam, insere os novos) com um único `auditedWrites` por save. Nunca delete + insert. `23505` em `farm_owners` vira 409 na rota (reconhecimento em `src/database-error.ts`).
 - Contato de outra empresa é 400 no campo `owners` (`ownerRejection`): a FK não passa pelo RLS. `ensureContactRole(…, 'owner')` roda para cada contato novo, na mesma transação.
 - `declareRoleUsage('owner', …)` fica em `routes.ts`, com `inUsePhrase` e `label.gender`.
 - `GET /by-owner/:contactId` (seção "Fazendas" da ficha do contato): escopo na lista e no total, sem filtro de status, contato inexistente ou malformado é lista vazia. Registrada antes de `/:id`.
