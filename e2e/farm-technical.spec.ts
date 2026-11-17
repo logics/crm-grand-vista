@@ -7,7 +7,10 @@ const [tenant] = twoTenantUser.tenants;
 async function chooseMunicipality(page: Page) {
   await page.getByRole('combobox', { name: /Município/ }).click();
   await page.getByPlaceholder('Buscar município').fill('Rio Verde');
-  await page.getByRole('option', { name: /Rio Verde.*GO/ }).first().click();
+  await page
+    .getByRole('option', { name: /Rio Verde.*GO/ })
+    .first()
+    .click();
 }
 
 test('preenche o técnico, troca a aptidão e vê no histórico; sair sujo pergunta', async ({ page }) => {
@@ -19,6 +22,8 @@ test('preenche o técnico, troca a aptidão e vê no histórico; sair sujo pergu
   await chooseMunicipality(page);
   await page.getByRole('textbox', { name: /Área total/ }).fill('500');
 
+  // a seção Técnico nasce recolhida no cadastro novo
+  await page.getByRole('button', { name: 'Preencher' }).click();
   await page.getByRole('combobox', { name: 'Aptidões' }).click();
   await page.getByRole('option', { name: 'Agricultura' }).click();
   await page.keyboard.press('Escape');
@@ -46,10 +51,14 @@ test('preenche o técnico, troca a aptidão e vê no histórico; sair sujo pergu
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect(page).toHaveURL(/\/farms\/[0-9a-f-]{36}$/);
 
+  // o histórico só aparece quando a pessoa o abre
+  await expect(page.getByText('Aptidão adicionada: Pecuária')).toBeHidden();
+  await page.getByRole('button', { name: 'Histórico' }).click();
   await expect(page.getByText('Aptidão adicionada: Pecuária')).toBeVisible();
   await expect(page.getByText('Aptidão removida: Agricultura')).toBeVisible();
 
   // formulário sujo: navegar pelo menu pergunta
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Editar' }).click();
   await page.getByRole('textbox', { name: /^Nome/ }).fill('Outro nome');
   await page.getByRole('button', { name: 'Fazendas' }).click();

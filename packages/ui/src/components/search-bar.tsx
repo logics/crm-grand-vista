@@ -2,6 +2,7 @@ import type { ComponentProps, FormEvent, ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 import { Input, type InputProps } from '../primitives/input.js';
 import { Button } from './button.js';
+import type { IconName } from './icon.js';
 
 // Linha de busca e matching interno (`SearchBar.jsx` do export): um campo de
 // texto, N filtros, um botão de enviar. Fica no próprio cartão branco, para que
@@ -14,6 +15,8 @@ export type SearchBarProps = Omit<ComponentProps<'form'>, 'onSubmit'> & {
   /** Selects e tags entre o campo e o botão. */
   filters?: ReactNode;
   buttonLabel?: string;
+  /** Glifo do botão de enviar; lupa por padrão. */
+  buttonIcon?: IconName;
   /** Sem o cartão branco em volta. */
   bare?: boolean;
   /** Recebe o termo digitado; a página nunca recarrega. */
@@ -27,6 +30,7 @@ export function SearchBar({
   placeholder = 'Buscar…',
   filters,
   buttonLabel = 'Buscar',
+  buttonIcon = 'search',
   bare = false,
   onSubmit,
   inputProps,
@@ -65,7 +69,7 @@ export function SearchBar({
         className={cn('grow basis-[calc(5.5*var(--space-10))]', inputProps?.className)}
       />
       {filters}
-      <Button type="submit" icon="sliders-horizontal">
+      <Button type="submit" icon={buttonIcon}>
         {buttonLabel}
       </Button>
     </form>

@@ -19,7 +19,10 @@ test('cadastra fazenda com dois proprietários, troca o principal e vê a seçã
   await page.getByRole('textbox', { name: /Nome/ }).fill('Fazenda dos Irmãos E2E');
   await page.getByRole('combobox', { name: /Município/ }).click();
   await page.getByPlaceholder('Buscar município').fill('Rio Verde');
-  await page.getByRole('option', { name: /Rio Verde.*GO/ }).first().click();
+  await page
+    .getByRole('option', { name: /Rio Verde.*GO/ })
+    .first()
+    .click();
   await page.getByRole('textbox', { name: /Área total/ }).fill('500');
   await addOwner(page, maria);
   await addOwner(page, joao);
@@ -27,13 +30,18 @@ test('cadastra fazenda com dois proprietários, troca o principal e vê a seçã
   await page.getByRole('button', { name: 'Cadastrar fazenda' }).click();
 
   await expect(page).toHaveURL(/\/farms\/[0-9a-f-]{36}$/);
-  await expect(page.getByText(`${maria} (principal), ${joao}`)).toBeVisible();
+  // na ficha, o principal e o outro proprietário em itens separados (Principal, Outro)
+  const owners = page.getByRole('region', { name: 'Proprietários' });
+  await expect(owners.getByRole('definition')).toHaveText([maria, joao]);
 
   await page.getByRole('button', { name: 'Editar' }).click();
   await page.getByRole('checkbox', { name: `Proprietário principal: ${joao}` }).click();
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
-  await expect(page.getByText(`${joao} (principal), ${maria}`).or(page.getByText(`${maria}, ${joao} (principal)`))).toBeVisible();
-  await expect(page.getByText('Proprietário principal alterado').first()).toBeVisible();
+  await expect(page).toHaveURL(/\/farms\/[0-9a-f-]{36}$/);
+  await expect(owners.getByRole('definition')).toHaveText([joao, maria]);
+  await page.getByRole('button', { name: 'Histórico' }).click();
+  await expect(page.getByRole('dialog').getByText('Proprietário principal alterado').first()).toBeVisible();
+  await page.keyboard.press('Escape');
 
   await page.goto(`/e/${tenant.slug}/contacts`);
   await page.getByText(joao).first().click();

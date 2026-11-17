@@ -49,9 +49,7 @@ describe('AuditTimeline', () => {
   });
 
   it('detalhe em texto livre abaixo do título', () => {
-    render(
-      <AuditTimeline items={[{ title: 'Status comercial alterado', detail: 'Proprietário suspendeu a venda.' }]} />,
-    );
+    render(<AuditTimeline items={[{ title: 'Status comercial alterado', detail: 'Proprietário suspendeu a venda.' }]} />);
     expect(screen.getByText('Proprietário suspendeu a venda.')).toBeInTheDocument();
   });
 
@@ -94,7 +92,9 @@ describe('AuditTimeline', () => {
     const before = 'Fazenda com sede reformada em 2019, curral de alvenaria e três represas.';
     const after = 'Fazenda com sede reformada em 2024, curral de alvenaria, três represas e pivô central.';
     render(
-      <AuditTimeline items={[{ title: 'Descrição alterada', changes: [{ field: 'Descrição', from: before, to: after, long: true }] }]} />,
+      <AuditTimeline
+        items={[{ title: 'Descrição alterada', changes: [{ field: 'Descrição', from: before, to: after, long: true }] }]}
+      />,
     );
     const toggle = screen.getByRole('button', { name: 'Ver tudo' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -144,7 +144,9 @@ describe('AuditTimeline', () => {
   });
 
   it('texto longo vazio vira travessão', () => {
-    render(<AuditTimeline items={[{ title: 'Descrição alterada', changes: [{ field: 'Descrição', to: 'Nova', long: true }] }]} />);
+    render(
+      <AuditTimeline items={[{ title: 'Descrição alterada', changes: [{ field: 'Descrição', to: 'Nova', long: true }] }]} />,
+    );
     expect(screen.getByText('—').tagName).toBe('DEL');
   });
 
@@ -162,5 +164,21 @@ describe('AuditTimeline', () => {
     await user.click(screen.getByRole('button', { name: 'Ver tudo' }));
     expect(screen.getAllByRole('button', { expanded: true })).toHaveLength(2);
     expect(classesWithoutCss(build)).toEqual([]);
+  });
+
+  it('o autor fica numa linha própria, separado do botão dos valores iniciais', () => {
+    render(
+      <AuditTimeline
+        items={[
+          {
+            title: 'Fazenda cadastrada',
+            author: 'Renata Carvalho',
+            changes: [{ field: 'Nome', to: 'Três Barras' }],
+            changesLabel: 'Ver valores iniciais',
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Renata Carvalho').tagName).toBe('P');
   });
 });

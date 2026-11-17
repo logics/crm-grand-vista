@@ -115,8 +115,7 @@ export const accentRing = 'inset-ring inset-ring-brand-accent/55';
  * Cartão que leva a algum lugar: sobe um pixel ao passar o mouse. A sombra do
  * hover fica com cada cartão, porque depende do tom da superfície.
  */
-export const liftOnHover =
-  'cursor-pointer transition-[box-shadow,translate] duration-normal ease-standard hover:-translate-y-px';
+export const liftOnHover = 'cursor-pointer transition-[box-shadow,translate] duration-normal ease-standard hover:-translate-y-px';
 
 /** Moldura de foto: areia de fundo, cantos de mídia; sem foto, o rótulo fica no centro. */
 export const mediaFrame = 'relative grid place-items-center overflow-hidden rounded-media bg-surface-muted';
@@ -143,3 +142,18 @@ export const reorderableRow =
 
 /** Faixa de aviso (não bloqueia): fundo e texto do status de atenção, com o respiro dos avisos de formulário. */
 export const warningBanner = 'flex flex-col gap-4 rounded-input bg-status-warning-bg px-6 py-5 text-sm text-status-warning-fg';
+
+/**
+ * Barra de ações que acompanha a rolagem (o rodapé do `EntityForm`): areia,
+ * não branca, com a sombra de painel flutuante, para não se confundir com os
+ * cartões das seções que passam por baixo. Sem margem negativa: dentro da área
+ * que rola, ela estouraria a largura e criaria rolagem lateral.
+ */
+export const actionDock =
+  'sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-x-6 gap-y-3 rounded-card bg-surface-muted px-6 py-4 shadow-lg max-mobile:rounded-card-mobile max-mobile:px-5';
+
+/** Aviso de alterações não salvas na `actionDock`: texto à esquerda dos botões (linha própria no mobile) e ponto dourado. */
+export const unsavedNotice = {
+  text: 'mr-auto flex items-center gap-3 text-sm text-text-body max-mobile:w-full',
+  dot: 'size-2 shrink-0 rounded-pill bg-brand-accent',
+} as const;

@@ -69,9 +69,15 @@ describe('EntityForm: seções ancoradas', () => {
   const anchoredSections = sections.map((section, index) => ({ ...section, id: index === 0 ? 'identificacao' : 'area' }));
 
   it('dá o id à seção e um índice de âncoras no topo', () => {
-    render(<EntityForm schema={farmSchema} defaultValues={filled} sections={anchoredSections} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    render(
+      <EntityForm schema={farmSchema} defaultValues={filled} sections={anchoredSections} onSubmit={vi.fn()} onCancel={vi.fn()} />,
+    );
     const nav = screen.getByRole('navigation', { name: 'Seções do formulário' });
-    expect(within(nav).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toEqual([
       ['Identificação', '#identificacao'],
       ['Área', '#area'],
     ]);
@@ -137,7 +143,9 @@ describe('EntityForm', () => {
     const { user } = renderForm();
     await user.type(screen.getByRole('textbox', { name: 'Área total' }), '-3');
     await user.click(save());
-    expect(screen.getByRole('textbox', { name: 'Área total' })).toHaveAccessibleDescription('Pequeno demais: esperava que o número fosse > 0');
+    expect(screen.getByRole('textbox', { name: 'Área total' })).toHaveAccessibleDescription(
+      'Pequeno demais: esperava que o número fosse > 0',
+    );
   });
 
   it('o foco vai para o primeiro campo inválido', async () => {
@@ -174,9 +182,9 @@ describe('EntityForm', () => {
   });
 
   it('erro do servidor aparece no topo e marca os campos que ele apontar, focando o primeiro', async () => {
-    const onSubmit = vi.fn().mockRejectedValue(
-      new FormSubmitError('Já existe uma fazenda com esse nome.', { name: 'Nome em uso nesta empresa' }),
-    );
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValue(new FormSubmitError('Já existe uma fazenda com esse nome.', { name: 'Nome em uso nesta empresa' }));
     const { user } = renderForm({
       onSubmit,
       defaultValues: { name: 'Fazenda Três Barras', state: 'mg', area: '1240', notes: '' },
@@ -204,7 +212,10 @@ describe('EntityForm', () => {
   });
 
   it('o erro geral some ao enviar de novo', async () => {
-    const onSubmit = vi.fn().mockRejectedValueOnce(new FormSubmitError('Sem conexão com o servidor.')).mockResolvedValue(undefined);
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValueOnce(new FormSubmitError('Sem conexão com o servidor.'))
+      .mockResolvedValue(undefined);
     const { user } = renderForm({
       onSubmit,
       defaultValues: { name: 'Fazenda Três Barras', state: 'mg', area: '1240', notes: '' },
@@ -290,5 +301,60 @@ describe('EntityForm', () => {
   it('o rótulo do envio é configurável, começando pelo verbo', () => {
     renderForm({ submitLabel: 'Cadastrar fazenda' });
     expect(screen.getByRole('button', { name: 'Cadastrar fazenda' })).toHaveAttribute('type', 'submit');
+  });
+
+  describe('seção recolhida', () => {
+    const collapsible = sections.map((section, index) => ({ ...section, id: `s${index}`, collapsed: index === 1 }));
+
+    it('nasce recolhida, abre no clique e a barra de ações fica fixa', async () => {
+      const user = userEvent.setup();
+      render(
+        <EntityForm
+          schema={farmSchema}
+          defaultValues={defaultValues}
+          sections={collapsible}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      const toggle = screen.getAllByRole('button', { name: 'Preencher' })[0]!;
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await user.click(toggle);
+      expect(screen.getByRole('button', { name: 'Recolher' })).toHaveAttribute('aria-expanded', 'true');
+      const dock = screen.getByRole('button', { name: 'Cancelar' }).closest('[data-slot=entity-form-actions]');
+      expect(dock).toHaveClass('sticky');
+      expect(dock).not.toHaveClass('-mx-1');
+    });
+
+    it('abre sozinha quando um campo dela tem erro', async () => {
+      const user = userEvent.setup();
+      render(
+        <EntityForm
+          schema={farmSchema}
+          defaultValues={defaultValues}
+          sections={collapsible}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      await user.click(screen.getByRole('button', { name: 'Salvar' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Recolher' })).toBeInTheDocument());
+    });
+
+    it('avisa na barra de ações quando há alterações não salvas', async () => {
+      const user = userEvent.setup();
+      render(
+        <EntityForm
+          schema={farmSchema}
+          defaultValues={defaultValues}
+          sections={sections}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      );
+      expect(screen.queryByText('Alterações não salvas')).not.toBeInTheDocument();
+      await user.type(screen.getByRole('textbox', { name: /Nome da fazenda/ }), 'Três Barras');
+      expect(await screen.findByText('Alterações não salvas')).toBeInTheDocument();
+    });
   });
 });

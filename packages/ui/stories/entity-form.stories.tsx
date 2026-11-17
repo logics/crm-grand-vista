@@ -60,7 +60,12 @@ const sections: EntityFormSection<FarmInput>[] = [
     description: 'Como a fazenda aparece nas listas e no funil.',
     fields: [
       { name: 'name', label: 'Nome da fazenda', render: (field) => <Input {...field} /> },
-      { name: 'registration', label: 'Matrícula', hint: 'Do cartório de registro de imóveis', render: (field) => <Input {...field} /> },
+      {
+        name: 'registration',
+        label: 'Matrícula',
+        hint: 'Do cartório de registro de imóveis',
+        render: (field) => <Input {...field} />,
+      },
       { name: 'municipality', label: 'Município', render: (field) => <Input {...field} icon="map-pin" /> },
       {
         name: 'aptitude',
@@ -161,4 +166,15 @@ export const ErroDoServidor: Story = {
 export const SecoesAncoradas: Story = {
   name: 'Seções ancoradas',
   args: { sections: sections.map((section, index) => ({ ...section, id: index === 0 ? 'identificacao' : 'area-e-valor' })) },
+};
+
+export const SecaoRecolhida: Story = {
+  name: 'Seção recolhida',
+  args: {
+    sections: sections.map((section, index) => ({
+      ...section,
+      id: index === 0 ? 'identificacao' : 'area-e-valor',
+      collapsed: index === 1,
+    })),
+  },
 };

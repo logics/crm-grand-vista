@@ -1,9 +1,21 @@
-import { Badge, Button, ConfirmDialog, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@crm/ui';
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@crm/ui';
 import { FARM_DELETE_NOT_INACTIVE_MESSAGE } from '@crm/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { ErrorMessage } from '../../shell/error-message.js';
+import { RecordHistoryButton } from '../../history/record-history-button.js';
 import { RecordSections } from '../../record-sections/record-sections.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
@@ -11,7 +23,7 @@ import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
 import { farmSections } from './farm-sections.js';
-import { deleteFarm, fetchFarm } from './farms-api.js';
+import { deleteFarm, fetchFarm, fetchFarmHistory } from './farms-api.js';
 
 /** Ficha da fazenda: cabeçalho e as seções registradas. */
 export function FarmPage() {
@@ -34,7 +46,8 @@ export function FarmPage() {
   const farm = useTenantQuery(['farms', id], (tenant) => fetchFarm(tenant, id));
 
   if (farm.isPending) return <LoadingState />;
-  if (!farm.data) return <LoadFailedState inline title="Não foi possível carregar a fazenda" onRetry={() => void farm.refetch()} />;
+  if (!farm.data)
+    return <LoadFailedState inline title="Não foi possível carregar a fazenda" onRetry={() => void farm.refetch()} />;
   const record = farm.data;
 
   return (
@@ -42,27 +55,34 @@ export function FarmPage() {
       <PageHeader
         title={record.name}
         action={
-          (canEdit || canDelete) && (
-            <div className="flex gap-2">
-              {canEdit && (
-                <Button icon="pencil" onClick={() => navigate(tenantPath(slug, `farms/${id}/edit`))}>
-                  Editar
-                </Button>
-              )}
-              {canDelete && (
-                <Button
-                  variant="danger"
-                  icon="trash-2"
-                  onClick={() => {
-                    remove.reset();
-                    setConfirmingDelete(true);
-                  }}
-                >
-                  Excluir
-                </Button>
-              )}
-            </div>
-          )
+          <div className="flex gap-2">
+            <RecordHistoryButton
+              subject="nesta fazenda"
+              queryKey={['farms', id]}
+              fetchPage={(tenant, cursor) => fetchFarmHistory(tenant, id, cursor)}
+            />
+            {(canEdit || canDelete) && (
+              <>
+                {canEdit && (
+                  <Button icon="pencil" onClick={() => navigate(tenantPath(slug, `farms/${id}/edit`))}>
+                    Editar
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    variant="danger"
+                    icon="trash-2"
+                    onClick={() => {
+                      remove.reset();
+                      setConfirmingDelete(true);
+                    }}
+                  >
+                    Excluir
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         }
       />
       {remove.error && <ErrorMessage>{remove.error.message}</ErrorMessage>}

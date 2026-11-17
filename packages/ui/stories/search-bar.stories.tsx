@@ -26,3 +26,8 @@ export const ComFiltros: Story = {
 };
 
 export const SemMoldura: Story = { name: 'Sem moldura', args: { bare: true } };
+
+export const OutroIcone: Story = {
+  name: 'Outro ícone',
+  args: { buttonLabel: 'Filtrar', buttonIcon: 'sliders-horizontal' },
+};

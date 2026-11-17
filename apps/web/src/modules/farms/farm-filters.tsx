@@ -124,30 +124,33 @@ export function FarmFilters({ query, update }: FarmList) {
   const hasPrice = query.priceMin !== undefined || query.priceMax !== undefined;
   const moreCount = activeMoreFilters(query);
 
+  // Uma segunda linha, abaixo da busca: todo filtro com rótulo em cima, alinhados pela base.
   return (
-    <>
-      <MunicipalityPicker
-        multiple
-        allowUf
-        aria-label="Região"
-        size="sm"
-        className="w-64"
-        search={searchRegion}
-        resolve={resolveRegion}
-        value={query.region ?? []}
-        onChange={(selected) => update({ region: selected.length > 0 ? selected.map(regionKey) : undefined })}
-      />
-      <VocabularyField
-        multiple
-        vocabulary="commercial-statuses"
-        mode="filter"
-        size="sm"
-        className="w-56"
-        aria-label={fields.commercial_status_id.label}
-        placeholder="Todos menos desativadas"
-        value={query.commercialStatusId ?? []}
-        onChange={(entries) => update({ commercialStatusId: idList(entries) })}
-      />
+    <div className="order-last flex basis-full flex-wrap items-end gap-4">
+      <Field label="Região" className="w-72">
+        <MunicipalityPicker
+          multiple
+          allowUf
+          aria-label="Região"
+          size="sm"
+          search={searchRegion}
+          resolve={resolveRegion}
+          value={query.region ?? []}
+          onChange={(selected) => update({ region: selected.length > 0 ? selected.map(regionKey) : undefined })}
+        />
+      </Field>
+      <Field label={fields.commercial_status_id.label} className="w-56">
+        <VocabularyField
+          multiple
+          vocabulary="commercial-statuses"
+          mode="filter"
+          size="sm"
+          aria-label={fields.commercial_status_id.label}
+          placeholder="Todos menos desativadas"
+          value={query.commercialStatusId ?? []}
+          onChange={(entries) => update({ commercialStatusId: idList(entries) })}
+        />
+      </Field>
       <Field label={`${fields.total_area_ha.label} mín.`} className="w-36">
         <AreaInput
           size="sm"
@@ -166,14 +169,28 @@ export function FarmFilters({ query, update }: FarmList) {
           onChange={(value) => update({ areaMax: value ?? undefined })}
         />
       </Field>
-      <Field label={`${fields.asking_price.label} mín.`} hint={PRICE_NOTICE} className="w-44">
-        <MoneyInput size="sm" disabled={query.noPrice} value={query.priceMin ?? null} onChange={(value) => update({ priceMin: value ?? undefined })} />
+      <Field label={`${fields.asking_price.label} mín.`} className="w-44">
+        <MoneyInput
+          size="sm"
+          disabled={query.noPrice}
+          value={query.priceMin ?? null}
+          onChange={(value) => update({ priceMin: value ?? undefined })}
+        />
       </Field>
       <Field label={`${fields.asking_price.label} máx.`} className="w-44">
-        <MoneyInput size="sm" disabled={query.noPrice} value={query.priceMax ?? null} onChange={(value) => update({ priceMax: value ?? undefined })} />
+        <MoneyInput
+          size="sm"
+          disabled={query.noPrice}
+          value={query.priceMax ?? null}
+          onChange={(value) => update({ priceMax: value ?? undefined })}
+        />
       </Field>
       <Field orientation="horizontal" label="Sem preço">
-        <Checkbox disabled={hasPrice} checked={query.noPrice === true} onCheckedChange={(checked) => update({ noPrice: checked === true ? true : undefined })} />
+        <Checkbox
+          disabled={hasPrice}
+          checked={query.noPrice === true}
+          onCheckedChange={(checked) => update({ noPrice: checked === true ? true : undefined })}
+        />
       </Field>
       <Popover>
         <PopoverTrigger asChild>
@@ -181,7 +198,10 @@ export function FarmFilters({ query, update }: FarmList) {
             Mais filtros
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="flex max-h-[70vh] w-[calc(var(--space-12)*8)] max-w-[calc(100vw-var(--space-8))] flex-col gap-4 overflow-y-auto">
+        <PopoverContent
+          align="start"
+          className="flex max-h-[70vh] w-[calc(var(--space-12)*8)] max-w-[calc(100vw-var(--space-8))] flex-col gap-4 overflow-y-auto"
+        >
           <Field label={fields.trading_post_id.label}>
             <VocabularyField
               multiple
@@ -225,7 +245,12 @@ export function FarmFilters({ query, update }: FarmList) {
             ] as const
           ).map(([key, label]) => (
             <Field key={key} label={label}>
-              <FixedMultiSelect label={label} source={levelSource} value={query[key]} onChange={(ids) => update({ [key]: ids })} />
+              <FixedMultiSelect
+                label={label}
+                source={levelSource}
+                value={query[key]}
+                onChange={(ids) => update({ [key]: ids })}
+              />
             </Field>
           ))}
           <Field label={fields.document_status.label}>
@@ -280,6 +305,8 @@ export function FarmFilters({ query, update }: FarmList) {
           )}
         </PopoverContent>
       </Popover>
-    </>
+      {/* o aviso só aparece quando o filtro de valor está em uso: fora disso, é ruído */}
+      {hasPrice && <p className="basis-full text-xs text-text-faint">{PRICE_NOTICE}</p>}
+    </div>
   );
 }

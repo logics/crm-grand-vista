@@ -12,11 +12,8 @@ import {
 } from '@crm/shared';
 import { SpecList } from '@crm/ui';
 import type { ReactNode } from 'react';
-import { RecordHistory } from '../../history/record-history.js';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
-import { useTenantSlug } from '../../shell/tenant-query.js';
 import { useAreaFormatter } from '../settings/display-context.js';
-import { fetchFarmHistory } from './farms-api.js';
 
 // Seções da ficha da fazenda, sobre o mesmo mecanismo da ficha do contato. Cada
 // spec que pendura algo na ficha (mapa, galerias, documentos, cadeia de
@@ -35,7 +32,10 @@ function pricingItems(record: Farm) {
   if (record.pricingMode === 'brl' && record.askingPrice) {
     return [
       { label: fields.asking_price.label, value: formatMoney(record.askingPrice) },
-      { label: PRICE_DERIVATIVE_LABELS.pricePerHectare, value: derived.pricePerHectare ? formatMoney(derived.pricePerHectare) : null },
+      {
+        label: PRICE_DERIVATIVE_LABELS.pricePerHectare,
+        value: derived.pricePerHectare ? formatMoney(derived.pricePerHectare) : null,
+      },
       {
         label: PRICE_DERIVATIVE_LABELS.pricePerUsableHectare,
         value: derived.pricePerUsableHectare ? formatMoney(derived.pricePerUsableHectare) : null,
@@ -52,7 +52,10 @@ function pricingItems(record: Farm) {
     return [
       { label: fields.valuation_bags.label, value: `${formatBags(record.valuationBags)} ${unit}` },
       { label: fields.valuation_crop_id.label, value: record.valuationCrop?.name ?? null },
-      { label: PRICE_DERIVATIVE_LABELS.bagsPerHectare, value: derived.bagsPerHectare ? formatBags(derived.bagsPerHectare) : null },
+      {
+        label: PRICE_DERIVATIVE_LABELS.bagsPerHectare,
+        value: derived.bagsPerHectare ? formatBags(derived.bagsPerHectare) : null,
+      },
     ];
   }
   return [{ label: fields.pricing_mode.label, value: PRICE_DERIVATIVE_LABELS.noPrice }];
@@ -88,14 +91,20 @@ function IdentificationBlock({ record }: { record: Farm }) {
   );
 }
 
-/** "Maria (principal), João": o principal marcado. */
-const ownersText = (owners: Farm['owners']) =>
-  owners.length === 0 ? null : owners.map((owner) => (owner.isPrimary ? `${owner.name} (principal)` : owner.name)).join(', ');
+/** O principal e, à parte, os demais; o título do bloco já diz "Proprietários". */
+function ownerItems(owners: Farm['owners']) {
+  const primary = owners.find((owner) => owner.isPrimary);
+  const others = owners.filter((owner) => !owner.isPrimary).map((owner) => owner.name);
+  return [
+    { label: 'Principal', value: primary?.name ?? null },
+    ...(others.length > 0 ? [{ label: others.length > 1 ? 'Demais' : 'Outro', value: others.join(', ') }] : []),
+  ];
+}
 
 function OwnersBlock({ record }: { record: Farm }) {
   return (
     <Block title="Proprietários">
-      <SpecList items={[{ label: 'Proprietários', value: ownersText(record.owners) }]} />
+      <SpecList items={ownerItems(record.owners)} />
     </Block>
   );
 }
@@ -129,6 +138,20 @@ function CommercialBlock({ record }: { record: Farm }) {
 }
 
 function TechnicalBlock({ record }: { record: Farm }) {
+  const notes = (
+    [
+      ['document_notes', record.documentNotes],
+      ['soil', record.soil],
+      ['topography', record.topography],
+      ['water', record.water],
+      ['historical_productivity', record.historicalProductivity],
+      ['infrastructure', record.infrastructure],
+      ['technical_summary', record.technicalSummary],
+      ['differentials', record.differentials],
+    ] as const
+  )
+    .filter(([, value]) => value)
+    .map(([key, value]) => ({ label: fields[key].label, value }));
   const coordinates = record.latitude !== null && record.longitude !== null ? `${record.latitude}, ${record.longitude}` : null;
   return (
     <Block title="Técnico">
@@ -141,23 +164,15 @@ function TechnicalBlock({ record }: { record: Farm }) {
           { label: fields.productive_potential.label, value: level(record.productivePotential) },
           { label: fields.distance_to_highway_km.label, value: km(record.distanceToHighwayKm) },
           { label: fields.distance_to_warehouse_km.label, value: km(record.distanceToWarehouseKm) },
-          { label: fields.document_status.label, value: record.documentStatus ? DOCUMENT_STATUS_LABELS[record.documentStatus] : null },
+          {
+            label: fields.document_status.label,
+            value: record.documentStatus ? DOCUMENT_STATUS_LABELS[record.documentStatus] : null,
+          },
           { label: 'Coordenadas', value: coordinates, mono: true },
         ]}
       />
-      <SpecList
-        columns={1}
-        items={[
-          { label: fields.document_notes.label, value: record.documentNotes },
-          { label: fields.soil.label, value: record.soil },
-          { label: fields.topography.label, value: record.topography },
-          { label: fields.water.label, value: record.water },
-          { label: fields.historical_productivity.label, value: record.historicalProductivity },
-          { label: fields.infrastructure.label, value: record.infrastructure },
-          { label: fields.technical_summary.label, value: record.technicalSummary },
-          { label: fields.differentials.label, value: record.differentials },
-        ]}
-      />
+      {/* textos longos: só os preenchidos — oito travessões em coluna única são ruído */}
+      {notes.length > 0 && <SpecList columns={1} items={notes} />}
     </Block>
   );
 }
@@ -183,15 +198,4 @@ function DataSection({ record }: { record: Farm }) {
   );
 }
 
-function HistorySection({ record }: { record: Farm }) {
-  const slug = useTenantSlug();
-  return (
-    <RecordHistory
-      queryKey={['farms', record.id]}
-      fetchPage={(_slug, cursor) => fetchFarmHistory(slug, record.id, cursor)}
-    />
-  );
-}
-
 farmSections.register({ key: 'data', title: 'Dados', order: 10, component: DataSection });
-farmSections.register({ key: 'record-history', title: 'Histórico de alterações', order: 1000, component: HistorySection });
