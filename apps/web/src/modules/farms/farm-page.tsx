@@ -4,15 +4,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { ErrorMessage } from '../../shell/error-message.js';
+import { RecordHistoryButton } from '../../history/record-history-button.js';
 import { RecordSections } from '../../record-sections/record-sections.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
 import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
-import { FarmHistoryDialog } from './farm-history-dialog.js';
 import { farmSections } from './farm-sections.js';
-import { deleteFarm, fetchFarm } from './farms-api.js';
+import { deleteFarm, fetchFarm, fetchFarmHistory } from './farms-api.js';
 
 /** Ficha da fazenda: cabeçalho e as seções registradas. */
 export function FarmPage() {
@@ -23,7 +23,6 @@ export function FarmPage() {
   const canDelete = useCan('fazendas.excluir');
   const queryClient = useQueryClient();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [showingHistory, setShowingHistory] = useState(false);
   // A recusa (409: a fazenda deixou de estar desativada) traz a mensagem pronta e a ficha continua na tela.
   const remove = useMutation({
     mutationFn: () => deleteFarm(slug, id),
@@ -45,9 +44,11 @@ export function FarmPage() {
         title={record.name}
         action={
           <div className="flex gap-2">
-            <Button variant="ghost" icon="clock" onClick={() => setShowingHistory(true)}>
-              Histórico
-            </Button>
+            <RecordHistoryButton
+              subject="nesta fazenda"
+              queryKey={['farms', id]}
+              fetchPage={(tenant, cursor) => fetchFarmHistory(tenant, id, cursor)}
+            />
             {(canEdit || canDelete) && (
               <>
               {canEdit && (
@@ -72,7 +73,6 @@ export function FarmPage() {
           </div>
         }
       />
-      <FarmHistoryDialog farmId={id} open={showingHistory} onOpenChange={setShowingHistory} />
       {remove.error && <ErrorMessage>{remove.error.message}</ErrorMessage>}
       {record.commercialStatus.systemMeaning === 'inactive' ? (
         <ConfirmDialog
