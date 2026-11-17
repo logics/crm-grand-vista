@@ -128,28 +128,28 @@ export function FarmFilters({ query, update }: FarmList) {
   return (
     <div className="order-last flex basis-full flex-wrap items-end gap-4">
       <Field label="Região" className="w-72">
-      <MunicipalityPicker
-        multiple
-        allowUf
-        aria-label="Região"
-        size="sm"
-        search={searchRegion}
-        resolve={resolveRegion}
-        value={query.region ?? []}
-        onChange={(selected) => update({ region: selected.length > 0 ? selected.map(regionKey) : undefined })}
-      />
+        <MunicipalityPicker
+          multiple
+          allowUf
+          aria-label="Região"
+          size="sm"
+          search={searchRegion}
+          resolve={resolveRegion}
+          value={query.region ?? []}
+          onChange={(selected) => update({ region: selected.length > 0 ? selected.map(regionKey) : undefined })}
+        />
       </Field>
       <Field label={fields.commercial_status_id.label} className="w-56">
-      <VocabularyField
-        multiple
-        vocabulary="commercial-statuses"
-        mode="filter"
-        size="sm"
-        aria-label={fields.commercial_status_id.label}
-        placeholder="Todos menos desativadas"
-        value={query.commercialStatusId ?? []}
-        onChange={(entries) => update({ commercialStatusId: idList(entries) })}
-      />
+        <VocabularyField
+          multiple
+          vocabulary="commercial-statuses"
+          mode="filter"
+          size="sm"
+          aria-label={fields.commercial_status_id.label}
+          placeholder="Todos menos desativadas"
+          value={query.commercialStatusId ?? []}
+          onChange={(entries) => update({ commercialStatusId: idList(entries) })}
+        />
       </Field>
       <Field label={`${fields.total_area_ha.label} mín.`} className="w-36">
         <AreaInput
@@ -170,13 +170,27 @@ export function FarmFilters({ query, update }: FarmList) {
         />
       </Field>
       <Field label={`${fields.asking_price.label} mín.`} className="w-44">
-        <MoneyInput size="sm" disabled={query.noPrice} value={query.priceMin ?? null} onChange={(value) => update({ priceMin: value ?? undefined })} />
+        <MoneyInput
+          size="sm"
+          disabled={query.noPrice}
+          value={query.priceMin ?? null}
+          onChange={(value) => update({ priceMin: value ?? undefined })}
+        />
       </Field>
       <Field label={`${fields.asking_price.label} máx.`} className="w-44">
-        <MoneyInput size="sm" disabled={query.noPrice} value={query.priceMax ?? null} onChange={(value) => update({ priceMax: value ?? undefined })} />
+        <MoneyInput
+          size="sm"
+          disabled={query.noPrice}
+          value={query.priceMax ?? null}
+          onChange={(value) => update({ priceMax: value ?? undefined })}
+        />
       </Field>
       <Field orientation="horizontal" label="Sem preço">
-        <Checkbox disabled={hasPrice} checked={query.noPrice === true} onCheckedChange={(checked) => update({ noPrice: checked === true ? true : undefined })} />
+        <Checkbox
+          disabled={hasPrice}
+          checked={query.noPrice === true}
+          onCheckedChange={(checked) => update({ noPrice: checked === true ? true : undefined })}
+        />
       </Field>
       <Popover>
         <PopoverTrigger asChild>
@@ -184,7 +198,10 @@ export function FarmFilters({ query, update }: FarmList) {
             Mais filtros
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="flex max-h-[70vh] w-[calc(var(--space-12)*8)] max-w-[calc(100vw-var(--space-8))] flex-col gap-4 overflow-y-auto">
+        <PopoverContent
+          align="start"
+          className="flex max-h-[70vh] w-[calc(var(--space-12)*8)] max-w-[calc(100vw-var(--space-8))] flex-col gap-4 overflow-y-auto"
+        >
           <Field label={fields.trading_post_id.label}>
             <VocabularyField
               multiple
@@ -228,7 +245,12 @@ export function FarmFilters({ query, update }: FarmList) {
             ] as const
           ).map(([key, label]) => (
             <Field key={key} label={label}>
-              <FixedMultiSelect label={label} source={levelSource} value={query[key]} onChange={(ids) => update({ [key]: ids })} />
+              <FixedMultiSelect
+                label={label}
+                source={levelSource}
+                value={query[key]}
+                onChange={(ids) => update({ [key]: ids })}
+              />
             </Field>
           ))}
           <Field label={fields.document_status.label}>

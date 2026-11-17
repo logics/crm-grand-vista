@@ -103,6 +103,7 @@ pnpm storybook          # vitrine do Design System (packages/ui) em localhost:60
 pnpm build              # artefatos de produção dos cinco pacotes
 pnpm typecheck          # tsc --noEmit strict em todos os pacotes
 pnpm lint               # oxlint, com as regras de aderência ao Design System
+pnpm exec prettier --write <arquivos>  # formata (.prettierrc.json); rode nos arquivos que a rodada tocou — o repo ainda não foi formatado inteiro
 pnpm test               # projeto Vitest `unit` — sem banco, sem container
 pnpm test:integration   # projeto `integration` — cria/reforça e zera o banco de teste do checkout (`crm_<n>_test`; `crm_test` no CI e em main), aplica as migrations do zero e derruba os bancos de branches já mergeadas; ver docs/testes-banco-por-issue.md
 pnpm test:e2e           # Playwright

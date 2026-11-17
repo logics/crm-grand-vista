@@ -92,7 +92,8 @@ export function AuditTimeline({ className, items, ...props }: AuditTimelineProps
                   {related.changes && related.changes.length > 0 && <ChangeList changes={related.changes} className="mt-1" />}
                 </div>
               ))}
-              {item.author && <span className="text-micro text-text-faint">{item.author}</span>}
+              {/* linha própria: em linha, colava no botão "Ver valores iniciais" ou no último campo */}
+              {item.author && <p className="mt-2 text-micro text-text-faint">{item.author}</p>}
             </div>
           </li>
         );

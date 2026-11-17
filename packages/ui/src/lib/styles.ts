@@ -115,8 +115,7 @@ export const accentRing = 'inset-ring inset-ring-brand-accent/55';
  * Cartão que leva a algum lugar: sobe um pixel ao passar o mouse. A sombra do
  * hover fica com cada cartão, porque depende do tom da superfície.
  */
-export const liftOnHover =
-  'cursor-pointer transition-[box-shadow,translate] duration-normal ease-standard hover:-translate-y-px';
+export const liftOnHover = 'cursor-pointer transition-[box-shadow,translate] duration-normal ease-standard hover:-translate-y-px';
 
 /** Moldura de foto: areia de fundo, cantos de mídia; sem foto, o rótulo fica no centro. */
 export const mediaFrame = 'relative grid place-items-center overflow-hidden rounded-media bg-surface-muted';

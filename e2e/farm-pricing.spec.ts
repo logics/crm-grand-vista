@@ -7,7 +7,10 @@ const [tenant] = twoTenantUser.tenants;
 async function chooseMunicipality(page: Page) {
   await page.getByRole('combobox', { name: /Município/ }).click();
   await page.getByPlaceholder('Buscar município').fill('Rio Verde');
-  await page.getByRole('option', { name: /Rio Verde.*GO/ }).first().click();
+  await page
+    .getByRole('option', { name: /Rio Verde.*GO/ })
+    .first()
+    .click();
 }
 
 test('avaliação em sacas por alqueire, troca para reais e a mudança no histórico', async ({ page }) => {

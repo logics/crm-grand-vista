@@ -32,7 +32,10 @@ function pricingItems(record: Farm) {
   if (record.pricingMode === 'brl' && record.askingPrice) {
     return [
       { label: fields.asking_price.label, value: formatMoney(record.askingPrice) },
-      { label: PRICE_DERIVATIVE_LABELS.pricePerHectare, value: derived.pricePerHectare ? formatMoney(derived.pricePerHectare) : null },
+      {
+        label: PRICE_DERIVATIVE_LABELS.pricePerHectare,
+        value: derived.pricePerHectare ? formatMoney(derived.pricePerHectare) : null,
+      },
       {
         label: PRICE_DERIVATIVE_LABELS.pricePerUsableHectare,
         value: derived.pricePerUsableHectare ? formatMoney(derived.pricePerUsableHectare) : null,
@@ -49,7 +52,10 @@ function pricingItems(record: Farm) {
     return [
       { label: fields.valuation_bags.label, value: `${formatBags(record.valuationBags)} ${unit}` },
       { label: fields.valuation_crop_id.label, value: record.valuationCrop?.name ?? null },
-      { label: PRICE_DERIVATIVE_LABELS.bagsPerHectare, value: derived.bagsPerHectare ? formatBags(derived.bagsPerHectare) : null },
+      {
+        label: PRICE_DERIVATIVE_LABELS.bagsPerHectare,
+        value: derived.bagsPerHectare ? formatBags(derived.bagsPerHectare) : null,
+      },
     ];
   }
   return [{ label: fields.pricing_mode.label, value: PRICE_DERIVATIVE_LABELS.noPrice }];
@@ -158,7 +164,10 @@ function TechnicalBlock({ record }: { record: Farm }) {
           { label: fields.productive_potential.label, value: level(record.productivePotential) },
           { label: fields.distance_to_highway_km.label, value: km(record.distanceToHighwayKm) },
           { label: fields.distance_to_warehouse_km.label, value: km(record.distanceToWarehouseKm) },
-          { label: fields.document_status.label, value: record.documentStatus ? DOCUMENT_STATUS_LABELS[record.documentStatus] : null },
+          {
+            label: fields.document_status.label,
+            value: record.documentStatus ? DOCUMENT_STATUS_LABELS[record.documentStatus] : null,
+          },
           { label: 'Coordenadas', value: coordinates, mono: true },
         ]}
       />

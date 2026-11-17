@@ -19,7 +19,10 @@ test('cadastra fazenda com dois proprietários, troca o principal e vê a seçã
   await page.getByRole('textbox', { name: /Nome/ }).fill('Fazenda dos Irmãos E2E');
   await page.getByRole('combobox', { name: /Município/ }).click();
   await page.getByPlaceholder('Buscar município').fill('Rio Verde');
-  await page.getByRole('option', { name: /Rio Verde.*GO/ }).first().click();
+  await page
+    .getByRole('option', { name: /Rio Verde.*GO/ })
+    .first()
+    .click();
   await page.getByRole('textbox', { name: /Área total/ }).fill('500');
   await addOwner(page, maria);
   await addOwner(page, joao);

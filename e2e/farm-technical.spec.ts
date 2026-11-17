@@ -7,7 +7,10 @@ const [tenant] = twoTenantUser.tenants;
 async function chooseMunicipality(page: Page) {
   await page.getByRole('combobox', { name: /Município/ }).click();
   await page.getByPlaceholder('Buscar município').fill('Rio Verde');
-  await page.getByRole('option', { name: /Rio Verde.*GO/ }).first().click();
+  await page
+    .getByRole('option', { name: /Rio Verde.*GO/ })
+    .first()
+    .click();
 }
 
 test('preenche o técnico, troca a aptidão e vê no histórico; sair sujo pergunta', async ({ page }) => {

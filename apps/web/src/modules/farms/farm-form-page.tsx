@@ -95,7 +95,10 @@ function DocumentStatusSelect({
   label: string;
 }) {
   return (
-    <Select value={value ?? NOT_INFORMED} onValueChange={(next) => onChange(next === NOT_INFORMED ? null : (next as DocumentStatus))}>
+    <Select
+      value={value ?? NOT_INFORMED}
+      onValueChange={(next) => onChange(next === NOT_INFORMED ? null : (next as DocumentStatus))}
+    >
       <SelectTrigger aria-label={label} onBlur={onBlur}>
         <SelectValue />
       </SelectTrigger>
@@ -162,7 +165,8 @@ function pricingBlockOf(values: z.output<typeof farmFormSchema>) {
     askingPrice: mode === 'brl' ? (values.askingPrice ?? null) : null,
     valuationBags: bags ? (values.valuationBags ?? null) : null,
     valuationBagsUnit: bags ? (values.valuationBagsUnit ?? null) : null,
-    valuationBagsAlqueireType: bags && values.valuationBagsUnit === 'per_alqueire' ? (values.valuationBagsAlqueireType ?? null) : null,
+    valuationBagsAlqueireType:
+      bags && values.valuationBagsUnit === 'per_alqueire' ? (values.valuationBagsAlqueireType ?? null) : null,
     valuationCropId: bags ? (values.valuationCropId ?? null) : null,
   };
 }
@@ -245,8 +249,20 @@ function changesOf(farm: Farm, values: z.output<typeof farmFormSchema>): UpdateF
     changes.longitude = values.longitude ?? null;
   }
   // O conjunto só vai se mudou: abrir e salvar sem mexer não gera PATCH nem histórico.
-  if (!sameIds(values.aptitudeIds ?? [], farm.aptitudes.map((item) => item.id))) changes.aptitudeIds = values.aptitudeIds ?? [];
-  if (!sameIds(values.cropIds ?? [], farm.crops.map((item) => item.id))) changes.cropIds = values.cropIds ?? [];
+  if (
+    !sameIds(
+      values.aptitudeIds ?? [],
+      farm.aptitudes.map((item) => item.id),
+    )
+  )
+    changes.aptitudeIds = values.aptitudeIds ?? [];
+  if (
+    !sameIds(
+      values.cropIds ?? [],
+      farm.crops.map((item) => item.id),
+    )
+  )
+    changes.cropIds = values.cropIds ?? [];
   return changes;
 }
 
@@ -296,7 +312,9 @@ function FarmForm({ farm }: { farm: Farm | null }) {
   };
   const hasPricingValue = () => {
     const current = pricingFields.current;
-    return pricingMode === 'brl' ? !!current.askingPrice?.value : !!current.valuationBags?.value || !!current.valuationCropId?.value;
+    return pricingMode === 'brl'
+      ? !!current.askingPrice?.value
+      : !!current.valuationBags?.value || !!current.valuationCropId?.value;
   };
   const [matches, setMatches] = useState<FarmDuplicate[]>([]);
   const skipDuplicateCheck = useRef(false);
@@ -321,7 +339,15 @@ function FarmForm({ farm }: { farm: Farm | null }) {
       saved = Object.keys(changes).length > 0 ? await updateFarm(slug, farm.id, changes) : farm;
     } else {
       const pricing = pricingBlockOf(values);
-      const { pricingMode: _mode, askingPrice: _price, valuationBags: _bags, valuationBagsUnit: _unit, valuationBagsAlqueireType: _type, valuationCropId: _crop, ...base } = values;
+      const {
+        pricingMode: _mode,
+        askingPrice: _price,
+        valuationBags: _bags,
+        valuationBagsUnit: _unit,
+        valuationBagsAlqueireType: _type,
+        valuationCropId: _crop,
+        ...base
+      } = values;
       // Na criação só vai o que o modo usa: sem preço, nada de precificação no corpo.
       const used = Object.fromEntries(Object.entries(pricing).filter(([, value]) => value !== null));
       saved = await createFarm(slug, { ...base, ...used });
@@ -536,54 +562,54 @@ function FarmForm({ farm }: { farm: Farm | null }) {
     id: 'precificacao',
     title: 'Precificação',
     fields: [
-    {
-      name: 'pricingMode',
-      label: fields.pricing_mode.label,
-      render: (field) => (
-        <Select
-          value={field.value ?? NO_PRICE}
-          onValueChange={(value) => {
-            const next = value === NO_PRICE ? null : (value as PricingMode);
-            if (next === pricingMode) return;
-            const apply = () => {
-              for (const tracked of Object.values(pricingFields.current)) tracked.clear();
-              pricingFields.current = {};
-              setBagsUnit(null);
-              setPricingMode(next);
-              field.onChange(next);
-            };
-            if (hasPricingValue()) setPendingModeChange(() => apply);
-            else apply();
-          }}
-        >
-          <SelectTrigger aria-label={fields.pricing_mode.label} onBlur={field.onBlur}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_PRICE}>Sem preço</SelectItem>
-            {PRICING_MODES.map((mode) => (
-              <SelectItem key={mode} value={mode}>
-                {PRICING_MODE_LABELS[mode]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    ...(pricingMode === 'brl'
-      ? [
-          {
-            name: 'askingPrice',
-            label: fields.asking_price.label,
-            render: (field) => {
-              track('askingPrice', field.value, field.onChange);
-              return <MoneyInput {...field} value={field.value ?? null} onChange={(value) => field.onChange(value)} />;
-            },
-          } satisfies EntityFormField<FormValues>,
-        ]
-      : []),
-    ...(pricingMode === 'bags' ? bagsFields : []),
-  ],
+      {
+        name: 'pricingMode',
+        label: fields.pricing_mode.label,
+        render: (field) => (
+          <Select
+            value={field.value ?? NO_PRICE}
+            onValueChange={(value) => {
+              const next = value === NO_PRICE ? null : (value as PricingMode);
+              if (next === pricingMode) return;
+              const apply = () => {
+                for (const tracked of Object.values(pricingFields.current)) tracked.clear();
+                pricingFields.current = {};
+                setBagsUnit(null);
+                setPricingMode(next);
+                field.onChange(next);
+              };
+              if (hasPricingValue()) setPendingModeChange(() => apply);
+              else apply();
+            }}
+          >
+            <SelectTrigger aria-label={fields.pricing_mode.label} onBlur={field.onBlur}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_PRICE}>Sem preço</SelectItem>
+              {PRICING_MODES.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {PRICING_MODE_LABELS[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
+      },
+      ...(pricingMode === 'brl'
+        ? [
+            {
+              name: 'askingPrice',
+              label: fields.asking_price.label,
+              render: (field) => {
+                track('askingPrice', field.value, field.onChange);
+                return <MoneyInput {...field} value={field.value ?? null} onChange={(value) => field.onChange(value)} />;
+              },
+            } satisfies EntityFormField<FormValues>,
+          ]
+        : []),
+      ...(pricingMode === 'bags' ? bagsFields : []),
+    ],
   };
 
   const commercial: FormSection = {
@@ -607,14 +633,24 @@ function FarmForm({ farm }: { farm: Farm | null }) {
         name: 'salesPotential',
         label: fields.sales_potential.label,
         render: (field) => (
-          <LevelSelect aria-label={fields.sales_potential.label} value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} />
+          <LevelSelect
+            aria-label={fields.sales_potential.label}
+            value={field.value ?? null}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          />
         ),
       },
       {
         name: 'priority',
         label: fields.priority.label,
         render: (field) => (
-          <LevelSelect aria-label={fields.priority.label} value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} />
+          <LevelSelect
+            aria-label={fields.priority.label}
+            value={field.value ?? null}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          />
         ),
       },
     ],
@@ -661,21 +697,36 @@ function FarmForm({ farm }: { farm: Farm | null }) {
         name: 'waterAvailability',
         label: fields.water_availability.label,
         render: (field) => (
-          <LevelSelect aria-label={fields.water_availability.label} value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} />
+          <LevelSelect
+            aria-label={fields.water_availability.label}
+            value={field.value ?? null}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          />
         ),
       },
       {
         name: 'irrigationPotential',
         label: fields.irrigation_potential.label,
         render: (field) => (
-          <LevelSelect aria-label={fields.irrigation_potential.label} value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} />
+          <LevelSelect
+            aria-label={fields.irrigation_potential.label}
+            value={field.value ?? null}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          />
         ),
       },
       {
         name: 'productivePotential',
         label: fields.productive_potential.label,
         render: (field) => (
-          <LevelSelect aria-label={fields.productive_potential.label} value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} />
+          <LevelSelect
+            aria-label={fields.productive_potential.label}
+            value={field.value ?? null}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          />
         ),
       },
       {

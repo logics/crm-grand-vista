@@ -81,9 +81,7 @@ export function FarmOwnersField({ value, onChange, names = new Map() }: FarmOwne
           />
         </div>
       ))}
-      {canSearch && adding && (
-        <ContactField role="owner" aria-label="Novo proprietário" value={null} onChange={include} />
-      )}
+      {canSearch && adding && <ContactField role="owner" aria-label="Novo proprietário" value={null} onChange={include} />}
       {canSearch && !adding && (
         <div>
           <Button variant="secondary" size="sm" icon="plus" onClick={() => setAdding(true)}>

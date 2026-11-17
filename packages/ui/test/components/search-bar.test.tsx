@@ -39,4 +39,11 @@ describe('SearchBar', () => {
     await user.type(input, 'x');
     expect(onChange).toHaveBeenCalled();
   });
+
+  it('o botão usa a lupa por padrão e aceita outro glifo', () => {
+    const { rerender } = render(<SearchBar />);
+    expect(screen.getByRole('button', { name: 'Buscar' }).querySelector('svg')).toHaveClass('lucide-search');
+    rerender(<SearchBar buttonLabel="Filtrar" buttonIcon="sliders-horizontal" />);
+    expect(screen.getByRole('button', { name: 'Filtrar' }).querySelector('svg')).toHaveClass('lucide-sliders-horizontal');
+  });
 });
