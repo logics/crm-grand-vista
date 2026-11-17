@@ -43,8 +43,11 @@ test('avaliação em sacas por alqueire, troca para reais e a mudança no histó
 
   await expect(page.getByRole('definition').filter({ hasText: 'R$ 80.000.000,00' })).toBeVisible();
   await expect(page.getByText('Valor por hectare', { exact: true })).toBeVisible();
-  await expect(page.getByText('Modo de precificação').first()).toBeVisible();
-  await expect(page.getByText('Em sacas').first()).toBeVisible();
+  // a troca de modo fica no histórico, que abre pelo botão
+  await page.getByRole('button', { name: 'Histórico' }).click();
+  const history = page.getByRole('dialog');
+  await expect(history.getByText('Modo de precificação').first()).toBeVisible();
+  await expect(history.getByText('Em sacas').first()).toBeVisible();
 });
 
 test('abrir e salvar sem tocar em nada não gera entrada nova no histórico', async ({ page }) => {

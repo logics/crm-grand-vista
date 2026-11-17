@@ -143,3 +143,12 @@ export const reorderableRow =
 
 /** Faixa de aviso (não bloqueia): fundo e texto do status de atenção, com o respiro dos avisos de formulário. */
 export const warningBanner = 'flex flex-col gap-4 rounded-input bg-status-warning-bg px-6 py-5 text-sm text-status-warning-fg';
+
+/**
+ * Barra de ações que acompanha a rolagem (o rodapé do `EntityForm`): areia,
+ * não branca, com a sombra de painel flutuante, para não se confundir com os
+ * cartões das seções que passam por baixo. Sem margem negativa: dentro da área
+ * que rola, ela estouraria a largura e criaria rolagem lateral.
+ */
+export const actionDock =
+  'sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-x-6 gap-y-3 rounded-card bg-surface-muted px-6 py-4 shadow-lg max-mobile:rounded-card-mobile max-mobile:px-5';

@@ -302,7 +302,9 @@ describe('EntityForm', () => {
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       await user.click(toggle);
       expect(screen.getByRole('button', { name: 'Recolher' })).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByRole('button', { name: 'Cancelar' }).parentElement).toHaveClass('sticky');
+      const dock = screen.getByRole('button', { name: 'Cancelar' }).closest('[data-slot=entity-form-actions]');
+      expect(dock).toHaveClass('sticky');
+      expect(dock).not.toHaveClass('-mx-1');
     });
 
     it('abre sozinha quando um campo dela tem erro', async () => {
@@ -310,6 +312,14 @@ describe('EntityForm', () => {
       render(<EntityForm schema={farmSchema} defaultValues={defaultValues} sections={collapsible} onSubmit={vi.fn()} onCancel={vi.fn()} />);
       await user.click(screen.getByRole('button', { name: 'Salvar' }));
       await waitFor(() => expect(screen.getByRole('button', { name: 'Recolher' })).toBeInTheDocument());
+    });
+
+    it('avisa na barra de ações quando há alterações não salvas', async () => {
+      const user = userEvent.setup();
+      render(<EntityForm schema={farmSchema} defaultValues={defaultValues} sections={sections} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+      expect(screen.queryByText('Alterações não salvas')).not.toBeInTheDocument();
+      await user.type(screen.getByRole('textbox', { name: /Nome da fazenda/ }), 'Três Barras');
+      expect(await screen.findByText('Alterações não salvas')).toBeInTheDocument();
     });
   });
 });

@@ -11,6 +11,8 @@ async function createFarm(page: Page, name: string, aptitude: string) {
   await page.getByPlaceholder('Buscar município').fill('Rio Verde');
   await page.getByRole('option', { name: /Rio Verde.*GO/ }).first().click();
   await page.getByRole('textbox', { name: /Área total/ }).fill('500');
+  // a seção Técnico nasce recolhida no cadastro novo
+  await page.getByRole('button', { name: 'Preencher' }).click();
   await page.getByRole('combobox', { name: 'Aptidões' }).click();
   await page.getByRole('option', { name: aptitude }).click();
   await page.keyboard.press('Escape');

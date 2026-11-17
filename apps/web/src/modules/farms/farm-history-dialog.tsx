@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@crm/ui';
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@crm/ui';
 import { RecordHistory } from '../../history/record-history.js';
 import { useTenantSlug } from '../../shell/tenant-query.js';
 import { fetchFarmHistory } from './farms-api.js';
@@ -13,7 +13,9 @@ export function FarmHistoryDialog({ farmId, open, onOpenChange }: { farmId: stri
           <DialogTitle>Histórico de alterações</DialogTitle>
           <DialogDescription>Quem mudou o quê nesta fazenda, do mais recente ao mais antigo.</DialogDescription>
         </DialogHeader>
-        {open && <RecordHistory queryKey={['farms', farmId]} fetchPage={(_slug, cursor) => fetchFarmHistory(slug, farmId, cursor)} />}
+        <DialogBody>
+          {open && <RecordHistory queryKey={['farms', farmId]} fetchPage={(_slug, cursor) => fetchFarmHistory(slug, farmId, cursor)} />}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

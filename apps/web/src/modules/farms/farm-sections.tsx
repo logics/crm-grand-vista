@@ -85,14 +85,20 @@ function IdentificationBlock({ record }: { record: Farm }) {
   );
 }
 
-/** "Maria (principal), João": o principal marcado. */
-const ownersText = (owners: Farm['owners']) =>
-  owners.length === 0 ? null : owners.map((owner) => (owner.isPrimary ? `${owner.name} (principal)` : owner.name)).join(', ');
+/** O principal e, à parte, os demais; o título do bloco já diz "Proprietários". */
+function ownerItems(owners: Farm['owners']) {
+  const primary = owners.find((owner) => owner.isPrimary);
+  const others = owners.filter((owner) => !owner.isPrimary).map((owner) => owner.name);
+  return [
+    { label: 'Principal', value: primary?.name ?? null },
+    ...(others.length > 0 ? [{ label: others.length > 1 ? 'Demais' : 'Outro', value: others.join(', ') }] : []),
+  ];
+}
 
 function OwnersBlock({ record }: { record: Farm }) {
   return (
     <Block title="Proprietários">
-      <SpecList items={[{ label: 'Proprietários', value: ownersText(record.owners) }]} />
+      <SpecList items={ownerItems(record.owners)} />
     </Block>
   );
 }
@@ -126,6 +132,20 @@ function CommercialBlock({ record }: { record: Farm }) {
 }
 
 function TechnicalBlock({ record }: { record: Farm }) {
+  const notes = (
+    [
+      ['document_notes', record.documentNotes],
+      ['soil', record.soil],
+      ['topography', record.topography],
+      ['water', record.water],
+      ['historical_productivity', record.historicalProductivity],
+      ['infrastructure', record.infrastructure],
+      ['technical_summary', record.technicalSummary],
+      ['differentials', record.differentials],
+    ] as const
+  )
+    .filter(([, value]) => value)
+    .map(([key, value]) => ({ label: fields[key].label, value }));
   const coordinates = record.latitude !== null && record.longitude !== null ? `${record.latitude}, ${record.longitude}` : null;
   return (
     <Block title="Técnico">
@@ -142,19 +162,8 @@ function TechnicalBlock({ record }: { record: Farm }) {
           { label: 'Coordenadas', value: coordinates, mono: true },
         ]}
       />
-      <SpecList
-        columns={1}
-        items={[
-          { label: fields.document_notes.label, value: record.documentNotes },
-          { label: fields.soil.label, value: record.soil },
-          { label: fields.topography.label, value: record.topography },
-          { label: fields.water.label, value: record.water },
-          { label: fields.historical_productivity.label, value: record.historicalProductivity },
-          { label: fields.infrastructure.label, value: record.infrastructure },
-          { label: fields.technical_summary.label, value: record.technicalSummary },
-          { label: fields.differentials.label, value: record.differentials },
-        ]}
-      />
+      {/* textos longos: só os preenchidos — oito travessões em coluna única são ruído */}
+      {notes.length > 0 && <SpecList columns={1} items={notes} />}
     </Block>
   );
 }

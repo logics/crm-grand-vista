@@ -17,7 +17,7 @@ import { Card } from './card.js';
 import { ConfirmDialog } from './confirm-dialog.js';
 import { Field } from './field.js';
 import { Icon } from './icon.js';
-import { textLink } from '../lib/styles.js';
+import { actionDock, textLink } from '../lib/styles.js';
 
 // Formulário de cadastro em seções (fazenda, contato, oportunidade), validado
 // pelo mesmo schema Zod da fronteira HTTP. Cada seção é um `Card` com grade de
@@ -262,13 +262,22 @@ export function EntityForm<TSchema extends FormSchema>({
         );
       })}
       {/* sempre à vista: acompanha a rolagem, sem obrigar a ir até o fim do formulário */}
-      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap justify-end gap-4 rounded-card bg-surface-card p-4 shadow-md max-mobile:rounded-card-mobile">
-        <Button variant="ghost" onClick={cancel}>
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {submitLabel}
-        </Button>
+      <div data-slot="entity-form-actions" className={actionDock}>
+        {isDirty && (
+          <p role="status" className="mr-auto flex items-center gap-3 text-sm text-text-body max-mobile:w-full">
+            <span aria-hidden className="size-2 rounded-pill bg-brand-accent" />
+            Alterações não salvas
+          </p>
+        )}
+        {/* no mobile, os dois botões dividem a linha: o envio nunca cai sozinho para baixo */}
+        <div className="flex gap-4 max-mobile:w-full">
+          <Button variant="ghost" className="max-mobile:flex-1" onClick={cancel}>
+            Cancelar
+          </Button>
+          <Button type="submit" className="max-mobile:flex-1" disabled={isSubmitting}>
+            {submitLabel}
+          </Button>
+        </div>
       </div>
       <ConfirmDialog
         open={confirmingDiscard}

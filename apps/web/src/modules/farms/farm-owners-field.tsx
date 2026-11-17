@@ -54,7 +54,7 @@ export function FarmOwnersField({ value, onChange, names = new Map() }: FarmOwne
     onChange(value.map((owner) => ({ ...owner, isPrimary: owner.contactId === contactId })));
 
   return (
-    <div className="flex flex-col gap-gap-field">
+    <div className="flex flex-col gap-4">
       {value.map((owner) => (
         <div key={owner.contactId} className="flex items-center gap-3" data-owner-row={owner.contactId}>
           <div className="min-w-0 flex-1">

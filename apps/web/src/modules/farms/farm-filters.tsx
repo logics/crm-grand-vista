@@ -127,7 +127,7 @@ export function FarmFilters({ query, update }: FarmList) {
   // Uma segunda linha, abaixo da busca: todo filtro com rótulo em cima, alinhados pela base.
   return (
     <div className="order-last flex basis-full flex-wrap items-end gap-4">
-      <Field label="Região" className="w-64">
+      <Field label="Região" className="w-72">
       <MunicipalityPicker
         multiple
         allowUf
