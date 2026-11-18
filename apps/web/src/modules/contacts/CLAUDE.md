@@ -8,7 +8,7 @@ Lista, ficha e formulário de contatos.
 ## Convenções locais
 
 - Rotas: `contacts`, `contacts/new`, `contacts/:id`, `contacts/:id/edit`; menu "Contatos" com `contatos.ver`.
-- A ficha é `RecordSections` sobre `contactSections` (`contact-sections.tsx`): quem pendura algo na ficha registra a seção ali, sem editar a página. Dados e Histórico de alterações são as seções desta issue.
+- A ficha é `RecordSections` sobre `contactSections` (`contact-sections.tsx`): quem pendura algo na ficha registra a seção ali, sem editar a página. Dados é a seção desta issue; o histórico não é seção: abre pelo botão "Histórico" no cabeçalho (`RecordHistoryButton` de `src/history`, ver #170).
 - O formulário usa `createContactSchema` de `@crm/shared`, o mesmo da API.
 - Excluir pela ficha (`contatos.excluir`): `ConfirmDialog`; a recusa 409 da API (contato em uso) aparece na ficha com a mensagem pronta, sem navegar. Sucesso volta para a lista.
 - Classificação do cliente só aparece no formulário e na ficha com o papel comprador (`VocabularyField`); a origem do lead, sempre. Desmarcar o comprador com classificação preenchida abre o `ConfirmDialog` dizendo o que será apagado; ao confirmar, o campo é limpo e o `PATCH` leva `classificationId: null`. A ficha resolve os nomes por id nos endpoints de opções dos cadastros.

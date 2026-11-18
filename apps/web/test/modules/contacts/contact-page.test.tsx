@@ -69,7 +69,7 @@ afterEach(() => {
 });
 
 describe('ficha do contato', () => {
-  it('mostra as seções registradas, com Dados e o histórico', async () => {
+  it('mostra a seção Dados e o histórico só ao clicar em Histórico', async () => {
     stubFakeApi({
       session: session(),
       permissions: ['contatos.ver', 'contatos.editar'],
@@ -80,8 +80,12 @@ describe('ficha do contato', () => {
     expect(await screen.findByRole('heading', { name: 'Sebastião' })).toBeInTheDocument();
     const data = await findSection('data');
     expect(within(data).getByText('Corretor externo')).toBeInTheDocument();
-    expect(await screen.findByText('Papel adicionado: Comprador')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
+    expect(document.querySelector('[data-section="record-history"]')).toBeNull();
+    expect(screen.queryByText('Papel adicionado: Comprador')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Histórico' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Histórico de alterações' });
+    expect(await within(dialog).findByText('Papel adicionado: Comprador')).toBeInTheDocument();
   });
 
   it('a seção condicionada ao papel comprador só aparece quando o contato o tem', async () => {

@@ -1,9 +1,6 @@
 import { CONTACT_ROLES_LABEL, hasClassification, CONTACT_ROLE_LABELS, FIELD_REGISTRY, PERSON_TYPE_LABELS, contactNameLabel, formatPhone, formatTaxId, hasLegalName, type Contact } from '@crm/shared';
 import { SpecList } from '@crm/ui';
-import { RecordHistory } from '../../history/record-history.js';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
-import { useTenantSlug } from '../../shell/tenant-query.js';
-import { fetchContactHistory } from './contacts-api.js';
 import { useVocabularyName } from './vocabulary-name.js';
 
 // Seções da ficha do contato. Cada spec que pendura algo na ficha (perfil de
@@ -37,16 +34,5 @@ function DataSection({ record }: { record: Contact }) {
   );
 }
 
-function HistorySection({ record }: { record: Contact }) {
-  const slug = useTenantSlug();
-  return (
-    <RecordHistory
-      queryKey={['contacts', record.id]}
-      fetchPage={(_slug, cursor) => fetchContactHistory(slug, record.id, cursor)}
-    />
-  );
-}
-
 contactSections.register({ key: 'data', title: 'Dados', order: 10, component: DataSection });
-contactSections.register({ key: 'record-history', title: 'Histórico de alterações', order: 1000, component: HistorySection });
 

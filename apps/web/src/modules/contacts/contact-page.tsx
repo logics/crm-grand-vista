@@ -3,6 +3,7 @@ import { Badge, Button, ConfirmDialog, ContactShortcuts } from '@crm/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { RecordHistoryButton } from '../../history/record-history-button.js';
 import { ErrorMessage } from '../../shell/error-message.js';
 import { RecordSections } from '../../record-sections/record-sections.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
@@ -10,7 +11,7 @@ import { PageHeader } from '../../shell/page-header.js';
 import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
-import { deleteContact, fetchContact } from './contacts-api.js';
+import { deleteContact, fetchContact, fetchContactHistory } from './contacts-api.js';
 import { contactSections } from './contact-sections.js';
 
 /** Ficha do contato: cabeçalho e as seções registradas. */
@@ -42,23 +43,30 @@ export function ContactPage() {
       <PageHeader
         title={record.name}
         action={
-          (canEdit || canDelete) && (
-            <div className="flex gap-2">
-              {canEdit && (
-                <Button icon="pencil" onClick={() => navigate(tenantPath(slug, `contacts/${id}/edit`))}>
-                  Editar
-                </Button>
-              )}
-              {canDelete && (
-                <Button variant="danger" icon="trash-2" onClick={() => {
-                    remove.reset();
-                    setConfirmingDelete(true);
-                  }}>
-                  Excluir
-                </Button>
-              )}
-            </div>
-          )
+          <div className="flex gap-2">
+            <RecordHistoryButton
+              subject="neste contato"
+              queryKey={['contacts', id]}
+              fetchPage={(tenant, cursor) => fetchContactHistory(tenant, id, cursor)}
+            />
+            {canEdit && (
+              <Button icon="pencil" onClick={() => navigate(tenantPath(slug, `contacts/${id}/edit`))}>
+                Editar
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="danger"
+                icon="trash-2"
+                onClick={() => {
+                  remove.reset();
+                  setConfirmingDelete(true);
+                }}
+              >
+                Excluir
+              </Button>
+            )}
+          </div>
         }
       />
       {remove.error && <ErrorMessage>{remove.error.message}</ErrorMessage>}
