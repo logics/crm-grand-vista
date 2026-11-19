@@ -1,16 +1,17 @@
 import { CONTACT_ROLE_LABELS } from '@crm/shared';
-import { Badge, Button, ConfirmDialog, ContactShortcuts } from '@crm/ui';
+import { Badge, ConfirmDialog, ContactShortcuts } from '@crm/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ErrorMessage } from '../../shell/error-message.js';
+import { RecordPageActions } from '../../record-sections/record-page-actions.js';
 import { RecordSections } from '../../record-sections/record-sections.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
 import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
-import { deleteContact, fetchContact } from './contacts-api.js';
+import { deleteContact, fetchContact, fetchContactHistory } from './contacts-api.js';
 import { contactSections } from './contact-sections.js';
 
 /** Ficha do contato: cabeçalho e as seções registradas. */
@@ -34,7 +35,8 @@ export function ContactPage() {
   });
 
   if (contact.isPending) return <LoadingState />;
-  if (!contact.data) return <LoadFailedState inline title="Não foi possível carregar o contato" onRetry={() => void contact.refetch()} />;
+  if (!contact.data)
+    return <LoadFailedState inline title="Não foi possível carregar o contato" onRetry={() => void contact.refetch()} />;
   const record = contact.data;
 
   return (
@@ -42,23 +44,22 @@ export function ContactPage() {
       <PageHeader
         title={record.name}
         action={
-          (canEdit || canDelete) && (
-            <div className="flex gap-2">
-              {canEdit && (
-                <Button icon="pencil" onClick={() => navigate(tenantPath(slug, `contacts/${id}/edit`))}>
-                  Editar
-                </Button>
-              )}
-              {canDelete && (
-                <Button variant="danger" icon="trash-2" onClick={() => {
+          <RecordPageActions
+            history={{
+              subject: 'neste contato',
+              queryKey: ['contacts', id],
+              fetchPage: (tenant, cursor) => fetchContactHistory(tenant, id, cursor),
+            }}
+            editPath={canEdit ? `contacts/${id}/edit` : undefined}
+            onDelete={
+              canDelete
+                ? () => {
                     remove.reset();
                     setConfirmingDelete(true);
-                  }}>
-                  Excluir
-                </Button>
-              )}
-            </div>
-          )
+                  }
+                : undefined
+            }
+          />
         }
       />
       {remove.error && <ErrorMessage>{remove.error.message}</ErrorMessage>}

@@ -153,7 +153,7 @@ Na entrada de cadastro, `changes` são os valores iniciais (o componente os most
 
 - **Hook de estado de listagem na URL**, parametrizado pelo schema Zod da lista
 - **Página de lista**: compõe `SearchBar` + `DataTable` + `Pagination` + o hook + os estados de carregamento, vazio e erro (`page-state`). O módulo fornece colunas, controles de filtro (como filhos) e o cartão da versão mobile — a `DataTable` não serve no mobile. Fica em `apps/web` e não em `packages/ui` porque depende do roteador e do TanStack Query; `packages/ui` é apresentação
-- **Histórico de um registro**: componente que consome a rota de histórico do recurso, formata o instante no fuso do navegador e entrega à `AuditTimeline`, com "carregar mais"
+- **Histórico de um registro**: componente que consome a rota de histórico do recurso, formata o instante no fuso do navegador e entrega à `AuditTimeline`, com "carregar mais". Na ficha, ele **não é seção**: abre sob demanda pelo botão "Histórico" do cabeçalho (`RecordHistoryButton`, dentro do `RecordPageActions`), num diálogo que só carrega ao abrir. Toda ficha nova com histórico (oportunidades, agenda, due diligence…) segue esse padrão (#165, #170)
 
 Filtros **não** são gerados a partir dos metadados: os reais (área digitada em alqueire, município **ou** UF, faixa de valor que depende do modo de precificação) não saem do tipo do campo, e o gerador viraria uma DSL.
 
