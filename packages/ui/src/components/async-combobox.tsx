@@ -275,10 +275,12 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     ...native
   } = props;
   const control = useFieldControl(native);
-  const [open, setOpen] = useState(defaultOpen && !disabled);
+  const [openRequested, setOpen] = useState(defaultOpen && !disabled);
+  // pedido de abrir durante a hidratação: a lista abre quando o valor termina de carregar,
+  // em vez de o clique ser descartado (na edição, o clique chega antes do `resolve` voltar)
+  const [openWhenReady, setOpenWhenReady] = useState(false);
   const [term, setTerm] = useState('');
   const [highlighted, setHighlighted] = useState('');
-  const { state, loadMore, retry, reset } = useSearch(search, getKey, term, open, minChars, debounceMs);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -300,6 +302,8 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   const selectedItems = entries.map(itemOf).filter((item): item is T => item != null);
   // enquanto `resolve` não volta, o valor fica parado: mudar agora perderia os IDs ainda sem item
   const hydrating = resolve !== undefined && entries.some((entry) => typeof entry === 'string' && !known.has(entry));
+  const open = !disabled && (openRequested || (openWhenReady && !hydrating));
+  const { state, loadMore, retry, reset } = useSearch(search, getKey, term, open, minChars, debounceMs);
   const locked = disabled || hydrating;
 
   const change = (items: T[]) => {
@@ -308,7 +312,12 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   };
 
   const changeOpen = (next: boolean) => {
-    if (next && locked) return;
+    if (next && disabled) return;
+    if (next && hydrating) {
+      setOpenWhenReady(true);
+      return;
+    }
+    setOpenWhenReady(false);
     setOpen(next);
     if (!next) {
       setTerm('');
@@ -504,12 +513,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
         className="w-(--radix-popover-trigger-width) min-w-[calc(7*var(--space-10))] p-0"
       >
         <Command shouldFilter={false} value={highlighted} onValueChange={onHighlight} label={searchPlaceholder}>
-          <CommandInput
-            placeholder={searchPlaceholder}
-            value={term}
-            onValueChange={setTerm}
-            onKeyDown={onSearchKeyDown}
-          />
+          <CommandInput placeholder={searchPlaceholder} value={term} onValueChange={setTerm} onKeyDown={onSearchKeyDown} />
           <CommandList
             ref={listRef}
             aria-multiselectable={props.multiple || undefined}
