@@ -69,8 +69,8 @@ afterEach(() => {
 });
 
 describe('ficha do contato', () => {
-  it('mostra a seção Dados e o histórico só ao clicar em Histórico', async () => {
-    stubFakeApi({
+  it('mostra a seção Dados e só pede o histórico ao clicar em Histórico', async () => {
+    const api = stubFakeApi({
       session: session(),
       permissions: ['contatos.ver', 'contatos.editar'],
       records: { '/e/grand-vista/contacts/c1': contact(), '/e/grand-vista/contacts/c1/history': history },
@@ -81,8 +81,27 @@ describe('ficha do contato', () => {
     const data = await findSection('data');
     expect(within(data).getByText('Corretor externo')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
-    expect(document.querySelector('[data-section="record-history"]')).toBeNull();
+    const historyRequests = () => api.requests.filter((request) => request.path === '/e/grand-vista/contacts/c1/history');
+    expect(historyRequests()).toHaveLength(0);
     expect(screen.queryByText('Papel adicionado: Comprador')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Histórico' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Histórico de alterações' });
+    expect(await within(dialog).findByText('Papel adicionado: Comprador')).toBeInTheDocument();
+    expect(historyRequests()).toHaveLength(1);
+  });
+
+  it('quem só vê o contato abre o histórico, sem Editar nem Excluir', async () => {
+    stubFakeApi({
+      session: session(),
+      permissions: ['contatos.ver'],
+      records: { '/e/grand-vista/contacts/c1': contact(), '/e/grand-vista/contacts/c1/history': history },
+    });
+    renderApp('/e/grand-vista/contacts/c1');
+
+    await findSection('data');
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Histórico' }));
     const dialog = await screen.findByRole('dialog', { name: 'Histórico de alterações' });
     expect(await within(dialog).findByText('Papel adicionado: Comprador')).toBeInTheDocument();
@@ -148,11 +167,18 @@ describe('excluir pela ficha', () => {
   };
 
   it('pede confirmação e, recusada pela API, mostra o 409 sem sair da ficha', async () => {
-    const api = stubWithDelete(['contatos.ver', 'contatos.excluir'], () =>
-      new Response(JSON.stringify({ error: { code: 'conflict', message: 'Este contato está em uso em Fazendas. Remova os vínculos antes de excluir.' } }), {
-        status: 409,
-        headers: { 'content-type': 'application/json' },
-      }),
+    const api = stubWithDelete(
+      ['contatos.ver', 'contatos.excluir'],
+      () =>
+        new Response(
+          JSON.stringify({
+            error: { code: 'conflict', message: 'Este contato está em uso em Fazendas. Remova os vínculos antes de excluir.' },
+          }),
+          {
+            status: 409,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
     );
     const { pathname } = renderApp('/e/grand-vista/contacts/c1');
     const user = userEvent.setup();
@@ -162,7 +188,9 @@ describe('excluir pela ficha', () => {
     expect(api.requests.some((request) => request.method === 'DELETE')).toBe(false);
     await user.click(within(dialog).getByRole('button', { name: 'Excluir' }));
 
-    expect(await screen.findByText('Este contato está em uso em Fazendas. Remova os vínculos antes de excluir.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Este contato está em uso em Fazendas. Remova os vínculos antes de excluir.'),
+    ).toBeInTheDocument();
     expect(pathname()).toBe('/e/grand-vista/contacts/c1');
     expect(screen.getByRole('heading', { name: 'Sebastião' })).toBeInTheDocument();
   });

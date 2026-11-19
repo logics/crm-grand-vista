@@ -15,7 +15,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { ErrorMessage } from '../../shell/error-message.js';
-import { RecordHistoryButton } from '../../history/record-history-button.js';
+import { RecordPageActions } from '../../record-sections/record-page-actions.js';
 import { RecordSections } from '../../record-sections/record-sections.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
@@ -55,34 +55,22 @@ export function FarmPage() {
       <PageHeader
         title={record.name}
         action={
-          <div className="flex gap-2">
-            <RecordHistoryButton
-              subject="nesta fazenda"
-              queryKey={['farms', id]}
-              fetchPage={(tenant, cursor) => fetchFarmHistory(tenant, id, cursor)}
-            />
-            {(canEdit || canDelete) && (
-              <>
-                {canEdit && (
-                  <Button icon="pencil" onClick={() => navigate(tenantPath(slug, `farms/${id}/edit`))}>
-                    Editar
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    variant="danger"
-                    icon="trash-2"
-                    onClick={() => {
-                      remove.reset();
-                      setConfirmingDelete(true);
-                    }}
-                  >
-                    Excluir
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
+          <RecordPageActions
+            history={{
+              subject: 'nesta fazenda',
+              queryKey: ['farms', id],
+              fetchPage: (tenant, cursor) => fetchFarmHistory(tenant, id, cursor),
+            }}
+            editPath={canEdit ? `farms/${id}/edit` : undefined}
+            onDelete={
+              canDelete
+                ? () => {
+                    remove.reset();
+                    setConfirmingDelete(true);
+                  }
+                : undefined
+            }
+          />
         }
       />
       {remove.error && <ErrorMessage>{remove.error.message}</ErrorMessage>}
