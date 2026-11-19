@@ -1,5 +1,6 @@
 import {
   type ComponentProps,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactNode,
   type UIEvent,
@@ -275,9 +276,10 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     ...native
   } = props;
   const control = useFieldControl(native);
-  const [openRequested, setOpen] = useState(defaultOpen && !disabled);
+  const [openRequested, setOpenRequested] = useState(defaultOpen && !disabled);
   // pedido de abrir durante a hidratação: a lista abre quando o valor termina de carregar,
-  // em vez de o clique ser descartado (na edição, o clique chega antes do `resolve` voltar)
+  // em vez de o clique ser descartado (na edição, o clique chega antes do `resolve` voltar);
+  // sair do campo ou Escape antes disso desiste do pedido
   const [openWhenReady, setOpenWhenReady] = useState(false);
   const [term, setTerm] = useState('');
   const [highlighted, setHighlighted] = useState('');
@@ -318,7 +320,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
       return;
     }
     setOpenWhenReady(false);
-    setOpen(next);
+    setOpenRequested(next);
     if (!next) {
       setTerm('');
       setHighlighted('');
@@ -348,9 +350,17 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       changeOpen(true);
+    } else if (event.key === 'Escape') {
+      setOpenWhenReady(false);
     } else if (event.key === 'Backspace' || event.key === 'Delete') {
       removeLast();
     }
+  };
+
+  /** Foco que sai do gatilho com a lista ainda fechada desiste do pedido de abrir. */
+  const onTriggerBlur = (event: FocusEvent<HTMLButtonElement>) => {
+    if (!open) setOpenWhenReady(false);
+    control.onBlur?.(event);
   };
 
   /** Remoção pelo chip ou pelo limpar: o botão clicado some, o foco volta ao gatilho. */
@@ -478,6 +488,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
                 !hasValue && 'text-text-faint',
               )}
               {...control}
+              onBlur={onTriggerBlur}
             >
               {!hasValue ? (
                 placeholder

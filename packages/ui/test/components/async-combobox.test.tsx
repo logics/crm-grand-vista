@@ -399,6 +399,38 @@ describe('AsyncCombobox', () => {
       expect(trigger).toHaveTextContent('Fazenda Boa Esperança');
     });
 
+    it('clique durante a hidratação abre a lista quando o valor carrega', async () => {
+      const user = setup();
+      let finish!: (farms: Farm[]) => void;
+      const resolve = vi.fn(() => new Promise<Farm[]>((done) => (finish = done)));
+      render(<Single search={fakeSearch().search} initial="f2" resolve={resolve} />);
+      const trigger = screen.getByRole('combobox', { name: 'Fazenda' });
+
+      await user.click(trigger);
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      await act(async () => finish([farms[1]!]));
+      expect(trigger).toHaveTextContent('Fazenda Boa Esperança');
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['sair do campo', async (user: ReturnType<typeof setup>) => user.tab()],
+      ['Escape', async (user: ReturnType<typeof setup>) => user.keyboard('{Escape}')],
+    ])('%s durante a hidratação desiste do pedido de abrir', async (_case, giveUp) => {
+      const user = setup();
+      let finish!: (farms: Farm[]) => void;
+      const resolve = vi.fn(() => new Promise<Farm[]>((done) => (finish = done)));
+      render(<Single search={fakeSearch().search} initial="f2" resolve={resolve} />);
+      const trigger = screen.getByRole('combobox', { name: 'Fazenda' });
+
+      await user.click(trigger);
+      await giveUp(user);
+      await act(async () => finish([farms[1]!]));
+      expect(trigger).toHaveTextContent('Fazenda Boa Esperança');
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
     it('ID que o resolve não encontra aparece como travessão', async () => {
       const resolve = vi.fn(async () => []);
       render(<Single search={fakeSearch().search} initial="f9" resolve={resolve} />);
