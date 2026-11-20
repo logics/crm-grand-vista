@@ -399,6 +399,38 @@ describe('AsyncCombobox', () => {
       expect(trigger).toHaveTextContent('Fazenda Boa Esperança');
     });
 
+    it('clique durante a hidratação abre a lista quando o valor carrega', async () => {
+      const user = setup();
+      let finish!: (farms: Farm[]) => void;
+      const resolve = vi.fn(() => new Promise<Farm[]>((done) => (finish = done)));
+      render(<Single search={fakeSearch().search} initial="f2" resolve={resolve} />);
+      const trigger = screen.getByRole('combobox', { name: 'Fazenda' });
+
+      await user.click(trigger);
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      await act(async () => finish([farms[1]!]));
+      expect(trigger).toHaveTextContent('Fazenda Boa Esperança');
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['sair do campo', async (user: ReturnType<typeof setup>) => user.tab()],
+      ['Escape', async (user: ReturnType<typeof setup>) => user.keyboard('{Escape}')],
+    ])('%s durante a hidratação desiste do pedido de abrir', async (_case, giveUp) => {
+      const user = setup();
+      let finish!: (farms: Farm[]) => void;
+      const resolve = vi.fn(() => new Promise<Farm[]>((done) => (finish = done)));
+      render(<Single search={fakeSearch().search} initial="f2" resolve={resolve} />);
+      const trigger = screen.getByRole('combobox', { name: 'Fazenda' });
+
+      await user.click(trigger);
+      await giveUp(user);
+      await act(async () => finish([farms[1]!]));
+      expect(trigger).toHaveTextContent('Fazenda Boa Esperança');
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
     it('ID que o resolve não encontra aparece como travessão', async () => {
       const resolve = vi.fn(async () => []);
       render(<Single search={fakeSearch().search} initial="f9" resolve={resolve} />);
@@ -432,9 +464,7 @@ describe('AsyncCombobox', () => {
       expect(screen.getByRole('listbox')).toHaveAttribute('aria-multiselectable', 'true');
       await user.keyboard('{Enter}{ArrowDown}{Enter}');
       expect(onChange).toHaveBeenLastCalledWith([farms[0], farms[1]]);
-      expect(screen.getByRole('combobox', { name: 'Fazendas' })).toHaveTextContent(
-        'Fazenda Três Barras, Fazenda Boa Esperança',
-      );
+      expect(screen.getByRole('combobox', { name: 'Fazendas' })).toHaveTextContent('Fazenda Três Barras, Fazenda Boa Esperança');
       expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByRole('option', { name: 'Fazenda Três Barras' })).toHaveAttribute('aria-checked', 'true');
       expect(screen.getByRole('button', { name: 'Remover Fazenda Boa Esperança' })).toBeInTheDocument();
@@ -512,13 +542,15 @@ describe('AsyncCombobox', () => {
       expect(trigger).toHaveAttribute('aria-busy', 'true');
       expect(screen.queryByRole('button', { name: /^Remover|Limpar/ })).toBeNull();
       trigger.focus();
-      await user.keyboard('{Backspace}{ArrowDown}');
+      await user.keyboard('{Backspace}');
       expect(onChange).not.toHaveBeenCalled();
+      // abrir durante a hidratação fica pendente: a lista só aparece com o valor carregado
+      await user.keyboard('{ArrowDown}');
       expect(screen.queryByRole('dialog')).toBeNull();
 
       await act(async () => finish([farms[2]!]));
       expect(trigger).not.toHaveAttribute('aria-busy');
-      await user.keyboard('{ArrowDown}');
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
       await answer(calls[0], { items: farms });
       await user.click(screen.getByRole('option', { name: 'Fazenda Boa Esperança' }));
       expect(onChange).toHaveBeenLastCalledWith([farms[0], farms[2], farms[1]]);

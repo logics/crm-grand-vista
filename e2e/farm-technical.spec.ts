@@ -18,7 +18,8 @@ test('preenche o técnico, troca a aptidão e vê no histórico; sair sujo pergu
   await expect(page).toHaveURL(`/e/${tenant.slug}`);
   await page.goto(`/e/${tenant.slug}/farms/new`);
 
-  await page.getByRole('textbox', { name: /^Nome/ }).fill('Fazenda Técnica E2E');
+  // nome único por execução: repetir o teste não esbarra no aviso de fazenda duplicada
+  await page.getByRole('textbox', { name: /^Nome/ }).fill(`Fazenda Técnica E2E ${Date.now()}`);
   await chooseMunicipality(page);
   await page.getByRole('textbox', { name: /Área total/ }).fill('500');
 

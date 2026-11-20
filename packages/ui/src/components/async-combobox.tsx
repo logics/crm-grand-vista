@@ -1,5 +1,6 @@
 import {
   type ComponentProps,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactNode,
   type UIEvent,
@@ -275,10 +276,13 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     ...native
   } = props;
   const control = useFieldControl(native);
-  const [open, setOpen] = useState(defaultOpen && !disabled);
+  const [openRequested, setOpenRequested] = useState(defaultOpen && !disabled);
+  // pedido de abrir durante a hidratação: a lista abre quando o valor termina de carregar,
+  // em vez de o clique ser descartado (na edição, o clique chega antes do `resolve` voltar);
+  // sair do campo ou Escape antes disso desiste do pedido
+  const [openWhenReady, setOpenWhenReady] = useState(false);
   const [term, setTerm] = useState('');
   const [highlighted, setHighlighted] = useState('');
-  const { state, loadMore, retry, reset } = useSearch(search, getKey, term, open, minChars, debounceMs);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -300,6 +304,8 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   const selectedItems = entries.map(itemOf).filter((item): item is T => item != null);
   // enquanto `resolve` não volta, o valor fica parado: mudar agora perderia os IDs ainda sem item
   const hydrating = resolve !== undefined && entries.some((entry) => typeof entry === 'string' && !known.has(entry));
+  const open = !disabled && (openRequested || (openWhenReady && !hydrating));
+  const { state, loadMore, retry, reset } = useSearch(search, getKey, term, open, minChars, debounceMs);
   const locked = disabled || hydrating;
 
   const change = (items: T[]) => {
@@ -308,8 +314,13 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
   };
 
   const changeOpen = (next: boolean) => {
-    if (next && locked) return;
-    setOpen(next);
+    if (next && disabled) return;
+    if (next && hydrating) {
+      setOpenWhenReady(true);
+      return;
+    }
+    setOpenWhenReady(false);
+    setOpenRequested(next);
     if (!next) {
       setTerm('');
       setHighlighted('');
@@ -339,9 +350,17 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       changeOpen(true);
+    } else if (event.key === 'Escape') {
+      setOpenWhenReady(false);
     } else if (event.key === 'Backspace' || event.key === 'Delete') {
       removeLast();
     }
+  };
+
+  /** Foco que sai do gatilho com a lista ainda fechada desiste do pedido de abrir. */
+  const onTriggerBlur = (event: FocusEvent<HTMLButtonElement>) => {
+    if (!open) setOpenWhenReady(false);
+    control.onBlur?.(event);
   };
 
   /** Remoção pelo chip ou pelo limpar: o botão clicado some, o foco volta ao gatilho. */
@@ -469,6 +488,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
                 !hasValue && 'text-text-faint',
               )}
               {...control}
+              onBlur={onTriggerBlur}
             >
               {!hasValue ? (
                 placeholder
@@ -504,12 +524,7 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
         className="w-(--radix-popover-trigger-width) min-w-[calc(7*var(--space-10))] p-0"
       >
         <Command shouldFilter={false} value={highlighted} onValueChange={onHighlight} label={searchPlaceholder}>
-          <CommandInput
-            placeholder={searchPlaceholder}
-            value={term}
-            onValueChange={setTerm}
-            onKeyDown={onSearchKeyDown}
-          />
+          <CommandInput placeholder={searchPlaceholder} value={term} onValueChange={setTerm} onKeyDown={onSearchKeyDown} />
           <CommandList
             ref={listRef}
             aria-multiselectable={props.multiple || undefined}
