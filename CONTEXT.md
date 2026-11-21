@@ -40,7 +40,7 @@ O papel **visível** de administrador da plataforma, que gere empresas pela inte
 O registro de alterações (`audit_log`), um mecanismo único que atende tanto o requisito geral de "logs de auditoria" quanto o campo "histórico de alterações" da ficha da fazenda. Alimentado por um wrapper de escrita, não por disciplina do desenvolvedor. Guarda campo, valor anterior, valor novo, autor e instante, mais um `change_id` que agrupa as linhas de um mesmo save; o rótulo legível e a formatação vêm dos metadados de campo.
 
 **Histórico de alterações**:
-A vista da auditoria de **um registro**, aberta sob demanda pelo botão "Histórico" do cabeçalho da ficha (nunca seção sempre aberta): uma entrada por save, com o que mudou no registro e nos seus filhos (documento anexado, região de interesse trocada). Quem vê o registro vê o histórico dele — a permissão e o escopo de dados são os do módulo, não os da auditoria.
+A vista da auditoria de **um registro**, aberta sob demanda pelo botão "Histórico" do cabeçalho da ficha (nunca seção sempre aberta): uma entrada por save, com o que mudou no registro e nos seus filhos (documento anexado, região de interesse trocada). Quem vê o registro vê o histórico dele — a permissão e o escopo de dados são os do módulo, não os da auditoria —, salvo campos que exigem permissão própria (como os dados financeiros do comprador): a alteração continua aparecendo, com o nome do campo, mas sem os valores antes e depois para quem não tem essa permissão.
 _Avoid_: confundir com **logs de auditoria**
 
 **Logs de auditoria**:
@@ -197,7 +197,19 @@ Valor efetivamente pago em uma parcela, congelado na data da baixa junto com a o
 Nota atribuída a um contato na condição de comprador.
 
 **Grau de qualificação**:
-Maturidade do comprador dentro do processo consultivo de venda.
+Maturidade do comprador dentro do processo consultivo de venda, numa escala fixa: frio, morno, quente, qualificado. Distinto da **classificação do cliente**, que é configurável pela empresa.
+
+**Ticket médio / ticket máximo**:
+Quanto o comprador costuma pagar e quanto aceita pagar **por negócio**. O médio nunca passa do máximo.
+
+**Capacidade de investimento**:
+Quanto o comprador consegue aplicar **no total**, inclusive somando várias fazendas. Distinta do ticket máximo, que é o teto de um negócio só.
+
+**Patrimônio estimado**:
+Avaliação, feita pela corretora, do patrimônio do comprador. Junto com a capacidade de investimento forma os **dados financeiros do comprador**: dado pessoal sensível, visível só a quem tem permissão própria, e não a todo mundo que vê o contato.
+
+**Região de interesse**:
+Onde o comprador quer comprar: um município ou uma UF inteira. Interessar-se pela UF é interessar-se por todos os municípios dela.
 
 **Perfil de compra**:
 Comportamento comercial de um contato como comprador — ticket, urgência, formas de pagamento, capacidade. Guardado em `buyer_profiles`, que também contém a coluna `purchase_profile` (investidor, produtor, especulador…) — a mesma etiqueta "Perfil de compra" cobre a tabela inteira e essa coluna específica, porque na tela é uma única seção da ficha.
