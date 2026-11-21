@@ -5,23 +5,23 @@
 //
 // A flag de super admin não entra: este pacote não a nomeia, e o teste de
 // cobertura ignora as colunas que o wrapper de auditoria já trata como só de plataforma.
+import { QUALIFICATION_LEVEL_LABELS } from './buyer-profile.js';
 import { CONTACT_ROLE_LABELS, PERSON_TYPE_LABELS } from './contact.js';
-import {
-  DOCUMENT_STATUS_LABELS,
-  LEVEL_LABELS,
-  PRICING_MODE_LABELS,
-  VALUATION_BAGS_UNIT_LABELS,
-} from './farm.js';
-import { municipalityReference } from './region.js';
+import { DOCUMENT_STATUS_LABELS, LEVEL_LABELS, PRICING_MODE_LABELS, VALUATION_BAGS_UNIT_LABELS } from './farm.js';
+import { UF_NAMES, municipalityReference } from './region.js';
 import { ALQUEIRE_TYPE_NAMES, AREA_DISPLAY_UNIT_LABELS } from './tenant-settings.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import {
   type EntityMeta,
   type FieldMeta,
   type GrammaticalGender,
-  HIDDEN, RECORD_COLUMNS,
+  HIDDEN,
+  RECORD_COLUMNS,
   columnToProperty,
 } from './field-metadata.js';
+
+/** "Goiás (UF)": o rótulo da UF inteira como região de interesse. */
+const UF_LABELS = Object.fromEntries(Object.entries(UF_NAMES).map(([uf, name]) => [uf, `${name} (UF)`]));
 
 /** A forma comum dos cadastros auxiliares: o que muda de um para outro é o rótulo e o gênero. */
 function vocabularyEntity<const G extends GrammaticalGender, const E extends Record<string, FieldMeta> = {}>(
@@ -137,6 +137,69 @@ export const FIELD_REGISTRY = {
       tenant_id: HIDDEN,
       contact_id: HIDDEN,
       role: { type: 'enum', label: 'Papel', options: CONTACT_ROLE_LABELS },
+    },
+  },
+  buyer_profiles: {
+    label: 'Perfil de compra',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      contact_id: HIDDEN,
+      purchase_profile_id: {
+        type: 'reference',
+        label: 'Perfil de compra',
+        references: { table: 'purchase_profiles', nameColumn: 'name' },
+      },
+      avg_ticket: { type: 'money', label: 'Ticket médio' },
+      max_ticket: { type: 'money', label: 'Ticket máximo' },
+      min_area_ha: { type: 'area', label: 'Área mínima', gender: 'f' },
+      max_area_ha: { type: 'area', label: 'Área máxima', gender: 'f' },
+      estimated_net_worth: { type: 'money', label: 'Patrimônio estimado' },
+      investment_capacity: { type: 'money', label: 'Capacidade de investimento', gender: 'f' },
+      urgency: { type: 'enum', label: 'Urgência da compra', gender: 'f', options: LEVEL_LABELS },
+      qualification_level: { type: 'enum', label: 'Grau de qualificação', options: QUALIFICATION_LEVEL_LABELS },
+    },
+  },
+  buyer_regions: {
+    label: 'Região de interesse',
+    gender: 'f',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      contact_id: HIDDEN,
+      municipality_ibge_code: { type: 'reference', label: 'Município', references: municipalityReference },
+      uf: { type: 'enum', label: 'UF', gender: 'f', options: UF_LABELS },
+    },
+  },
+  buyer_crops: {
+    label: 'Cultura de interesse',
+    gender: 'f',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      contact_id: HIDDEN,
+      crop_id: {
+        type: 'reference',
+        label: 'Cultura de interesse',
+        gender: 'f',
+        references: { table: 'crops', nameColumn: 'name' },
+      },
+    },
+  },
+  buyer_payment_methods: {
+    label: 'Forma de pagamento',
+    gender: 'f',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      contact_id: HIDDEN,
+      payment_method_id: {
+        type: 'reference',
+        label: 'Forma de pagamento',
+        gender: 'f',
+        references: { table: 'payment_methods', nameColumn: 'name' },
+      },
     },
   },
   farm_aptitudes: {

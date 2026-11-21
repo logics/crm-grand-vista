@@ -41,8 +41,7 @@ const idSchema = z.uuid();
 const taxIdConflict = (existing: { id: string; name: string }) =>
   ({ error: { code: 'conflict', message: TAX_ID_TAKEN_MESSAGE, field: 'taxId', existing } }) as const;
 
-const taxIdMismatch = (message: string) =>
-  ({ error: { code: 'validation_error', message, field: 'taxId' } }) as const;
+const taxIdMismatch = (message: string) => ({ error: { code: 'validation_error', message, field: 'taxId' } }) as const;
 
 /** Constraint do índice único `(tenant_id, tax_id)`, que o driver aponta quando duas gravações empatam. */
 const TAX_ID_UNIQUE_INDEX = 'contacts_tenant_id_tax_id_unique';
@@ -65,11 +64,7 @@ const canView = () => requirePermission('contatos.ver');
  * Duas gravações simultâneas do mesmo documento passam pela pré-checagem do
  * serviço; o índice único pega a segunda, e o dono do documento é buscado de novo.
  */
-async function withTaxIdRefusals<T>(
-  c: Context<TenantEnv>,
-  taxId: string | null | undefined,
-  run: () => Promise<T>,
-) {
+async function withTaxIdRefusals<T>(c: Context<TenantEnv>, taxId: string | null | undefined, run: () => Promise<T>) {
   try {
     return { ok: true, value: await run() } as const;
   } catch (error) {
@@ -155,7 +150,10 @@ export function createContactsRoutes() {
         entity: 'contacts',
         access: canView(),
         isVisible: (tx, _c, id) => contactExists(tx, id),
-        children: [{ entity: 'contact_roles', parentColumn: 'contact_id', nameColumn: 'role' }],
+        children: [
+          { entity: 'contact_roles', parentColumn: 'contact_id', nameColumn: 'role' },
+          { entity: 'buyer_profiles', parentColumn: 'contact_id' },
+        ],
       }),
     );
 }

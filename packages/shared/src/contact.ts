@@ -1,6 +1,7 @@
 // Contato: pessoa física ou jurídica, com papéis acumuláveis — o parceiro que
 // indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro.
 import { z } from 'zod';
+import { BUYER_PROFILE_REQUIRES_BUYER_MESSAGE, buyerProfileOutputSchema, buyerProfileSchema } from './buyer-profile.js';
 import { optionalText } from './text.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { INVALID_PHONE_MESSAGE, isBlankPhone, normalizePhone } from './phone.js';
@@ -141,10 +142,7 @@ const contactEditableShape = {
 };
 
 /** O documento tem de servir ao tipo de pessoa informado junto; o erro cai no campo. */
-const checkTaxId = (
-  value: { personType?: PersonType | undefined; taxId?: string | null | undefined },
-  ctx: z.RefinementCtx,
-) => {
+const checkTaxId = (value: { personType?: PersonType | undefined; taxId?: string | null | undefined }, ctx: z.RefinementCtx) => {
   const message = value.personType ? taxIdIssue(value.personType, value.taxId) : null;
   if (message) ctx.addIssue({ code: 'custom', path: ['taxId'], message });
 };
@@ -162,11 +160,16 @@ export const createContactSchema = z
     strategicNotes: contactEditableShape.strategicNotes.optional(),
     classificationId: contactEditableShape.classificationId.optional(),
     leadSourceId: contactEditableShape.leadSourceId.optional(),
+    buyerProfile: buyerProfileSchema.nullable().optional(),
   })
   .superRefine(checkTaxId)
   .refine((contact) => !contact.classificationId || hasClassification(contact.roles), {
     path: ['classificationId'],
     error: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
+  })
+  .refine((contact) => !contact.buyerProfile || hasClassification(contact.roles), {
+    path: ['buyerProfile'],
+    error: BUYER_PROFILE_REQUIRES_BUYER_MESSAGE,
   });
 export type CreateContactInput = z.output<typeof createContactSchema>;
 
@@ -174,7 +177,10 @@ export type CreateContactInput = z.output<typeof createContactSchema>;
  * `roles`, se presente, substitui o conjunto de papéis. Documento sem tipo de
  * pessoa no mesmo corpo só pode ser conferido contra o do cadastro (serviço).
  */
-export const updateContactSchema = z.object(contactEditableShape).partial().superRefine(checkTaxId);
+export const updateContactSchema = z
+  .object({ ...contactEditableShape, buyerProfile: buyerProfileSchema.nullable() })
+  .partial()
+  .superRefine(checkTaxId);
 export type UpdateContactInput = z.output<typeof updateContactSchema>;
 
 export const contactSchema = z.object({
@@ -192,6 +198,8 @@ export const contactSchema = z.object({
   classificationId: z.uuid().nullable(),
   leadSourceId: z.uuid().nullable(),
   roles: z.array(z.enum(CONTACT_ROLES)),
+  /** `null` sem perfil de compra (a linha só existe com alguma coluna preenchida). */
+  buyerProfile: buyerProfileOutputSchema.nullable(),
   createdAt: z.string(),
 });
 export type Contact = z.infer<typeof contactSchema>;
@@ -265,7 +273,10 @@ export const CONTACT_OPTIONS_MAX_PAGE_SIZE = 50;
  */
 export const contactOptionsQuerySchema = z.object({
   q: z.string().trim().max(CONTACT_NAME_MAX_LENGTH).optional(),
-  cursor: z.string().regex(/^\d{1,9}$/, 'Cursor inválido.').optional(),
+  cursor: z
+    .string()
+    .regex(/^\d{1,9}$/, 'Cursor inválido.')
+    .optional(),
   limit: z.coerce.number().int().min(1).max(CONTACT_OPTIONS_MAX_PAGE_SIZE).default(CONTACT_OPTIONS_PAGE_SIZE),
   role: z.enum(CONTACT_ROLES).optional(),
   ids: z

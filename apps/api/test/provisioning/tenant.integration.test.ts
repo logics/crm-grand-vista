@@ -8,6 +8,8 @@ import {
   crops,
   documentCategories,
   leadSources,
+  paymentMethods,
+  purchaseProfiles,
   tenantSettings,
   createDatabase,
   createPool,
@@ -223,6 +225,8 @@ describe('provisionamento de empresa', () => {
       crops: await tx.select({ name: crops.name }).from(crops),
       leadSources: await tx.select({ name: leadSources.name }).from(leadSources),
       classifications: await tx.select({ name: contactClassifications.name }).from(contactClassifications),
+      purchaseProfiles: await tx.select({ name: purchaseProfiles.name }).from(purchaseProfiles),
+      paymentMethods: await tx.select({ name: paymentMethods.name }).from(paymentMethods),
       settings: await tx.select().from(tenantSettings),
     }));
 
@@ -232,6 +236,8 @@ describe('provisionamento de empresa', () => {
     expect(seeded.crops.map((row) => row.name).sort()).toEqual([...TENANT_SEED.crops].sort());
     expect(seeded.leadSources.map((row) => row.name).sort()).toEqual([...TENANT_SEED.leadSources].sort());
     expect(seeded.classifications.map((row) => row.name).sort()).toEqual([...TENANT_SEED.contactClassifications].sort());
+    expect(seeded.purchaseProfiles.map((row) => row.name).sort()).toEqual([...TENANT_SEED.purchaseProfiles].sort());
+    expect(seeded.paymentMethods.map((row) => row.name).sort()).toEqual([...TENANT_SEED.paymentMethods].sort());
     expect(seeded.settings).toMatchObject([{ defaultAlqueireType: 'goiano', areaDisplayUnit: 'hectare' }]);
   });
 
@@ -256,6 +262,8 @@ describe('provisionamento de empresa', () => {
         'crops',
         'lead_sources',
         'contact_classifications',
+        'purchase_profiles',
+        'payment_methods',
       ]),
     );
     expect(adminFields).toContain('email');
@@ -342,7 +350,10 @@ describe('empresa padrão', () => {
     });
 
     const rows = await db.semTenant({ reason: 'cli' }, (tx) =>
-      tx.select().from(memberships).where(and(eq(memberships.userId, user.id), eq(memberships.isDefault, true))),
+      tx
+        .select()
+        .from(memberships)
+        .where(and(eq(memberships.userId, user.id), eq(memberships.isDefault, true))),
     );
     expect(rows.map((row) => row.tenantId)).toEqual([first.id]);
   });

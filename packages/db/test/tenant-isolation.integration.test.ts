@@ -24,6 +24,10 @@ const BUSINESS_TABLES = [
   'access_profiles',
   'aptitudes',
   'audit_log',
+  'buyer_crops',
+  'buyer_payment_methods',
+  'buyer_profiles',
+  'buyer_regions',
   'commercial_statuses',
   'contact_classifications',
   'contact_roles',
@@ -223,17 +227,13 @@ describe('isolamento entre empresas em access_profiles, pelo Drizzle', () => {
   });
 
   it('a empresa A não enxerga nada da B em SQL cru sem filtro', async () => {
-    const { rows } = await db.withTenant(tenantA, (tx) =>
-      tx.execute<{ id: string }>(sql`select id from access_profiles`),
-    );
+    const { rows } = await db.withTenant(tenantA, (tx) => tx.execute<{ id: string }>(sql`select id from access_profiles`));
 
     expect(rows).toEqual([{ id: profileOfA }]);
   });
 
   it('a empresa A não encontra o registro da B nem pelo id direto', async () => {
-    const rows = await db.withTenant(tenantA, (tx) =>
-      tx.select().from(accessProfiles).where(eq(accessProfiles.id, profileOfB)),
-    );
+    const rows = await db.withTenant(tenantA, (tx) => tx.select().from(accessProfiles).where(eq(accessProfiles.id, profileOfB)));
 
     expect(rows).toEqual([]);
   });
@@ -253,9 +253,7 @@ describe('isolamento entre empresas em access_profiles, pelo Drizzle', () => {
   });
 
   it('recusa INSERT com o tenant_id de outra empresa (WITH CHECK)', async () => {
-    const insertIntoB = db.withTenant(tenantA, (tx) =>
-      tx.insert(accessProfiles).values({ tenantId: tenantB, name: 'Intruso' }),
-    );
+    const insertIntoB = db.withTenant(tenantA, (tx) => tx.insert(accessProfiles).values({ tenantId: tenantB, name: 'Intruso' }));
 
     await expect(insertIntoB).rejects.toMatchObject({ cause: { code: RLS_VIOLATION } });
 

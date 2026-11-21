@@ -3,7 +3,7 @@
 Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumuláveis (comprador, proprietário, corretor externo).
 
 - **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente), #129 (avisos de duplicata), #128 (busca, filtros e colunas da lista) e #130 (opções do seletor)
-- **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato)
+- **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato), `buyer_profiles` e as junções `buyer_regions`, `buyer_crops`, `buyer_payment_methods` (issue #175; spec `docs/specs/fase-1-perfil-de-compra.md`)
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/history`, `src/listing`
 
 ## Convenções locais
@@ -23,3 +23,5 @@ Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumulávei
 - Ainda sem API: `custom_fields` — de issue seguinte da spec.
 
 - `RoleUsage` aceita `inUsePhrase` e `label.gender`: a exclusão barrada pela FK usa a frase declarada pela tabela ("Este contato é proprietário de fazenda. Remova-o das fazendas antes de excluir."); sem frase, o rótulo da entidade. O mapeamento é pela tabela do erro.
+
+- **Perfil de compra** (`buyer-profile.ts`, #175): `buyerProfile` aninhado no `POST`/`PATCH`, no mesmo `auditedWrites` (mesmo `change_id`) do contato. Presente **substitui** as colunas (campo ausente é nulo, pelo schema), ausente não toca, `null` apaga; perfil sem coluna preenchida não tem linha (a existente é apagada). Sem o papel comprador é 400 (`BUYER_PROFILE_REQUIRES_BUYER_MESSAGE`), e retirar o papel apaga perfil e junções no mesmo ponto que limpa `classification_id`. Perfil de compra que **entra** tem de estar ativo (400); o já gravado e desativado depois passa. O histórico declara `buyer_profiles` como filho. **Patrimônio estimado e capacidade de investimento existem no banco, mas não entram no Zod, na resposta nem na tela**: o `UPDATE` não os toca (preservados) e contam para "perfil vazio". As junções ainda não têm API (issue seguinte): a substituição só mexe nas colunas, e `null`/retirada do papel/exclusão do contato apagam também as junções.

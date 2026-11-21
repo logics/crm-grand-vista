@@ -11,6 +11,10 @@ import {
   contactRoles,
   contacts,
   farmAptitudes,
+  buyerCrops,
+  buyerPaymentMethods,
+  buyerProfiles,
+  buyerRegions,
   farmCrops,
   farmOwners,
   farms,
@@ -109,9 +113,7 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
       .values({ tenantId, name: 'Exemplo', systemMeaning: 'available' })
       .returning();
     const [post] = await tx.insert(tradingPosts).values({ tenantId, name: 'Exemplo' }).returning();
-    await tx
-      .insert(tradingPostMunicipalities)
-      .values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
+    await tx.insert(tradingPostMunicipalities).values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
     const [contact] = await tx.insert(contacts).values({ tenantId, personType: 'pf', name: 'Exemplo' }).returning();
     await tx.insert(contactRoles).values({ tenantId, contactId: contact!.id, role: 'buyer' });
     const [farm] = await tx
@@ -128,13 +130,13 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(farmAptitudes).values({ tenantId, farmId: farm!.id, aptitudeId: aptitude!.id });
     await tx.insert(farmCrops).values({ tenantId, farmId: farm!.id, cropId: crop!.id });
     await tx.insert(farmOwners).values({ tenantId, farmId: farm!.id, contactId: contact!.id, isPrimary: true });
-    for (const table of [
-      contactClassifications,
-      documentCategories,
-      leadSources,
-      paymentMethods,
-      purchaseProfiles,
-    ]) {
+    const [payment] = await tx.insert(paymentMethods).values({ tenantId, name: 'Exemplo' }).returning();
+    const [purchaseProfile] = await tx.insert(purchaseProfiles).values({ tenantId, name: 'Exemplo' }).returning();
+    await tx.insert(buyerProfiles).values({ tenantId, contactId: contact!.id, purchaseProfileId: purchaseProfile!.id });
+    await tx.insert(buyerRegions).values({ tenantId, contactId: contact!.id, uf: 'GO' });
+    await tx.insert(buyerCrops).values({ tenantId, contactId: contact!.id, cropId: crop!.id });
+    await tx.insert(buyerPaymentMethods).values({ tenantId, contactId: contact!.id, paymentMethodId: payment!.id });
+    for (const table of [contactClassifications, documentCategories, leadSources]) {
       await tx.insert(table).values({ tenantId, name: 'Exemplo' });
     }
     await tx

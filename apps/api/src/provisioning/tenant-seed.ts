@@ -8,6 +8,8 @@ import {
   crops,
   documentCategories,
   leadSources,
+  paymentMethods,
+  purchaseProfiles,
   tenantSettings,
   type AuditedWrites,
 } from '@crm/db';
@@ -26,4 +28,6 @@ export async function seedTenantDefaults(writes: AuditedWrites, tenantId: string
   for (const name of TENANT_SEED.contactClassifications) {
     await writes.insert(contactClassifications, { tenantId, name });
   }
+  for (const name of TENANT_SEED.purchaseProfiles) await writes.insert(purchaseProfiles, { tenantId, name });
+  for (const name of TENANT_SEED.paymentMethods) await writes.insert(paymentMethods, { tenantId, name });
 }

@@ -7,10 +7,10 @@ import { contactSections } from '../../../src/modules/contacts/contact-sections.
 import { session, stubFakeApi } from '../../support/fake-api.js';
 import { renderApp } from '../../support/render-app.js';
 
-// Seção que uma spec futura (perfil de compra) registraria: só para comprador.
+// Seção de exemplo que uma spec futura registraria: só para comprador (a de perfil de compra é real e vive em `contact-sections`).
 contactSections.register({
-  key: 'buyer-profile',
-  title: 'Perfil de compra',
+  key: 'buyer-wishes',
+  title: 'Desejos do comprador',
   order: 20,
   roles: ['buyer'],
   component: () => <p>Quer fazenda de soja</p>,
@@ -115,7 +115,7 @@ describe('ficha do contato', () => {
     });
     renderApp('/e/grand-vista/contacts/c1');
     await findSection('data');
-    expect(screen.queryByText('Perfil de compra')).not.toBeInTheDocument();
+    expect(screen.queryByText('Desejos do comprador')).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();
     stubFakeApi({

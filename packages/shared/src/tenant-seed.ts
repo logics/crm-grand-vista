@@ -16,6 +16,8 @@ export interface TenantSeed {
   crops: readonly string[];
   leadSources: readonly string[];
   contactClassifications: readonly string[];
+  purchaseProfiles: readonly string[];
+  paymentMethods: readonly string[];
 }
 
 export const TENANT_SEED: TenantSeed = {
@@ -30,4 +32,6 @@ export const TENANT_SEED: TenantSeed = {
   crops: ['Algodão', 'Café', 'Cana-de-açúcar', 'Milho', 'Pecuária', 'Soja'],
   leadSources: ['Evento', 'Indicação', 'Instagram', 'Placa na fazenda', 'Site', 'WhatsApp'],
   contactClassifications: ['A', 'B', 'C'],
+  purchaseProfiles: ['Especulador', 'Investidor', 'Produtor'],
+  paymentMethods: ['À vista', 'Financiamento', 'Parcelado', 'Permuta'],
 };
