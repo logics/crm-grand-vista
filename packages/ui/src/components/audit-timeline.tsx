@@ -30,6 +30,12 @@ export type AuditTimelineChange = {
   to?: ReactNode;
   /** Texto longo: uma linha truncada, com "Ver tudo". */
   long?: boolean;
+  /**
+   * Campo que o leitor não tem permissão para ver: este texto ("Requer
+   * permissão para ver esta alteração") ocupa o lugar do antes e do depois,
+   * que nem chegam ao componente.
+   */
+  restricted?: ReactNode;
 };
 
 /** Um registro filho alterado no mesmo save: a linha dele e os campos alterados. */
@@ -122,9 +128,24 @@ function ChangeList({ changes, className, ...props }: ComponentProps<'ul'> & { c
   return (
     <ul className={cn('flex flex-col gap-1 text-xs leading-normal', className)} {...props}>
       {changes.map((change, index) =>
-        change.long ? <LongChange key={index} change={change} /> : <ShortChange key={index} change={change} />,
+        change.restricted ? (
+          <RestrictedChange key={index} change={change} />
+        ) : change.long ? (
+          <LongChange key={index} change={change} />
+        ) : (
+          <ShortChange key={index} change={change} />
+        ),
       )}
     </ul>
+  );
+}
+
+function RestrictedChange({ change }: { change: AuditTimelineChange }) {
+  return (
+    <li className="flex flex-wrap items-center gap-x-3">
+      <span className="text-text-muted">{change.field}</span>
+      <span className="text-text-faint italic">{change.restricted}</span>
+    </li>
   );
 }
 

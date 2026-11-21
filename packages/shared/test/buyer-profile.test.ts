@@ -28,10 +28,17 @@ describe('buyerProfileSchema', () => {
     });
   });
 
-  it('as chaves financeiras não existem na entrada: são descartadas', () => {
-    const data = parse({ urgency: 'high', estimatedNetWorth: '1000000.00', investmentCapacity: '5.00' }).data!;
-    expect(data).not.toHaveProperty('estimatedNetWorth');
-    expect(data).not.toHaveProperty('investmentCapacity');
+  it('as chaves financeiras ausentes continuam ausentes; null explícito e valor passam como vieram', () => {
+    expect(parse({}).data).not.toHaveProperty('estimatedNetWorth');
+    expect(parse({}).data).not.toHaveProperty('investmentCapacity');
+    const sent = parse({ estimatedNetWorth: '1000000.00', investmentCapacity: null }).data!;
+    expect(sent.estimatedNetWorth).toBe('1000000.00');
+    expect(sent.investmentCapacity).toBeNull();
+  });
+
+  it('valor financeiro inválido é recusado e as chaves financeiras não contam para perfil vazio', () => {
+    expect(messages({ estimatedNetWorth: '-1' })).toEqual(['Patrimônio estimado inválido.']);
+    expect(isBuyerProfileEmpty({ estimatedNetWorth: '10.00' } as never)).toBe(true);
   });
 
   it('ticket médio acima do máximo e área mínima acima da máxima são recusados, com um lado nulo passa', () => {

@@ -225,6 +225,7 @@ export type {
 } from './farm.js';
 export {
   BUYER_PROFILE_AREA_ORDER_MESSAGE,
+  BUYER_PROFILE_FINANCIAL_KEYS,
   BUYER_PROFILE_PURCHASE_PROFILE_INACTIVE_MESSAGE,
   BUYER_PROFILE_PURCHASE_PROFILE_UNKNOWN_MESSAGE,
   BUYER_PROFILE_CONCURRENT_SAVE_MESSAGE,
@@ -281,6 +282,7 @@ export type { EntityField, RegisteredTable } from './field-registry.js';
 export {
   HISTORY_KINDS,
   HISTORY_PAGE_SIZE,
+  HISTORY_RESTRICTED_MESSAGE,
   SYSTEM_AUTHOR,
   historyChangeSchema,
   historyChildSchema,

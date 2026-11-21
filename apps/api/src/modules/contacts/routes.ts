@@ -61,6 +61,15 @@ const conflict = (message: string) => ({ error: { code: 'conflict', message } })
 
 const canView = () => requirePermission('contatos.ver');
 
+const forbidden = { error: { code: 'forbidden', message: FORBIDDEN_MESSAGE } } as const;
+
+/** Dados financeiros do comprador: ver e editar dependem de uma permissão própria. */
+const hasFinancialAccess = (c: Context<TenantEnv>) => c.var.access.permissions.has('contatos.ver_dados_financeiros');
+
+/** Enviou patrimônio ou capacidade — com valor ou `null` explícito (que apagaria). Ausente não conta. */
+const sendsFinancialKeys = (profile: { estimatedNetWorth?: unknown; investmentCapacity?: unknown } | null | undefined) =>
+  !!profile && (profile.estimatedNetWorth !== undefined || profile.investmentCapacity !== undefined);
+
 /**
  * A recusa de regra do documento como resposta: duplicado é 409 com o contato
  * existente, documento que não serve ao tipo de pessoa é 400. Outro erro sobe.
@@ -85,13 +94,16 @@ export function createContactsRoutes() {
   return new Hono<TenantEnv>()
     .get('/', canView(), zValidator('query', contactListQuerySchema), async (c) => {
       const query = c.req.valid('query');
-      return c.json(await c.var.withTenant((tx) => listContacts(tx, query)), 200);
+      return c.json(await c.var.withTenant((tx) => listContacts(tx, query, hasFinancialAccess(c))), 200);
     })
     .post('/', requirePermission('contatos.criar'), zValidator('json', createContactSchema), async (c) => {
       const { tenant, userId, withTenant } = c.var;
       const input = c.req.valid('json');
+      const financial = hasFinancialAccess(c);
+      // Antes de qualquer escrita: sem a permissão, as chaves financeiras são recusadas.
+      if (!financial && sendsFinancialKeys(input.buyerProfile)) return c.json(forbidden, 403);
       const result = await withTaxIdRefusals(c, input.taxId, () =>
-        withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input)),
+        withTenant((tx) => createContact(tx, { tenantId: tenant.id, userId }, input, financial)),
       );
       if (!result.ok) return result.response;
       return isRejection(result.value) ? c.json(invalid(result.value.rejected), 400) : c.json(result.value, 201);
@@ -116,16 +128,19 @@ export function createContactsRoutes() {
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
-      const contact = await c.var.withTenant((tx) => getContact(tx, c.req.param('id')));
+      const contact = await c.var.withTenant((tx) => getContact(tx, c.req.param('id'), hasFinancialAccess(c)));
       return contact ? c.json(contact, 200) : c.json(notFound, 404);
     })
     .patch('/:id', requirePermission('contatos.editar'), zValidator('json', updateContactSchema), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
       const { tenant, userId, withTenant } = c.var;
       const input = c.req.valid('json');
+      const financial = hasFinancialAccess(c);
+      // Antes de qualquer escrita: sem a permissão, as chaves financeiras são recusadas, com valor ou `null`.
+      if (!financial && sendsFinancialKeys(input.buyerProfile)) return c.json(forbidden, 403);
       try {
         const result = await withTaxIdRefusals(c, input.taxId, () =>
-          withTenant((tx) => updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input)),
+          withTenant((tx) => updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input, financial)),
         );
         if (!result.ok) return result.response;
         if (isRejection(result.value)) return c.json(invalid(result.value.rejected), 400);

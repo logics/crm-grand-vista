@@ -10,14 +10,16 @@ import { useVocabularyName } from './vocabulary-name.js';
 const fields = FIELD_REGISTRY.buyer_profiles.fields;
 
 /**
- * Seção "Perfil de compra" da ficha, só para comprador. As chaves financeiras
- * não chegam do servidor e não têm lugar aqui. Sem perfil, estado vazio com o
+ * Seção "Perfil de compra" da ficha, só para comprador. Patrimônio e capacidade
+ * de investimento só aparecem com `contatos.ver_dados_financeiros` (sem ela nem
+ * o rótulo, e o servidor nem manda os valores). Sem perfil, estado vazio com o
  * atalho para o formulário.
  */
 export function BuyerProfileSection({ record }: { record: Contact }) {
   const slug = useTenantSlug();
   const navigate = useNavigate();
   const canEdit = useCan('contatos.editar');
+  const canSeeFinancial = useCan('contatos.ver_dados_financeiros');
   const context = useDisplayContext();
   const profile = record.buyerProfile;
   const purchaseProfile = useVocabularyName('purchase-profiles', profile?.purchaseProfileId ?? null);
@@ -38,6 +40,8 @@ export function BuyerProfileSection({ record }: { record: Contact }) {
   }
 
   const money = (field: 'avg_ticket' | 'max_ticket', value: string | null) => formatFieldValue(fields[field], value, context);
+  const financial = (field: 'estimated_net_worth' | 'investment_capacity', value: string | null | undefined) =>
+    formatFieldValue(fields[field], value ?? null, context);
   const area = (field: 'min_area_ha' | 'max_area_ha', value: string | null) => formatFieldValue(fields[field], value, context);
 
   return (
@@ -53,6 +57,12 @@ export function BuyerProfileSection({ record }: { record: Contact }) {
         { label: fields.max_ticket.label, value: money('max_ticket', profile.maxTicket) },
         { label: fields.min_area_ha.label, value: area('min_area_ha', profile.minAreaHa) },
         { label: fields.max_area_ha.label, value: area('max_area_ha', profile.maxAreaHa) },
+        ...(canSeeFinancial
+          ? [
+              { label: fields.estimated_net_worth.label, value: financial('estimated_net_worth', profile.estimatedNetWorth) },
+              { label: fields.investment_capacity.label, value: financial('investment_capacity', profile.investmentCapacity) },
+            ]
+          : []),
       ]}
     />
   );

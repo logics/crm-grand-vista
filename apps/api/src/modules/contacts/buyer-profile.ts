@@ -2,11 +2,12 @@
 // no `change_id` do save do contato. Não há rota própria: o serviço de contatos
 // chama daqui.
 //
-// Patrimônio estimado e capacidade de investimento existem no banco, mas esta
-// fatia não os lê nem os grava: a leitura os ignora e a substituição não os
-// toca (o `set` só leva as colunas de `BuyerProfile`), então o valor gravado é
-// preservado. Perfil "vazio" considera esses valores: a linha só some se eles
-// também estão nulos.
+// Patrimônio estimado e capacidade de investimento (dados financeiros) exigem
+// `contatos.ver_dados_financeiros`. Sem ela, a leitura não os devolve (nem
+// `null`) e a substituição não os toca, então o valor gravado é preservado
+// (a rota já recusou com 403 quem os enviou). Com ela, a substituição é
+// completa como nas demais colunas. Perfil "vazio" considera o dado financeiro
+// que ficaria: a linha só some se ele também é nulo.
 import {
   buyerCrops,
   buyerPaymentMethods,
@@ -27,9 +28,10 @@ import { eq, inArray } from 'drizzle-orm';
 
 type ProfileRow = typeof buyerProfiles.$inferSelect;
 
-/** O que a API expõe da linha: nunca as chaves financeiras. */
-export function serializeBuyerProfile(row: ProfileRow): BuyerProfile {
+/** O que a API expõe da linha; as chaves financeiras só com `financial` (sem ele nem `null`). */
+export function serializeBuyerProfile(row: ProfileRow, financial: boolean): BuyerProfile {
   return {
+    ...(financial ? { estimatedNetWorth: row.estimatedNetWorth, investmentCapacity: row.investmentCapacity } : {}),
     purchaseProfileId: row.purchaseProfileId,
     avgTicket: row.avgTicket,
     maxTicket: row.maxTicket,
@@ -40,14 +42,18 @@ export function serializeBuyerProfile(row: ProfileRow): BuyerProfile {
   };
 }
 
-export async function buyerProfilesByContact(tx: Transaction, contactIds: readonly string[]): Promise<Map<string, BuyerProfile>> {
+export async function buyerProfilesByContact(
+  tx: Transaction,
+  contactIds: readonly string[],
+  financial: boolean,
+): Promise<Map<string, BuyerProfile>> {
   const byContact = new Map<string, BuyerProfile>();
   if (contactIds.length === 0) return byContact;
   const rows = await tx
     .select()
     .from(buyerProfiles)
     .where(inArray(buyerProfiles.contactId, [...contactIds]));
-  for (const row of rows) byContact.set(row.contactId, serializeBuyerProfile(row));
+  for (const row of rows) byContact.set(row.contactId, serializeBuyerProfile(row, financial));
   return byContact;
 }
 
@@ -75,13 +81,19 @@ export async function currentBuyerProfile(tx: Transaction, contactId: string): P
   return row ?? null;
 }
 
-const hasFinancialData = (row: ProfileRow | null) =>
-  row !== null && (row.estimatedNetWorth !== null || row.investmentCapacity !== null);
+/** O dado financeiro que a linha terá depois do save: o enviado, com a permissão; o gravado, sem ela. */
+function financialAfter(profile: BuyerProfileInput, current: ProfileRow | null, financial: boolean) {
+  return financial
+    ? { estimatedNetWorth: profile.estimatedNetWorth ?? null, investmentCapacity: profile.investmentCapacity ?? null }
+    : { estimatedNetWorth: current?.estimatedNetWorth ?? null, investmentCapacity: current?.investmentCapacity ?? null };
+}
 
 /**
  * Substituição completa das colunas: o que veio ausente já é nulo no schema.
- * Perfil sem nenhuma coluna preenchida (e sem dado financeiro preservado) não
- * tem linha: a existente é apagada, e nenhuma nasce.
+ * `financial` (a permissão) decide se as duas colunas financeiras entram na
+ * substituição; sem ele, ficam como estão. Perfil sem nenhuma coluna preenchida
+ * (e sem dado financeiro que reste) não tem linha: a existente é apagada, e
+ * nenhuma nasce.
  */
 export async function replaceBuyerProfile(
   writes: AuditedWrites,
@@ -89,15 +101,28 @@ export async function replaceBuyerProfile(
   contactId: string,
   profile: BuyerProfileInput,
   current: ProfileRow | null,
+  financial: boolean,
 ): Promise<void> {
-  if (isBuyerProfileEmpty(profile) && !hasFinancialData(current)) {
+  const kept = financialAfter(profile, current, financial);
+  if (isBuyerProfileEmpty(profile) && kept.estimatedNetWorth === null && kept.investmentCapacity === null) {
     if (current) await writes.delete(buyerProfiles, eq(buyerProfiles.id, current.id));
     return;
   }
+  // Sem a permissão as chaves são descartadas (o `update` ignora `undefined`): o gravado fica.
+  const columns = {
+    purchaseProfileId: profile.purchaseProfileId,
+    avgTicket: profile.avgTicket,
+    maxTicket: profile.maxTicket,
+    minAreaHa: profile.minAreaHa,
+    maxAreaHa: profile.maxAreaHa,
+    urgency: profile.urgency,
+    qualificationLevel: profile.qualificationLevel,
+  };
+  const values = financial ? { ...columns, ...kept } : columns;
   if (current) {
-    await writes.update(buyerProfiles, profile, eq(buyerProfiles.id, current.id));
+    await writes.update(buyerProfiles, values, eq(buyerProfiles.id, current.id));
   } else {
-    await writes.insert(buyerProfiles, { ...profile, tenantId, contactId });
+    await writes.insert(buyerProfiles, { ...values, tenantId, contactId });
   }
 }
 

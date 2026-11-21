@@ -6,6 +6,7 @@
 import {
   DEFAULT_DISPLAY_CONTEXT,
   FIELD_REGISTRY,
+  HISTORY_RESTRICTED_MESSAGE,
   SYSTEM_AUTHOR,
   metaFields,
   formatFieldValue,
@@ -137,15 +138,15 @@ interface VisibleChange {
 interface FormatOptions {
   references: ReferenceNames;
   context: DisplayContext;
+  /** Quem lê: campo com `requiresPermission` sai mascarado se ele não a tem. */
+  reader: EffectiveAccess;
 }
 
 /** Objeto JSON gravado pelo wrapper; qualquer outra coisa conta como vazio. */
 function parseObject(value: string | null): Readonly<Record<string, unknown>> | null {
   if (value === null) return null;
   const parsed: unknown = JSON.parse(value);
-  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-    ? (parsed as Record<string, unknown>)
-    : null;
+  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
 }
 
 function formatReference(references: ReferenceNames, reference: Reference, id: string | null): string | null {
@@ -155,15 +156,25 @@ function formatReference(references: ReferenceNames, reference: Reference, id: s
 
 /**
  * As alterações visíveis de um campo, formatadas: nenhuma para coluna oculta,
- * uma por chave para jsonb expandido. Se o save gravou a coluna mais de uma
+ * uma por chave para jsonb expandido. Campo que exige permissão que o leitor não
+ * tem sai como uma alteração só, com o rótulo e `HISTORY_RESTRICTED_MESSAGE`,
+ * sem os valores (nem os anteriores de uma exclusão). Se o save gravou a coluna mais de uma
  * vez (inseriu e alterou no mesmo envio), vale o valor anterior da primeira
  * linha e o novo da última.
  */
-function formatChanges(field: EntityField, rows: readonly AuditRow[], { references, context }: FormatOptions): VisibleChange[] {
+function formatChanges(
+  field: EntityField,
+  rows: readonly AuditRow[],
+  { references, context, reader }: FormatOptions,
+): VisibleChange[] {
   const [first] = rows;
   const last = rows.at(-1);
   if (!first || !last || field.type === 'hidden') return [];
   const gender = field.gender ?? 'm';
+
+  if (field.requiresPermission && !reader.permissions.has(field.requiresPermission)) {
+    return [{ change: { field: field.label, from: null, to: null, restricted: HISTORY_RESTRICTED_MESSAGE }, gender }];
+  }
 
   if (field.type === 'jsonb') {
     return field
@@ -173,16 +184,17 @@ function formatChanges(field: EntityField, rows: readonly AuditRow[], { referenc
 
   const [from, to] =
     field.type === 'reference'
-      ? [formatReference(references, field.references, first.oldValue), formatReference(references, field.references, last.newValue)]
+      ? [
+          formatReference(references, field.references, first.oldValue),
+          formatReference(references, field.references, last.newValue),
+        ]
       : [formatFieldValue(field, first.oldValue, context), formatFieldValue(field, last.newValue, context)];
   return [{ change: { field: field.label, from, to, ...(field.type === 'long_text' ? { long: true as const } : {}) }, gender }];
 }
 
 /** As alterações visíveis de um save de uma entidade, na ordem do registro. */
 function changesOf(fields: readonly EntityField[], rows: readonly AuditRow[], options: FormatOptions): VisibleChange[] {
-  return fields.flatMap((field) =>
-    formatChanges(field, rows.filter((row) => row.field === field.column).sort(byId), options),
-  );
+  return fields.flatMap((field) => formatChanges(field, rows.filter((row) => row.field === field.column).sort(byId), options));
 }
 
 /**
@@ -296,7 +308,11 @@ function belongsTo(entityId: string, parentColumn: string, state: ChildState, sa
 }
 
 /** O nome do filho no título: lista fechada (`role`) pelo rótulo, referência (`contact_id`) pelo nome atual. */
-function childName(nameField: EntityField | undefined, rawName: string | null | undefined, options: FormatOptions): string | null {
+function childName(
+  nameField: EntityField | undefined,
+  rawName: string | null | undefined,
+  options: FormatOptions,
+): string | null {
   if (rawName === null || rawName === undefined) return null;
   if (nameField?.type === 'enum') return formatFieldValue(nameField, rawName);
   if (nameField?.type === 'reference') return formatReference(options.references, nameField.references, rawName);
@@ -375,9 +391,7 @@ export function referencesToResolve(
 ): Map<string, Reference & { ids: Set<string> }> {
   const wanted = new Map<string, Reference & { ids: Set<string> }>();
   for (const table of [entity, ...children.map((child) => child.entity)]) {
-    const references = metaFields(metaOf(registry, table)).flatMap((field) =>
-      field.type === 'reference' ? [field] : [],
-    );
+    const references = metaFields(metaOf(registry, table)).flatMap((field) => (field.type === 'reference' ? [field] : []));
     for (const row of rows) {
       const field = row.entity === table ? references.find((reference) => reference.column === row.field) : undefined;
       if (!field) continue;
@@ -400,7 +414,7 @@ export function assembleHistory(rows: readonly AuditRow[], options: AssembleOpti
   const { entity, entityId, children = [], registry = FIELD_REGISTRY, authors, references, reader } = options;
   const meta = metaOf(registry, entity);
   const fields = metaFields(meta);
-  const formatting: ChildrenContext = { entityId, references, context: options.context ?? DEFAULT_DISPLAY_CONTEXT };
+  const formatting: ChildrenContext = { entityId, references, reader, context: options.context ?? DEFAULT_DISPLAY_CONTEXT };
 
   const sorted = [...rows].sort(byId);
   const seen = visibleChildren(sorted, options, reader);

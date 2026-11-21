@@ -10,6 +10,26 @@ import { classesWithoutCss } from '../support/classes.js';
 import { compileStyles } from '../support/tailwind.js';
 
 describe('AuditTimeline', () => {
+  it('campo restrito mostra o rótulo e o aviso, sem valores nem travessão', () => {
+    render(
+      <AuditTimeline
+        items={[
+          {
+            title: 'Patrimônio estimado alterado',
+            changes: [
+              { field: 'Patrimônio estimado', from: null, to: null, restricted: 'Requer permissão para ver esta alteração' },
+            ],
+          },
+        ]}
+      />,
+    );
+    const [entry] = screen.getAllByRole('listitem');
+    expect(within(entry!).getByText('Patrimônio estimado')).toBeInTheDocument();
+    expect(within(entry!).getByText('Requer permissão para ver esta alteração')).toBeInTheDocument();
+    expect(entry!.querySelector('del, ins')).toBeNull();
+    expect(within(entry!).queryByText('—')).not.toBeInTheDocument();
+  });
+
   it('uma entrada por alteração salva, na ordem recebida, com autor e instante', () => {
     render(
       <AuditTimeline

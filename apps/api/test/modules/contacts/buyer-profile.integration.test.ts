@@ -142,7 +142,7 @@ describe('perfil de compra do contato', () => {
   });
 
   describe('gravação', () => {
-    it('POST de comprador grava as colunas num change_id e o GET devolve o mesmo perfil, sem chaves financeiras', async () => {
+    it('POST de comprador grava as colunas num change_id e o GET devolve o mesmo perfil (a Admin tem a permissão financeira)', async () => {
       const created = await buyer({ ...full(), estimatedNetWorth: '50000000.00', investmentCapacity: '9000000.00' });
 
       expect(created).toMatchObject({ roles: ['buyer'] });
@@ -154,11 +154,12 @@ describe('perfil de compra do contato', () => {
         maxTicket: '12000000.00',
         minAreaHa: '500.0000',
         maxAreaHa: '1500.0000',
+        estimatedNetWorth: '50000000.00',
+        investmentCapacity: '9000000.00',
       });
       expect(await read(created.id)).toMatchObject({ buyerProfile: created.buyerProfile });
       const [stored] = await rowsOf(buyerProfiles, created.id);
-      // As chaves financeiras do payload não entram: o Zod de entrada não as conhece.
-      expect(stored).toMatchObject({ estimatedNetWorth: null, investmentCapacity: null });
+      expect(stored).toMatchObject({ estimatedNetWorth: '50000000.00', investmentCapacity: '9000000.00' });
       const { changeIds, entities } = await auditedEntitiesOfLastSave(created.id);
       expect(changeIds.size).toBe(1);
       expect(entities).toEqual(new Set(['contacts', 'contact_roles', 'buyer_profiles']));
@@ -183,6 +184,8 @@ describe('perfil de compra do contato', () => {
         maxTicket: null,
         minAreaHa: null,
         maxAreaHa: null,
+        estimatedNetWorth: null,
+        investmentCapacity: null,
       });
     });
 
