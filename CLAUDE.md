@@ -98,7 +98,7 @@ If Phase 1 slips, the agreed cut order is: matching config screen (keep default 
 ```
 pnpm install            # Node 24 (.nvmrc), pnpm pelo packageManager
 pnpm db:up              # Postgres 18 em container: bancos crm_dev e crm_test, papéis crm_owner e crm_app
-pnpm dev                # API (tsx watch) + web (Vite); a API lê o `.env` (copie de `.env.example`)
+pnpm dev                # API (tsx watch) + web (Vite); encaminha o ambiente do shell (turbo --env-mode=loose) e a API/Vite ainda leem o `.env` da raiz se existir (copie de `.env.example`)
 pnpm storybook          # vitrine do Design System (packages/ui) em localhost:6006
 pnpm build              # artefatos de produção dos cinco pacotes
 pnpm typecheck          # tsc --noEmit strict em todos os pacotes
