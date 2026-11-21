@@ -8,7 +8,9 @@ import {
   CONTACT_ROLE_LABELS,
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
+  buyerRegionKeyOf,
   createContactSchema,
+  isMunicipality,
   type ContactDuplicate,
   type ContactRole,
   formatPhone,
@@ -24,6 +26,7 @@ import {
   Input,
   LevelSelect,
   MoneyInput,
+  MunicipalityPicker,
   PhoneInput,
   Select,
   SelectContent,
@@ -34,12 +37,13 @@ import {
   Textarea,
 } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { z } from 'zod';
 import { useUnsavedChangesGuard } from '../../lib/use-unsaved-changes-guard.js';
 import { useDisplayContext } from '../settings/display-context.js';
 import { QualificationSelect } from './buyer-profile-fields.js';
+import { resolveMunicipalities, searchMunicipalities } from '../municipalities/municipality-source.js';
 import { VocabularyField } from '../settings/vocabulary-field.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
@@ -97,7 +101,9 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
     profileFields.current[name] = { value, clear: () => onChange(null) };
   };
   const hasProfileValue = () =>
-    Object.values(profileFields.current).some(({ value }) => value !== null && value !== undefined && value !== '');
+    Object.values(profileFields.current).some(
+      ({ value }) => value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0),
+    );
   const { areaUnit, alqueireType } = useDisplayContext();
   const areaProps = { unit: areaUnit === 'ha' ? 'hectare' : 'alqueire', alqueireType } as const;
   // Vem marcada em contato novo e, na edição, quando os dois números são iguais.
@@ -194,6 +200,8 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
       ];
 
   const profile = FIELD_REGISTRY.buyer_profiles.fields;
+  const searchRegion = useMemo(() => searchMunicipalities(slug, { allowUf: true }), [slug]);
+  const resolveRegion = useMemo(() => resolveMunicipalities(slug), [slug]);
   const profileSection = hasClassification(roles)
     ? [
         {
@@ -271,6 +279,66 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                 track(field.name, field.value, field.onChange as (value: null) => void);
                 return (
                   <AreaInput {...field} {...areaProps} value={field.value ?? null} onChange={(value) => field.onChange(value)} />
+                );
+              },
+            },
+            {
+              name: 'buyerProfile.regions',
+              label: 'Regiões de interesse',
+              colSpan: 2,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return (
+                  <MunicipalityPicker
+                    multiple
+                    allowUf
+                    aria-label="Regiões de interesse"
+                    search={searchRegion}
+                    resolve={resolveRegion}
+                    value={(field.value ?? []).map(buyerRegionKeyOf)}
+                    onChange={(selected) =>
+                      field.onChange(
+                        selected.map((region) => (isMunicipality(region) ? { ibgeCode: region.ibgeCode } : { uf: region.uf })),
+                      )
+                    }
+                    onBlur={field.onBlur}
+                  />
+                );
+              },
+            },
+            {
+              name: 'buyerProfile.cropIds',
+              label: 'Culturas de interesse',
+              colSpan: 2,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return (
+                  <VocabularyField
+                    multiple
+                    vocabulary="crops"
+                    aria-label="Culturas de interesse"
+                    value={field.value ?? []}
+                    onChange={(entries) => field.onChange(entries.map((entry) => entry.id))}
+                    onBlur={field.onBlur}
+                  />
+                );
+              },
+            },
+            {
+              name: 'buyerProfile.paymentMethodIds',
+              label: 'Formas de pagamento',
+              colSpan: 2,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return (
+                  <VocabularyField
+                    multiple
+                    vocabulary="payment-methods"
+                    aria-label="Formas de pagamento"
+                    value={field.value ?? []}
+                    onChange={(entries) => field.onChange(entries.map((entry) => entry.id))}
+                    onBlur={field.onBlur}
+                  />
                 );
               },
             },

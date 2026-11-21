@@ -5,7 +5,8 @@ import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { useTenantSlug } from '../../shell/tenant-query.js';
 import { useDisplayContext } from '../settings/display-context.js';
-import { useVocabularyName } from './vocabulary-name.js';
+import { useRegionLabels } from './region-labels.js';
+import { useVocabularyName, useVocabularyNames } from './vocabulary-name.js';
 
 const fields = FIELD_REGISTRY.buyer_profiles.fields;
 
@@ -21,6 +22,9 @@ export function BuyerProfileSection({ record }: { record: Contact }) {
   const context = useDisplayContext();
   const profile = record.buyerProfile;
   const purchaseProfile = useVocabularyName('purchase-profiles', profile?.purchaseProfileId ?? null);
+  const regions = useRegionLabels(profile?.regions ?? []);
+  const crops = useVocabularyNames('crops', profile?.cropIds ?? []);
+  const paymentMethods = useVocabularyNames('payment-methods', profile?.paymentMethodIds ?? []);
 
   if (!profile) {
     return (
@@ -53,6 +57,9 @@ export function BuyerProfileSection({ record }: { record: Contact }) {
         { label: fields.max_ticket.label, value: money('max_ticket', profile.maxTicket) },
         { label: fields.min_area_ha.label, value: area('min_area_ha', profile.minAreaHa) },
         { label: fields.max_area_ha.label, value: area('max_area_ha', profile.maxAreaHa) },
+        { label: 'Regiões de interesse', value: regions.join(', ') },
+        { label: 'Culturas de interesse', value: crops.join(', ') },
+        { label: 'Formas de pagamento', value: paymentMethods.join(', ') },
       ]}
     />
   );

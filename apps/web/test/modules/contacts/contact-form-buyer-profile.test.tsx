@@ -27,7 +27,15 @@ const contact = (overrides = {}) => ({
   ...overrides,
 });
 
+const soy = { id: '0197c000-0000-7000-8000-0000000000d1', name: 'Soja', active: true };
+const corn = { id: '0197c000-0000-7000-8000-0000000000d2', name: 'Milho', active: true };
+const cash = { id: '0197c000-0000-7000-8000-0000000000e1', name: 'À vista', active: true };
+const rioVerde = { ibgeCode: '5218805', name: 'Rio Verde', uf: 'GO', active: true };
+
 const profile = (overrides = {}) => ({
+  regions: [],
+  cropIds: [],
+  paymentMethodIds: [],
   purchaseProfileId: investor.id,
   qualificationLevel: 'hot',
   urgency: 'high',
@@ -46,6 +54,9 @@ const open = (record: unknown) => {
       '/e/grand-vista/contacts/c1': record,
       '/e/grand-vista/settings': { defaultAlqueireType: 'goiano', areaDisplayUnit: 'hectare' },
       '/e/grand-vista/settings/vocabularies/purchase-profiles/options': { items: [investor] },
+      '/e/grand-vista/settings/vocabularies/crops/options': { items: [soy, corn] },
+      '/e/grand-vista/settings/vocabularies/payment-methods/options': { items: [cash] },
+      '/e/grand-vista/municipalities': { items: [{ uf: 'GO' }, rioVerde] },
     },
   });
   renderApp('/e/grand-vista/contacts/c1/edit');
@@ -105,6 +116,47 @@ describe('formulário do contato: perfil de compra', () => {
     expect(await screen.findByRole('combobox', { name: 'Grau de qualificação' })).toHaveTextContent('Quente');
     expect(screen.getByRole('combobox', { name: 'Urgência da compra' })).toHaveTextContent('Alta');
     expect(screen.getByRole('textbox', { name: /Ticket máximo/ })).toHaveValue('12.000.000,00');
+  });
+
+  it('mostra as regiões, culturas e formas de pagamento gravadas e as leva de volta no save', async () => {
+    const saved = profile({
+      regions: [{ uf: 'GO' }, { ibgeCode: rioVerde.ibgeCode }],
+      cropIds: [soy.id],
+      paymentMethodIds: [cash.id],
+    });
+    const api = open(contact({ roles: ['buyer'], buyerProfile: saved }));
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Goiás (UF)')).toBeInTheDocument();
+    expect(await screen.findByText('Rio Verde — GO')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Culturas de interesse' })).toHaveTextContent('Soja'));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Formas de pagamento' })).toHaveTextContent('À vista'));
+
+    await user.type(screen.getByRole('textbox', { name: /Origem do relacionamento/ }), 'Evento');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    expect((await patchBody(api)).buyerProfile).toMatchObject({
+      regions: [{ uf: 'GO' }, { ibgeCode: rioVerde.ibgeCode }],
+      cropIds: [soy.id],
+      paymentMethodIds: [cash.id],
+    });
+  });
+
+  it('trocar a cultura leva a lista nova inteira; a região escolhida vai só com a chave', async () => {
+    const api = open(contact({ roles: ['buyer'], buyerProfile: profile({ cropIds: [soy.id] }) }));
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Culturas de interesse' }));
+    await user.click(await screen.findByRole('option', { name: 'Milho' }));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('combobox', { name: 'Regiões de interesse' }));
+    await user.click(await screen.findByRole('option', { name: 'Goiás (UF)' }));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    const { buyerProfile } = (await patchBody(api)) as { buyerProfile: { cropIds: string[]; regions: unknown[] } };
+    expect([...buyerProfile.cropIds].sort()).toEqual([soy.id, corn.id].sort());
+    expect(buyerProfile.regions).toEqual([{ uf: 'GO' }]);
   });
 
   it('desmarcar com algo preenchido pede confirmação; cancelar mantém a seção', async () => {

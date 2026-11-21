@@ -47,8 +47,11 @@ export interface HistoryChildDeclaration<Table extends string = string> {
   entity: Table;
   /** A coluna que aponta para o pai: é por ela que o filho é achado. */
   parentColumn: string;
-  /** Coluna que nomeia o filho no título da linha ("Documento adicionado: Matrícula 12.345"). */
-  nameColumn?: string;
+  /**
+   * Coluna que nomeia o filho no título da linha ("Documento adicionado: Matrícula 12.345").
+   * Com mais de uma, vale a primeira preenchida: a região é município ou UF, nunca os dois.
+   */
+  nameColumn?: string | readonly string[];
   /**
    * Coluna booleana que marca um filho entre os irmãos (o proprietário principal).
    * Não vira linha do filho: a troca vira uma alteração da entrada, "Proprietário
@@ -115,6 +118,12 @@ export const labelWith = (word: string, { label, gender }: { label: string; gend
 
 const byId = (a: AuditRow, b: AuditRow) => a.id - b.id;
 
+/** A coluna que nomeia o filho neste estado: a primeira declarada que tem valor, senão a primeira declarada. */
+function nameColumnOf(declaration: HistoryChildDeclaration, state: ChildState): string | undefined {
+  const columns = [declaration.nameColumn ?? []].flat();
+  return columns.find((column) => state[column] !== null && state[column] !== undefined) ?? columns[0];
+}
+
 function metaOf(registry: Readonly<Record<string, EntityMeta>>, entity: string): EntityMeta {
   const meta = registry[entity];
   if (!meta) throw new Error(`Entidade sem metadados de campo: ${entity}.`);
@@ -143,9 +152,7 @@ interface FormatOptions {
 function parseObject(value: string | null): Readonly<Record<string, unknown>> | null {
   if (value === null) return null;
   const parsed: unknown = JSON.parse(value);
-  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-    ? (parsed as Record<string, unknown>)
-    : null;
+  return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
 }
 
 function formatReference(references: ReferenceNames, reference: Reference, id: string | null): string | null {
@@ -173,16 +180,17 @@ function formatChanges(field: EntityField, rows: readonly AuditRow[], { referenc
 
   const [from, to] =
     field.type === 'reference'
-      ? [formatReference(references, field.references, first.oldValue), formatReference(references, field.references, last.newValue)]
+      ? [
+          formatReference(references, field.references, first.oldValue),
+          formatReference(references, field.references, last.newValue),
+        ]
       : [formatFieldValue(field, first.oldValue, context), formatFieldValue(field, last.newValue, context)];
   return [{ change: { field: field.label, from, to, ...(field.type === 'long_text' ? { long: true as const } : {}) }, gender }];
 }
 
 /** As alterações visíveis de um save de uma entidade, na ordem do registro. */
 function changesOf(fields: readonly EntityField[], rows: readonly AuditRow[], options: FormatOptions): VisibleChange[] {
-  return fields.flatMap((field) =>
-    formatChanges(field, rows.filter((row) => row.field === field.column).sort(byId), options),
-  );
+  return fields.flatMap((field) => formatChanges(field, rows.filter((row) => row.field === field.column).sort(byId), options));
 }
 
 /**
@@ -296,7 +304,11 @@ function belongsTo(entityId: string, parentColumn: string, state: ChildState, sa
 }
 
 /** O nome do filho no título: lista fechada (`role`) pelo rótulo, referência (`contact_id`) pelo nome atual. */
-function childName(nameField: EntityField | undefined, rawName: string | null | undefined, options: FormatOptions): string | null {
+function childName(
+  nameField: EntityField | undefined,
+  rawName: string | null | undefined,
+  options: FormatOptions,
+): string | null {
   if (rawName === null || rawName === undefined) return null;
   if (nameField?.type === 'enum') return formatFieldValue(nameField, rawName);
   if (nameField?.type === 'reference') return formatReference(options.references, nameField.references, rawName);
@@ -311,7 +323,6 @@ function primaryChangesOf(sources: readonly ChildSource[], changeId: string, opt
   return sources.flatMap(({ declaration, fields, histories }) => {
     const flag = declaration.primaryFlag;
     if (!flag) return [];
-    const nameField = fields.find((field) => field.column === declaration.nameColumn);
     let lost: string | null = null;
     let gained: string | null = null;
     for (const history of histories.values()) {
@@ -323,7 +334,12 @@ function primaryChangesOf(sources: readonly ChildSource[], changeId: string, opt
       if (flagRows.length === 0) continue;
       const before = flagRows[0]!.oldValue === 'true';
       const after = kindOf(saved) !== 'deleted' && flagRows.at(-1)!.newValue === 'true';
-      const name = childName(nameField, declaration.nameColumn ? state[declaration.nameColumn] : null, options);
+      const nameColumn = nameColumnOf(declaration, state);
+      const name = childName(
+        fields.find((field) => field.column === nameColumn),
+        nameColumn ? state[nameColumn] : null,
+        options,
+      );
       if (before && !after) lost = name;
       if (after && !before) gained = name;
     }
@@ -353,8 +369,12 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
       if (kind === 'updated' && changes.length === 0) return [];
 
       const shortTitle = labelWith(CHILD_VERBS[kind], meta);
-      const nameField = fields.find((field) => field.column === declaration.nameColumn);
-      const name = childName(nameField, declaration.nameColumn ? state[declaration.nameColumn] : null, options);
+      const nameColumn = nameColumnOf(declaration, state);
+      const name = childName(
+        fields.find((field) => field.column === nameColumn),
+        nameColumn ? state[nameColumn] : null,
+        options,
+      );
       return [
         {
           child: { title: name ? `${shortTitle}: ${name}` : shortTitle, changes: changes.map(({ change }) => change) },
@@ -375,9 +395,7 @@ export function referencesToResolve(
 ): Map<string, Reference & { ids: Set<string> }> {
   const wanted = new Map<string, Reference & { ids: Set<string> }>();
   for (const table of [entity, ...children.map((child) => child.entity)]) {
-    const references = metaFields(metaOf(registry, table)).flatMap((field) =>
-      field.type === 'reference' ? [field] : [],
-    );
+    const references = metaFields(metaOf(registry, table)).flatMap((field) => (field.type === 'reference' ? [field] : []));
     for (const row of rows) {
       const field = row.entity === table ? references.find((reference) => reference.column === row.field) : undefined;
       if (!field) continue;

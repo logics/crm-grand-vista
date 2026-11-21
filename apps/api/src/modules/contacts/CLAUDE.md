@@ -3,7 +3,7 @@
 Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumuláveis (comprador, proprietário, corretor externo).
 
 - **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente), #129 (avisos de duplicata), #128 (busca, filtros e colunas da lista) e #130 (opções do seletor)
-- **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato), `buyer_profiles` e as junções `buyer_regions`, `buyer_crops`, `buyer_payment_methods` (issue #175; spec `docs/specs/fase-1-perfil-de-compra.md`)
+- **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato), `buyer_profiles` e as junções `buyer_regions`, `buyer_crops`, `buyer_payment_methods` (issues #175 e #176; spec `docs/specs/fase-1-perfil-de-compra.md`)
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/history`, `src/listing`
 
 ## Convenções locais
@@ -23,3 +23,5 @@ Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumulávei
 - Ainda sem API: `custom_fields` — de issue seguinte da spec.
 
 - `RoleUsage` aceita `inUsePhrase` e `label.gender`: a exclusão barrada pela FK usa a frase declarada pela tabela ("Este contato é proprietário de fazenda. Remova-o das fazendas antes de excluir."); sem frase, o rótulo da entidade. O mapeamento é pela tabela do erro.
+
+- **Junções do perfil de compra** (`buyer-profile.ts`): `regions` (`{ ibgeCode } | { uf }`), `cropIds` e `paymentMethodIds` vão dentro de `buyerProfile`, na mesma substituição completa (lista ausente é vazia, `null` apaga tudo). O serviço grava pela **diferença** contra o estado atual (`currentBuyerProfile`): insere o que entrou, apaga o que saiu, nunca apaga-e-recria, tudo no `change_id` do save. Repetidos no payload são deduplicados no schema (região por `buyerRegionKeyOf`); região redundante (UF e município da UF) é aceita. Entra só cultura, forma de pagamento e município **ativos** (400); o já gravado que ficou inativo continua. Perfil só com junções não tem linha em `buyer_profiles`, e a resposta traz o objeto com as colunas nulas. O histórico declara as três junções como filhos; a região se nomeia por `nameColumn: ['municipality_ibge_code', 'uf']` ("Rio Verde — GO" / "Goiás (UF)"). A corrida de dois saves pega um índice único e vira 409.
