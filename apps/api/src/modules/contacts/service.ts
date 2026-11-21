@@ -15,12 +15,14 @@ import {
 } from '@crm/db';
 import {
   BUSINESS_TIME_ZONE,
+  BUYER_PROFILE_REQUIRES_BUYER_MESSAGE,
   CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE,
   CONTACT_CLASSIFICATION_UNKNOWN_MESSAGE,
   CONTACT_LEAD_SOURCE_UNKNOWN_MESSAGE,
   CONTACT_ROLE_LABELS,
   CONTACT_ROLES,
   FIELD_REGISTRY,
+  type BuyerProfile,
   type Contact,
   type ContactDuplicate,
   type ContactDuplicatesQuery,
@@ -38,6 +40,13 @@ import {
   type UpdateContactInput,
 } from '@crm/shared';
 import { and, eq, getTableColumns, getTableName, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
+import {
+  buyerProfilesByContact,
+  currentBuyerProfile,
+  deleteBuyerProfile,
+  purchaseProfileRejection,
+  replaceBuyerProfile,
+} from './buyer-profile.js';
 import { countRoleUsage, pluralLabelOfTable, usageOfTable } from './role-usage.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
@@ -54,7 +63,7 @@ export const contactList = defineList({
 
 const roleOrder = (roles: readonly string[]): ContactRole[] => CONTACT_ROLES.filter((role) => roles.includes(role));
 
-function serialize(row: ContactRow, roles: readonly string[]): Contact {
+function serialize(row: ContactRow, roles: readonly string[], buyerProfile: BuyerProfile | null): Contact {
   return {
     id: row.id,
     personType: row.personType as PersonType,
@@ -69,6 +78,7 @@ function serialize(row: ContactRow, roles: readonly string[]): Contact {
     classificationId: row.classificationId,
     leadSourceId: row.leadSourceId,
     roles: roleOrder(roles),
+    buyerProfile,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -139,14 +149,17 @@ export async function listContacts(tx: Transaction, query: ContactListQuery): Pr
     filters: contactFilters(query),
     searchAlso: searchByNormalizedTerms(query.q),
   });
-  const roles = await rolesByContact(tx, page.items.map((item) => item.id));
-  return { ...page, items: page.items.map((item) => serialize(item, roles.get(item.id) ?? [])) };
+  const ids = page.items.map((item) => item.id);
+  const roles = await rolesByContact(tx, ids);
+  const profiles = await buyerProfilesByContact(tx, ids);
+  return { ...page, items: page.items.map((item) => serialize(item, roles.get(item.id) ?? [], profiles.get(item.id) ?? null)) };
 }
 
 export async function getContact(tx: Transaction, id: string): Promise<Contact | null> {
   const [row] = await tx.select().from(contacts).where(eq(contacts.id, id));
   if (!row) return null;
-  return serialize(row, (await rolesByContact(tx, [id])).get(id) ?? []);
+  const profile = (await buyerProfilesByContact(tx, [id])).get(id) ?? null;
+  return serialize(row, (await rolesByContact(tx, [id])).get(id) ?? [], profile);
 }
 
 /** Retirar papel em uso: a mensagem já diz onde, para o front exibi-la. */
@@ -162,9 +175,7 @@ async function assertRolesNotInUse(tx: Transaction, contact: Contact, removed: r
     if (uses.length === 0) continue;
     const roleLabel = CONTACT_ROLE_LABELS[role].toLowerCase();
     const where = uses.map(({ usage, count }) => countedLabel(count, usage.label)).join(' e ');
-    throw new RoleInUseError(
-      `${contact.name} é ${roleLabel} de ${where}; troque o ${roleLabel} antes de retirar o papel.`,
-    );
+    throw new RoleInUseError(`${contact.name} é ${roleLabel} de ${where}; troque o ${roleLabel} antes de retirar o papel.`);
   }
 }
 
@@ -191,11 +202,7 @@ export class TaxIdMismatchError extends Error {
 }
 
 /** Dono do documento na empresa ativa (o RLS recorta), exceto `exceptId`. */
-export async function findContactByTaxId(
-  tx: Transaction,
-  taxId: string,
-  exceptId?: string,
-): Promise<ExistingContact | null> {
+export async function findContactByTaxId(tx: Transaction, taxId: string, exceptId?: string): Promise<ExistingContact | null> {
   const [row] = await tx
     .select({ id: contacts.id, name: contacts.name })
     .from(contacts)
@@ -247,16 +254,21 @@ export async function createContact(
 ): Promise<Contact | ContactRejection> {
   const missing = await referencesMissing(tx, input);
   if (missing) return { rejected: missing };
+  if (input.buyerProfile) {
+    const refused = await purchaseProfileRejection(tx, input.buyerProfile.purchaseProfileId, null);
+    if (refused) return { rejected: refused };
+  }
   await assertTaxIdFree(tx, input.taxId);
   const writes = auditedWrites(tx, actor);
-  const { roles, ...fields } = input;
+  const { roles, buyerProfile, ...fields } = input;
   const row = await writes.insert(contacts, {
     ...fields,
     tenantId: actor.tenantId!,
     legalName: legalNameFor(fields.personType, fields.legalName),
   });
   for (const role of roles) await writes.insert(contactRoles, { tenantId: actor.tenantId!, contactId: row.id, role });
-  return serialize(row, roles);
+  if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, row.id, buyerProfile, null);
+  return serialize(row, roles, (await buyerProfilesByContact(tx, [row.id])).get(row.id) ?? null);
 }
 
 /**
@@ -275,16 +287,31 @@ export async function updateContact(
 
   const isBuyer = hasClassification(input.roles ?? current.roles);
   if (input.classificationId && !isBuyer) return { rejected: CONTACT_CLASSIFICATION_REQUIRES_BUYER_MESSAGE };
+  if (input.buyerProfile && !isBuyer) return { rejected: BUYER_PROFILE_REQUIRES_BUYER_MESSAGE };
   const missing = await referencesMissing(tx, input);
   if (missing) return { rejected: missing };
+  const currentProfile = await currentBuyerProfile(tx, id);
+  if (input.buyerProfile) {
+    const refused = await purchaseProfileRejection(
+      tx,
+      input.buyerProfile.purchaseProfileId,
+      currentProfile?.purchaseProfileId ?? null,
+    );
+    if (refused) return { rejected: refused };
+  }
 
-  const { roles, ...fields } = input;
+  const { roles, buyerProfile, ...fields } = input;
   const personType = fields.personType ?? current.personType;
   // O schema só confere o par que veio junto; aqui o documento é conferido contra o cadastro.
   const mismatch = taxIdIssue(personType, fields.taxId === undefined ? current.taxId : fields.taxId);
   if (mismatch) throw new TaxIdMismatchError(mismatch);
   if (fields.taxId && fields.taxId !== current.taxId) await assertTaxIdFree(tx, fields.taxId, id);
-  if (roles) await assertRolesNotInUse(tx, current, current.roles.filter((role) => !roles.includes(role)));
+  if (roles)
+    await assertRolesNotInUse(
+      tx,
+      current,
+      current.roles.filter((role) => !roles.includes(role)),
+    );
   const writes = auditedWrites(tx, actor);
   const set: Partial<typeof contacts.$inferInsert> = { ...fields };
   // Passar para PF limpa a razão social; em PF ela não se grava.
@@ -308,9 +335,13 @@ export async function updateContact(
     finalRoles = roles;
   }
 
-  return serialize(row, finalRoles);
-}
+  // Retirar o comprador apaga o perfil no mesmo ponto que limpa a classificação;
+  // `null` apaga; objeto substitui; ausente não toca. Quem não era comprador não tem perfil: nada a apagar.
+  if ((hasClassification(current.roles) && !isBuyer) || buyerProfile === null) await deleteBuyerProfile(writes, id);
+  else if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, id, buyerProfile, currentProfile);
 
+  return serialize(row, finalRoles, (await buyerProfilesByContact(tx, [id])).get(id) ?? null);
+}
 
 /**
  * Contatos que coincidem com o que está sendo cadastrado: telefone e WhatsApp
@@ -344,7 +375,10 @@ export async function findDuplicates(tx: Transaction, query: ContactDuplicatesQu
     .orderBy(sql`${contacts.name} collate "pt-BR-x-icu"`, contacts.id)
     .limit(20);
 
-  const roles = await rolesByContact(tx, rows.map((row) => row.id));
+  const roles = await rolesByContact(
+    tx,
+    rows.map((row) => row.id),
+  );
   return rows.map((row) => {
     const flags = row as unknown as Record<DuplicateReason, boolean>;
     return {
@@ -384,6 +418,7 @@ const inUseMessageOfEntity = (table: string | undefined) =>
 export async function deleteContact(tx: Transaction, actor: AuditActor, id: string): Promise<boolean> {
   if (!(await contactExists(tx, id))) return false;
   const writes = auditedWrites(tx, actor);
+  await deleteBuyerProfile(writes, id);
   await writes.delete(contactRoles, eq(contactRoles.contactId, id));
   await writes.delete(contacts, eq(contacts.id, id));
   return true;

@@ -110,7 +110,7 @@ const areaSchema = (label: 'Área total' | 'Área útil') =>
     .refine((value) => !AREA_PATTERN.test(value) || compareDecimal(value, '0') > 0, `${label} deve ser maior que zero.`);
 
 /** Decimal canônico positivo, nos limites do `numeric(precision, scale)` da coluna. */
-const positiveDecimalSchema = (integerDigits: number, scale: number, requiredMessage: string, invalidMessage: string) => {
+export const positiveDecimalSchema = (integerDigits: number, scale: number, requiredMessage: string, invalidMessage: string) => {
   const pattern = new RegExp(`^\\d{1,${integerDigits}}(\\.\\d{1,${scale}})?$`);
   return z
     .string({ error: requiredMessage })

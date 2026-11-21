@@ -1,6 +1,18 @@
-import { CONTACT_ROLES_LABEL, hasClassification, CONTACT_ROLE_LABELS, FIELD_REGISTRY, PERSON_TYPE_LABELS, contactNameLabel, formatPhone, formatTaxId, hasLegalName, type Contact } from '@crm/shared';
+import {
+  CONTACT_ROLES_LABEL,
+  hasClassification,
+  CONTACT_ROLE_LABELS,
+  FIELD_REGISTRY,
+  PERSON_TYPE_LABELS,
+  contactNameLabel,
+  formatPhone,
+  formatTaxId,
+  hasLegalName,
+  type Contact,
+} from '@crm/shared';
 import { SpecList } from '@crm/ui';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
+import { BuyerProfileSection } from './buyer-profile-section.js';
 import { useVocabularyName } from './vocabulary-name.js';
 
 // Seções da ficha do contato. Cada spec que pendura algo na ficha (perfil de
@@ -36,3 +48,10 @@ function DataSection({ record }: { record: Contact }) {
 
 contactSections.register({ key: 'data', title: 'Dados', order: 10, component: DataSection });
 
+contactSections.register({
+  key: 'buyer-profile',
+  title: 'Perfil de compra',
+  order: 20,
+  roles: ['buyer'],
+  component: BuyerProfileSection,
+});

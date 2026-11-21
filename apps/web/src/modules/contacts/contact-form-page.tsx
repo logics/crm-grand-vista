@@ -14,12 +14,32 @@ import {
   formatPhone,
   type PersonType,
 } from '@crm/shared';
-import { Checkbox, ConfirmDialog, EntityForm, type EntityFormField, Input, PhoneInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TaxIdInput, Textarea } from '@crm/ui';
+import {
+  AreaInput,
+  Checkbox,
+  ConfirmDialog,
+  EntityForm,
+  type EntityFormField,
+  type EntityFormSection,
+  Input,
+  LevelSelect,
+  MoneyInput,
+  PhoneInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  TaxIdInput,
+  Textarea,
+} from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { z } from 'zod';
 import { useUnsavedChangesGuard } from '../../lib/use-unsaved-changes-guard.js';
+import { useDisplayContext } from '../settings/display-context.js';
+import { QualificationSelect } from './buyer-profile-fields.js';
 import { VocabularyField } from '../settings/vocabulary-field.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
@@ -34,8 +54,16 @@ const FORM_ID = 'contact-form';
 /** O contato mais a opção só do formulário: sem coluna, ela não existe na API. */
 const contactFormSchema = createContactSchema.safeExtend({ sameNumber: z.boolean() });
 type FormValues = z.input<typeof contactFormSchema>;
-/** Sem o campo na tela, o que sobrou digitado nele não pode barrar o salvamento. */
-const contactFormSchemaWithoutWhatsapp = contactFormSchema.safeExtend({ whatsapp: z.any() }) as unknown as typeof contactFormSchema;
+/**
+ * Sem o papel comprador a seção não existe: o que sobrou nos campos dela não vai
+ * à API (sai `null`, que apaga o perfil, se havia) nem barra o salvamento.
+ */
+const contactFormSchemaWithoutProfile = contactFormSchema.safeExtend({
+  buyerProfile: z
+    .any()
+    .optional()
+    .transform(() => null),
+}) as unknown as typeof contactFormSchema;
 
 /** Formulário de criação (`/contacts/new`) e edição (`/contacts/:id/edit`). */
 export function ContactFormPage() {
@@ -56,13 +84,22 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   const [personType, setPersonType] = useState<PersonType>(contact?.personType ?? 'pf');
   const [roles, setRoles] = useState<ContactRole[]>(contact?.roles ?? []);
   // Retirada do papel comprador à espera de confirmação (há classificação a apagar).
-  const [pendingRemoval, setPendingRemoval] = useState<(() => void) | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<{ apply: () => void; text: string } | null>(null);
   // O campo de classificação só existe com o papel comprador: guarda o valor e o
   // `onChange` dele enquanto está na tela, para a retirada do papel poder apagá-lo.
   const classification = useRef<{ value: string | null | undefined; clear: () => void }>({
     value: contact?.classificationId,
     clear: () => undefined,
   });
+  // O mesmo para os campos do perfil de compra, um por nome.
+  const profileFields = useRef<Record<string, { value: unknown; clear: () => void }>>({});
+  const track = (name: string, value: unknown, onChange: (value: null) => void) => {
+    profileFields.current[name] = { value, clear: () => onChange(null) };
+  };
+  const hasProfileValue = () =>
+    Object.values(profileFields.current).some(({ value }) => value !== null && value !== undefined && value !== '');
+  const { areaUnit, alqueireType } = useDisplayContext();
+  const areaProps = { unit: areaUnit === 'ha' ? 'hectare' : 'alqueire', alqueireType } as const;
   // Vem marcada em contato novo e, na edição, quando os dois números são iguais.
   const initialSameNumber = contact ? (contact.phone ?? null) === (contact.whatsapp ?? null) : true;
   const [sameNumber, setSameNumber] = useState(initialSameNumber);
@@ -76,7 +113,10 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   const back = tenantPath(slug, contact ? `contacts/${contact.id}` : 'contacts');
 
   const save = async ({ sameNumber: copy, ...parsed }: z.output<typeof contactFormSchema>) => {
-    const values = copy ? { ...parsed, whatsapp: parsed.phone ?? null } : parsed;
+    const withWhatsapp = copy ? { ...parsed, whatsapp: parsed.phone ?? null } : parsed;
+    // `buyerProfile: null` apaga o perfil: só vai quando o contato era comprador e deixou de ser.
+    const { buyerProfile, ...rest } = withWhatsapp;
+    const values = buyerProfile === null && !contact?.roles.includes('buyer') ? rest : withWhatsapp;
     setDuplicate(null);
     const confirmed = skipDuplicateCheck.current;
     skipDuplicateCheck.current = false;
@@ -105,11 +145,20 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
     navigate(tenantPath(slug, `contacts/${saved.id}`));
   };
 
+  // Perfil de compra e WhatsApp saem do schema quando o campo não está na tela.
+  const base = hasClassification(roles) ? contactFormSchema : contactFormSchemaWithoutProfile;
+  const schema = sameNumber ? (base.safeExtend({ whatsapp: z.any() }) as unknown as typeof contactFormSchema) : base;
+
   // Razão social só existe em pessoa jurídica.
-  const legalNameFields: EntityFormField<FormValues>[] =
-    hasLegalName(personType)
-      ? [{ name: 'legalName', label: FIELD_REGISTRY.contacts.fields.legal_name.label, render: (field) => <Input {...field} value={field.value ?? ''} /> }]
-      : [];
+  const legalNameFields: EntityFormField<FormValues>[] = hasLegalName(personType)
+    ? [
+        {
+          name: 'legalName',
+          label: FIELD_REGISTRY.contacts.fields.legal_name.label,
+          render: (field) => <Input {...field} value={field.value ?? ''} />,
+        },
+      ]
+    : [];
 
   // Classificação é dado do comprador.
   const classificationFields: EntityFormField<FormValues>[] = hasClassification(roles)
@@ -144,6 +193,92 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
         },
       ];
 
+  const profile = FIELD_REGISTRY.buyer_profiles.fields;
+  const profileSection = hasClassification(roles)
+    ? [
+        {
+          title: 'Perfil de compra',
+          fields: [
+            {
+              name: 'buyerProfile.purchaseProfileId',
+              label: profile.purchase_profile_id.label,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return (
+                  <VocabularyField
+                    vocabulary="purchase-profiles"
+                    aria-label={profile.purchase_profile_id.label}
+                    value={field.value ?? null}
+                    onChange={(entry) => field.onChange(entry?.id ?? null)}
+                    onBlur={field.onBlur}
+                  />
+                );
+              },
+            },
+            {
+              name: 'buyerProfile.qualificationLevel',
+              label: profile.qualification_level.label,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return <QualificationSelect value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} />;
+              },
+            },
+            {
+              name: 'buyerProfile.urgency',
+              label: profile.urgency.label,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return (
+                  <LevelSelect
+                    aria-label={profile.urgency.label}
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                );
+              },
+            },
+            {
+              name: 'buyerProfile.avgTicket',
+              label: profile.avg_ticket.label,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return <MoneyInput {...field} value={field.value ?? null} onChange={(value) => field.onChange(value)} />;
+              },
+            },
+            {
+              name: 'buyerProfile.maxTicket',
+              label: profile.max_ticket.label,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return <MoneyInput {...field} value={field.value ?? null} onChange={(value) => field.onChange(value)} />;
+              },
+            },
+            {
+              name: 'buyerProfile.minAreaHa',
+              label: profile.min_area_ha.label,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return (
+                  <AreaInput {...field} {...areaProps} value={field.value ?? null} onChange={(value) => field.onChange(value)} />
+                );
+              },
+            },
+            {
+              name: 'buyerProfile.maxAreaHa',
+              label: profile.max_area_ha.label,
+              render: (field) => {
+                track(field.name, field.value, field.onChange as (value: null) => void);
+                return (
+                  <AreaInput {...field} {...areaProps} value={field.value ?? null} onChange={(value) => field.onChange(value)} />
+                );
+              },
+            },
+          ],
+        } satisfies EntityFormSection<FormValues>,
+      ]
+    : [];
+
   return (
     <div className="flex flex-col gap-gap-shell">
       <PageHeader title={contact ? 'Editar contato' : 'Novo contato'} />
@@ -156,7 +291,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
       />
       <EntityForm
         id={FORM_ID}
-        schema={sameNumber ? contactFormSchemaWithoutWhatsapp : contactFormSchema}
+        schema={schema}
         defaultValues={{
           personType: contact?.personType ?? 'pf',
           name: contact?.name ?? '',
@@ -171,6 +306,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
           sameNumber: initialSameNumber,
           relationshipOrigin: contact?.relationshipOrigin ?? '',
           strategicNotes: contact?.strategicNotes ?? '',
+          ...(contact?.buyerProfile ? { buyerProfile: contact.buyerProfile } : {}),
         }}
         onDirtyChange={setDirty}
         onCancel={() => {
@@ -252,11 +388,23 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                             const apply = () => {
                               field.onChange(next);
                               setRoles(next);
-                              if (!hasClassification(next)) classification.current.clear();
+                              if (!hasClassification(next)) {
+                                classification.current.clear();
+                                for (const tracked of Object.values(profileFields.current)) tracked.clear();
+                                profileFields.current = {};
+                              }
                             };
-                            // Retirar o comprador apaga a classificação: pergunta antes, se houver o que apagar.
-                            if (role === 'buyer' && !checked && classification.current.value) setPendingRemoval(() => apply);
-                            else apply();
+                            // Retirar o comprador apaga a classificação e o perfil de compra: pergunta antes, se houver o que apagar.
+                            const hasClassificationValue = !!classification.current.value;
+                            const hasProfile = hasProfileValue();
+                            if (role === 'buyer' && !checked && (hasClassificationValue || hasProfile)) {
+                              setPendingRemoval({
+                                apply,
+                                text: hasProfile
+                                  ? 'A classificação e o perfil de compra deste contato serão apagados ao salvar.'
+                                  : 'A classificação do cliente será apagada ao salvar.',
+                              });
+                            } else apply();
                           }}
                         />
                         {CONTACT_ROLE_LABELS[role]}
@@ -300,7 +448,11 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                 ),
               },
               ...whatsappFields,
-              { name: 'email', label: FIELD_REGISTRY.contacts.fields.email.label, render: (field) => <Input type="email" {...field} value={field.value ?? ''} /> },
+              {
+                name: 'email',
+                label: FIELD_REGISTRY.contacts.fields.email.label,
+                render: (field) => <Input type="email" {...field} value={field.value ?? ''} />,
+              },
               {
                 name: 'relationshipOrigin',
                 label: FIELD_REGISTRY.contacts.fields.relationship_origin.label,
@@ -314,6 +466,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
               },
             ],
           },
+          ...profileSection,
         ]}
       />
       {guard.dialog}
@@ -323,9 +476,9 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
           if (!open) setPendingRemoval(null);
         }}
         title={`Retirar o papel ${CONTACT_ROLE_LABELS.buyer}?`}
-        description="A classificação do cliente será apagada ao salvar. O histórico de alterações guarda o valor anterior."
+        description={`${pendingRemoval?.text ?? ''} O histórico de alterações guarda o valor anterior.`}
         confirmLabel="Retirar papel"
-        onConfirm={() => pendingRemoval?.()}
+        onConfirm={() => pendingRemoval?.apply()}
       />
     </div>
   );

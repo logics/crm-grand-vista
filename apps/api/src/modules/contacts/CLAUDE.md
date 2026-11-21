@@ -3,7 +3,7 @@
 Contatos da empresa ativa: pessoas físicas e jurídicas com papéis acumuláveis (comprador, proprietário, corretor externo).
 
 - **Spec:** `docs/specs/fase-1-contatos.md`; issues #123 (cadastro mínimo ponta a ponta), #126 (classificação, origem do lead, semente), #129 (avisos de duplicata), #128 (busca, filtros e colunas da lista) e #130 (opções do seletor)
-- **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato)
+- **Tabelas que possui:** `contacts`, `contact_roles` (junção auditável, `CASCADE` do contato), `buyer_profiles` e as junções `buyer_regions`, `buyer_crops`, `buyer_payment_methods` (issue #175; spec `docs/specs/fase-1-perfil-de-compra.md`)
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/history`, `src/listing`
 
 ## Convenções locais

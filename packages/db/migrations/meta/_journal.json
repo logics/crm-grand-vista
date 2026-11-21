@@ -169,6 +169,13 @@
       "when": 1794590565589,
       "tag": "0025_farms_pricing_check_null_safe",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795287037156,
+      "tag": "0026_buyer_profiles",
+      "breakpoints": true
     }
   ]
 }

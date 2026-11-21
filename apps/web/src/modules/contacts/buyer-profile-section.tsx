@@ -1,0 +1,59 @@
+import { FIELD_REGISTRY, LEVEL_LABELS, QUALIFICATION_LEVEL_LABELS, formatFieldValue, type Contact } from '@crm/shared';
+import { Button, EmptyState, SpecList } from '@crm/ui';
+import { useNavigate } from 'react-router';
+import { useCan } from '../../shell/tenant-access.js';
+import { tenantPath } from '../../shell/tenant-path.js';
+import { useTenantSlug } from '../../shell/tenant-query.js';
+import { useDisplayContext } from '../settings/display-context.js';
+import { useVocabularyName } from './vocabulary-name.js';
+
+const fields = FIELD_REGISTRY.buyer_profiles.fields;
+
+/**
+ * Seção "Perfil de compra" da ficha, só para comprador. As chaves financeiras
+ * não chegam do servidor e não têm lugar aqui. Sem perfil, estado vazio com o
+ * atalho para o formulário.
+ */
+export function BuyerProfileSection({ record }: { record: Contact }) {
+  const slug = useTenantSlug();
+  const navigate = useNavigate();
+  const canEdit = useCan('contatos.editar');
+  const context = useDisplayContext();
+  const profile = record.buyerProfile;
+  const purchaseProfile = useVocabularyName('purchase-profiles', profile?.purchaseProfileId ?? null);
+
+  if (!profile) {
+    return (
+      <EmptyState
+        compact
+        title="Sem perfil de compra"
+        description="O que este comprador procura e como costuma pagar ainda não foi preenchido."
+        action={
+          canEdit ? (
+            <Button onClick={() => navigate(tenantPath(slug, `contacts/${record.id}/edit`))}>Preencher perfil de compra</Button>
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  const money = (field: 'avg_ticket' | 'max_ticket', value: string | null) => formatFieldValue(fields[field], value, context);
+  const area = (field: 'min_area_ha' | 'max_area_ha', value: string | null) => formatFieldValue(fields[field], value, context);
+
+  return (
+    <SpecList
+      items={[
+        { label: fields.purchase_profile_id.label, value: purchaseProfile },
+        {
+          label: fields.qualification_level.label,
+          value: profile.qualificationLevel && QUALIFICATION_LEVEL_LABELS[profile.qualificationLevel],
+        },
+        { label: fields.urgency.label, value: profile.urgency && LEVEL_LABELS[profile.urgency] },
+        { label: fields.avg_ticket.label, value: money('avg_ticket', profile.avgTicket) },
+        { label: fields.max_ticket.label, value: money('max_ticket', profile.maxTicket) },
+        { label: fields.min_area_ha.label, value: area('min_area_ha', profile.minAreaHa) },
+        { label: fields.max_area_ha.label, value: area('max_area_ha', profile.maxAreaHa) },
+      ]}
+    />
+  );
+}
