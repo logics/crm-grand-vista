@@ -93,10 +93,10 @@ Forma comum: `name` text, `display_order` int NOT NULL DEFAULT 0, `active` boole
 |---|---|
 | `contacts` | `person_type` CHECK `('pf','pj')`, `name`, `legal_name`, `tax_id` (CPF ou CNPJ, inclusive o alfanumérico, gravado sem pontuação e em maiúsculas; índice único parcial em `(tenant_id, tax_id) WHERE tax_id IS NOT NULL`), `email`, `phone` e `whatsapp` (formato internacional, `+5564999990000`), `classification_id` → `contact_classifications`, `lead_source_id` → `lead_sources` (origem do lead), `relationship_origin` text (origem do relacionamento — conceito distinto, texto livre), `strategic_notes` text, `custom_fields jsonb NOT NULL DEFAULT '{}'`. **Sem corretor responsável**: a base de contatos é compartilhada na empresa, e o escopo de dados `own` não se aplica ao módulo |
 | `contact_roles` | `id` uuid PK, `contact_id`, `role` CHECK `('buyer','owner','external_broker')`, UNIQUE `(contact_id, role)` (junção auditável). Todo contato tem ao menos um papel. **Acumuláveis**: o parceiro que indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro |
-| `buyer_profiles` | `contact_id` PK (1:1 opcional). O **perfil de compra**: `purchase_profile_id` → `purchase_profiles` (investidor, produtor, especulador…), `avg_ticket`, `max_ticket`, `min_area_ha`, `max_area_ha`, `estimated_net_worth`, `investment_capacity`, `urgency` CHECK `('low','medium','high')`, `qualification_level` CHECK `('cold','warm','hot','qualified')` |
-| `buyer_regions` | `contact_id`, `municipality_ibge_code` nulo, `uf` char(2) nulo, `CHECK num_nonnulls(...) = 1`. Permite "interessado em Goiás" (UF) e "interessado em Rio Verde" (município); o matching testa a fazenda contra os dois |
-| `buyer_crops` | `contact_id`, `crop_id` |
-| `buyer_payment_methods` | `contact_id`, `payment_method_id` |
+| `buyer_profiles` | `id` uuid PK (o wrapper de auditoria exige), `contact_id` UNIQUE → `contacts` `CASCADE` (1:1 opcional; a linha só existe com algum campo preenchido). O **perfil de compra**: `purchase_profile_id` → `purchase_profiles` `RESTRICT` (investidor, produtor, especulador…), `avg_ticket`, `max_ticket`, `estimated_net_worth`, `investment_capacity` (dinheiro), `min_area_ha`, `max_area_ha` (área), `urgency` CHECK `('low','medium','high')`, `qualification_level` CHECK `('cold','warm','hot','qualified')`. `CHECK (avg_ticket <= max_ticket)` e `CHECK (min_area_ha <= max_area_ha)` (passam quando um dos lados é nulo). `estimated_net_worth` e `investment_capacity` são os **dados financeiros do comprador**, sob `contatos.ver_dados_financeiros` |
+| `buyer_regions` | `id` uuid PK, `contact_id` → `contacts` `CASCADE`, `municipality_ibge_code` nulo → `municipalities` `RESTRICT`, `uf` char(2) nulo, `CHECK num_nonnulls(...) = 1`; índices únicos parciais `(contact_id, municipality_ibge_code)` e `(contact_id, uf)`. Permite "interessado em Goiás" (UF) e "interessado em Rio Verde" (município); o matching testa a fazenda contra os dois |
+| `buyer_crops` | `id` uuid PK, `contact_id` → `contacts` `CASCADE`, `crop_id` → `crops` `RESTRICT`, `UNIQUE (contact_id, crop_id)` |
+| `buyer_payment_methods` | `id` uuid PK, `contact_id` → `contacts` `CASCADE`, `payment_method_id` → `payment_methods` `RESTRICT`, `UNIQUE (contact_id, payment_method_id)` |
 
 ---
 
@@ -211,7 +211,7 @@ Onde não havia definição explícita nas dez rodadas, escolhi e marquei aqui. 
 6. **Região como município *ou* UF** (duas colunas, uma preenchida), em `buyer_regions` e `opportunity_regions`. A alternativa seria só município, o que obrigaria listar 246 municípios para dizer "interessado em Goiás".
 7. **Due diligence como template + instância**, com o rótulo copiado na instância.
 8. **`sales_potential` e `priority` como `CHECK`**, não vocabulário configurável — não estavam na lista de vocabulários do plano. Se a Grand Vista quiser renomear essas faixas, viram tabela.
-9. **`qualification_level` como `CHECK`** de quatro valores (`cold`, `warm`, `hot`, `qualified`) — os nomes são chute meu, o escopo só diz "grau de qualificação".
+9. **`qualification_level` como `CHECK`** de quatro valores (`cold`, `warm`, `hot`, `qualified`), rótulos Frio, Morno, Quente e Qualificado — confirmado em `fase-1-perfil-de-compra`. Se a empresa quiser renomear, vira cadastro auxiliar.
 10. **`activities` com vínculo a oportunidade, contato ou fazenda**, ao menos um, em qualquer combinação.
 11. **`relationship_origin` como texto livre**, separado de `lead_source_id`. O escopo lista "origem do lead" e "origem do relacionamento" como campos distintos, sem dizer como diferem.
 
