@@ -12,7 +12,6 @@ import {
   VOCABULARY_MUNICIPALITY_TAKEN_MESSAGE,
   updateTenantSettingsSchema,
   updateVocabularyEntrySchema,
-  VOCABULARY_IN_USE_MESSAGE,
   VOCABULARY_NAME_TAKEN_MESSAGE,
   vocabulariesByLabel,
   vocabularyListQuerySchema,
@@ -27,6 +26,7 @@ import { noPermissionRequired, requirePermission } from '../../authorization/rou
 import { readTenantSettings, updateTenantSettings } from './parameters.js';
 import { suggestTradingPost } from './trading-post-municipalities.js';
 import { databaseError, SQLSTATE } from '../../database-error.js';
+import { inUseMessageOfReferencingTable } from './in-use-message.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import { createEntry, defaultEntries, deleteEntry, listEntries, listOptions, reorderEntries, updateEntry } from './service.js';
 
@@ -47,7 +47,7 @@ const ENTRY_NOT_FOUND = 'Entrada não encontrada.';
  * entrada em uso (a FK `RESTRICT` de quem consome o cadastro) e id que não é uuid.
  */
 function databaseRefusal(error: unknown) {
-  const { code, constraint } = databaseError(error);
+  const { code, constraint, table } = databaseError(error);
   switch (code) {
     case SQLSTATE.uniqueViolation:
       // Duas praças gravando o mesmo município ao mesmo tempo: o UNIQUE do município, não o do nome.
@@ -56,7 +56,7 @@ function databaseRefusal(error: unknown) {
         : ({ status: 409, body: conflict(VOCABULARY_NAME_TAKEN_MESSAGE) } as const);
     case SQLSTATE.restrictViolation:
     case SQLSTATE.foreignKeyViolation:
-      return { status: 409, body: conflict(VOCABULARY_IN_USE_MESSAGE) } as const;
+      return { status: 409, body: conflict(inUseMessageOfReferencingTable(table)) } as const;
     case SQLSTATE.invalidText:
       return { status: 404, body: notFound(ENTRY_NOT_FOUND) } as const;
     default:

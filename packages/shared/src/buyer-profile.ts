@@ -23,6 +23,8 @@ export const QUALIFICATION_LEVEL_LABELS: Record<QualificationLevel, string> = {
 export const BUYER_PROFILE_REQUIRES_BUYER_MESSAGE = 'O perfil de compra só existe para compradores.';
 export const BUYER_PROFILE_PURCHASE_PROFILE_UNKNOWN_MESSAGE = 'Perfil de compra inválido.';
 export const BUYER_PROFILE_PURCHASE_PROFILE_INACTIVE_MESSAGE = 'O perfil de compra escolhido está inativo.';
+export const BUYER_PROFILE_CONCURRENT_SAVE_MESSAGE =
+  'O perfil de compra deste contato foi gravado por outra alteração ao mesmo tempo. Recarregue e tente de novo.';
 export const BUYER_PROFILE_TICKET_ORDER_MESSAGE = 'O ticket médio não pode passar do ticket máximo.';
 export const BUYER_PROFILE_AREA_ORDER_MESSAGE = 'A área mínima não pode passar da área máxima.';
 

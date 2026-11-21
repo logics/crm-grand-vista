@@ -336,8 +336,8 @@ export async function updateContact(
   }
 
   // Retirar o comprador apaga o perfil no mesmo ponto que limpa a classificação;
-  // `null` apaga; objeto substitui; ausente não toca.
-  if (!isBuyer || buyerProfile === null) await deleteBuyerProfile(writes, id);
+  // `null` apaga; objeto substitui; ausente não toca. Quem não era comprador não tem perfil: nada a apagar.
+  if ((hasClassification(current.roles) && !isBuyer) || buyerProfile === null) await deleteBuyerProfile(writes, id);
   else if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, id, buyerProfile, currentProfile);
 
   return serialize(row, finalRoles, (await buyerProfilesByContact(tx, [id])).get(id) ?? null);

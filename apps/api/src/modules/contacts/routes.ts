@@ -1,6 +1,7 @@
 // Rotas de contatos, montadas sob `/e/:tenant/contacts`. Base compartilhada:
 // quem tem `contatos.ver` vê todos; não há cláusula de escopo de dados.
 import {
+  BUYER_PROFILE_CONCURRENT_SAVE_MESSAGE,
   CONTACT_NOT_FOUND_MESSAGE,
   TAX_ID_TAKEN_MESSAGE,
   contactDuplicatesQuerySchema,
@@ -43,6 +44,8 @@ const taxIdConflict = (existing: { id: string; name: string }) =>
 
 const taxIdMismatch = (message: string) => ({ error: { code: 'validation_error', message, field: 'taxId' } }) as const;
 
+/** Constraint do índice único `contact_id` do perfil de compra, que o driver aponta quando dois saves do primeiro perfil empatam. */
+const BUYER_PROFILE_UNIQUE_INDEX = 'buyer_profiles_contact_id_unique';
 /** Constraint do índice único `(tenant_id, tax_id)`, que o driver aponta quando duas gravações empatam. */
 const TAX_ID_UNIQUE_INDEX = 'contacts_tenant_id_tax_id_unique';
 
@@ -129,6 +132,11 @@ export function createContactsRoutes() {
         return result.value ? c.json(result.value, 200) : c.json(notFound, 404);
       } catch (error) {
         if (error instanceof RoleInUseError) return c.json(conflict(error.message), 409);
+        // Dois saves simultâneos do primeiro perfil: o índice único pega o segundo.
+        const { code, constraint } = databaseError(error);
+        if (code === SQLSTATE.uniqueViolation && constraint === BUYER_PROFILE_UNIQUE_INDEX) {
+          return c.json(conflict(BUYER_PROFILE_CONCURRENT_SAVE_MESSAGE), 409);
+        }
         throw error;
       }
     })

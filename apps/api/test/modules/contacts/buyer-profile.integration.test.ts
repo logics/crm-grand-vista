@@ -4,11 +4,13 @@
 import {
   auditedWrites,
   buyerCrops,
+  buyerPaymentMethods,
   buyerProfiles,
   buyerRegions,
   createDatabase,
   createPool,
   crops,
+  paymentMethods,
   purchaseProfiles,
   userProfiles,
 } from '@crm/db';
@@ -337,6 +339,24 @@ describe('perfil de compra do contato', () => {
     });
   });
 
+  describe('save simultâneo do primeiro perfil', () => {
+    it('a violação do índice único do contato vira 409, nunca 500', async () => {
+      const created = await json(await post({ personType: 'pf', name: 'Sem perfil', roles: ['buyer'] }));
+
+      const responses = await Promise.all(
+        Array.from({ length: 8 }, () => patch(created.id, { buyerProfile: { urgency: 'high' } })),
+      );
+
+      const statuses = responses.map((response) => response.status);
+      expect(statuses.every((status) => status === 200 || status === 409)).toBe(true);
+      expect(statuses).toContain(200);
+      for (const response of responses.filter((item) => item.status === 409)) {
+        expect((await json(response)).error?.message).toContain('outra alteração ao mesmo tempo');
+      }
+      expect(await rowsOf(buyerProfiles, created.id)).toHaveLength(1);
+    });
+  });
+
   describe('exclusão', () => {
     it('excluir perfil de compra em uso é 409; excluir o contato leva o perfil', async () => {
       const [used] = await db.withTenant(tenant.id, (tx) =>
@@ -349,6 +369,9 @@ describe('perfil de compra do contato', () => {
         headers: { cookie },
       });
       expect(blocked.status).toBe(409);
+      expect((await json(blocked)).error?.message).toBe(
+        'Esta entrada está em uso no perfil de compra de compradores. Desative-a para que não apareça em novos cadastros.',
+      );
 
       const removed = await app.request(url(`/${created.id}`), { method: 'DELETE', headers: { cookie } });
       expect(removed.status).toBe(204);
@@ -358,6 +381,35 @@ describe('perfil de compra do contato', () => {
         headers: { cookie },
       });
       expect(freed.status).toBe(204);
+    });
+  });
+
+  describe('exclusão de cadastro usado só por uma junção', () => {
+    it.each([
+      ['crops', 'na cultura de interesse'],
+      ['payment-methods', 'na forma de pagamento'],
+    ] as const)('%s em uso por junção é 409 com o rótulo', async (vocabulary, phrase) => {
+      const created = await buyer({ urgency: 'low' });
+      const table = vocabulary === 'crops' ? crops : paymentMethods;
+      const [entry] = await db.withTenant(tenant.id, (tx) =>
+        tx
+          .insert(table)
+          .values({ tenantId: tenant.id, name: `Junção ${vocabulary}` })
+          .returning(),
+      );
+      await db.withTenant(tenant.id, (tx) =>
+        vocabulary === 'crops'
+          ? tx.insert(buyerCrops).values({ tenantId: tenant.id, contactId: created.id, cropId: entry!.id })
+          : tx.insert(buyerPaymentMethods).values({ tenantId: tenant.id, contactId: created.id, paymentMethodId: entry!.id }),
+      );
+
+      const response = await app.request(`/e/${tenant.slug}/settings/vocabularies/${vocabulary}/${entry!.id}`, {
+        method: 'DELETE',
+        headers: { cookie },
+      });
+
+      expect(response.status).toBe(409);
+      expect((await json(response)).error?.message).toContain(phrase);
     });
   });
 
