@@ -147,6 +147,9 @@ describe('perfil de compra do contato', () => {
 
       expect(created).toMatchObject({ roles: ['buyer'] });
       expect(created.buyerProfile).toEqual({
+        regions: [],
+        cropIds: [],
+        paymentMethodIds: [],
         purchaseProfileId: investor,
         qualificationLevel: 'hot',
         urgency: 'high',
@@ -177,6 +180,9 @@ describe('perfil de compra do contato', () => {
       const updated = await json(await patch(created.id, { buyerProfile: { urgency: 'low', purchaseProfileId: producer } }));
 
       expect(updated.buyerProfile).toEqual({
+        regions: [],
+        cropIds: [],
+        paymentMethodIds: [],
         purchaseProfileId: producer,
         qualificationLevel: null,
         urgency: 'low',

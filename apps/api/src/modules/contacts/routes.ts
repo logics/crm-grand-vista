@@ -44,8 +44,14 @@ const taxIdConflict = (existing: { id: string; name: string }) =>
 
 const taxIdMismatch = (message: string) => ({ error: { code: 'validation_error', message, field: 'taxId' } }) as const;
 
-/** Constraint do índice único `contact_id` do perfil de compra, que o driver aponta quando dois saves do primeiro perfil empatam. */
-const BUYER_PROFILE_UNIQUE_INDEX = 'buyer_profiles_contact_id_unique';
+/** Constraints únicas do perfil de compra e das junções, que o driver aponta quando dois saves do mesmo contato empatam. */
+const BUYER_PROFILE_UNIQUE_CONSTRAINTS = new Set([
+  'buyer_profiles_contact_id_unique',
+  'buyer_regions_contact_id_municipality_unique',
+  'buyer_regions_contact_id_uf_unique',
+  'buyer_crops_contact_id_crop_id_unique',
+  'buyer_payment_methods_contact_id_payment_method_id_unique',
+]);
 /** Constraint do índice único `(tenant_id, tax_id)`, que o driver aponta quando duas gravações empatam. */
 const TAX_ID_UNIQUE_INDEX = 'contacts_tenant_id_tax_id_unique';
 
@@ -147,9 +153,9 @@ export function createContactsRoutes() {
         return result.value ? c.json(result.value, 200) : c.json(notFound, 404);
       } catch (error) {
         if (error instanceof RoleInUseError) return c.json(conflict(error.message), 409);
-        // Dois saves simultâneos do primeiro perfil: o índice único pega o segundo.
+        // Dois saves simultâneos do perfil: o índice único pega o segundo.
         const { code, constraint } = databaseError(error);
-        if (code === SQLSTATE.uniqueViolation && constraint === BUYER_PROFILE_UNIQUE_INDEX) {
+        if (code === SQLSTATE.uniqueViolation && BUYER_PROFILE_UNIQUE_CONSTRAINTS.has(constraint ?? '')) {
           return c.json(conflict(BUYER_PROFILE_CONCURRENT_SAVE_MESSAGE), 409);
         }
         throw error;
@@ -176,6 +182,9 @@ export function createContactsRoutes() {
         children: [
           { entity: 'contact_roles', parentColumn: 'contact_id', nameColumn: 'role' },
           { entity: 'buyer_profiles', parentColumn: 'contact_id' },
+          { entity: 'buyer_regions', parentColumn: 'contact_id', nameColumn: ['municipality_ibge_code', 'uf'] },
+          { entity: 'buyer_crops', parentColumn: 'contact_id', nameColumn: 'crop_id' },
+          { entity: 'buyer_payment_methods', parentColumn: 'contact_id', nameColumn: 'payment_method_id' },
         ],
       }),
     );

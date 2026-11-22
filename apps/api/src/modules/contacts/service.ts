@@ -44,7 +44,8 @@ import {
   buyerProfilesByContact,
   currentBuyerProfile,
   deleteBuyerProfile,
-  purchaseProfileRejection,
+  buyerProfileRejection,
+  NO_CURRENT_BUYER_PROFILE,
   replaceBuyerProfile,
 } from './buyer-profile.js';
 import { countRoleUsage, pluralLabelOfTable, usageOfTable } from './role-usage.js';
@@ -257,7 +258,7 @@ export async function createContact(
   const missing = await referencesMissing(tx, input);
   if (missing) return { rejected: missing };
   if (input.buyerProfile) {
-    const refused = await purchaseProfileRejection(tx, input.buyerProfile.purchaseProfileId, null);
+    const refused = await buyerProfileRejection(tx, input.buyerProfile, NO_CURRENT_BUYER_PROFILE);
     if (refused) return { rejected: refused };
   }
   await assertTaxIdFree(tx, input.taxId);
@@ -269,7 +270,9 @@ export async function createContact(
     legalName: legalNameFor(fields.personType, fields.legalName),
   });
   for (const role of roles) await writes.insert(contactRoles, { tenantId: actor.tenantId!, contactId: row.id, role });
-  if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, row.id, buyerProfile, null, financial);
+  if (buyerProfile) {
+    await replaceBuyerProfile(writes, actor.tenantId!, row.id, buyerProfile, NO_CURRENT_BUYER_PROFILE, financial);
+  }
   return serialize(row, roles, (await buyerProfilesByContact(tx, [row.id], financial)).get(row.id) ?? null);
 }
 
@@ -295,11 +298,7 @@ export async function updateContact(
   if (missing) return { rejected: missing };
   const currentProfile = await currentBuyerProfile(tx, id);
   if (input.buyerProfile) {
-    const refused = await purchaseProfileRejection(
-      tx,
-      input.buyerProfile.purchaseProfileId,
-      currentProfile?.purchaseProfileId ?? null,
-    );
+    const refused = await buyerProfileRejection(tx, input.buyerProfile, currentProfile);
     if (refused) return { rejected: refused };
   }
 

@@ -2,7 +2,18 @@
 // investimento) sob `contatos.ver_dados_financeiros`, contra o Postgres real:
 // Gestor lê e grava; Corretor não os vê, não os envia (403 antes de gravar), os
 // preserva ao salvar o perfil e os apaga junto com o papel; o histórico os mascara.
-import { auditedWrites, buyerProfiles, createDatabase, createPool, userProfiles } from '@crm/db';
+import {
+  auditedWrites,
+  buyerCrops,
+  buyerPaymentMethods,
+  buyerProfiles,
+  buyerRegions,
+  createDatabase,
+  createPool,
+  crops,
+  paymentMethods,
+  userProfiles,
+} from '@crm/db';
 import { HISTORY_RESTRICTED_MESSAGE } from '@crm/shared';
 import { loadApiEnv } from '@crm/shared/env';
 import { eq } from 'drizzle-orm';
@@ -33,6 +44,8 @@ describe('dados financeiros do comprador', () => {
   let tenant: Awaited<ReturnType<typeof createTenant>>;
   let manager: string;
   let broker: string;
+  let soy: string;
+  let cash: string;
 
   const url = (path = '') => `/e/${tenant.slug}/contacts${path}`;
   const as = (cookie: string) => ({
@@ -64,6 +77,10 @@ describe('dados financeiros do comprador', () => {
         { tenantId: tenant.id, userId: managerUser.id, profileId: ids.get('Gestor')! },
         { tenantId: tenant.id, userId: brokerUser.id, profileId: ids.get('Corretor')! },
       ]);
+      const [crop] = await tx.insert(crops).values({ tenantId: tenant.id, name: 'Soja' }).returning();
+      soy = crop!.id;
+      const [payment] = await tx.insert(paymentMethods).values({ tenantId: tenant.id, name: 'À vista' }).returning();
+      cash = payment!.id;
     });
     manager = await loginAs(app, managerUser);
     broker = await loginAs(app, brokerUser);
@@ -242,6 +259,94 @@ describe('dados financeiros do comprador', () => {
       expect(financialChange(forManager.entries[0]!)).toEqual([
         { field: 'Patrimônio estimado', from: 'R$ 70.000.000,00', to: null },
       ]);
+    });
+  });
+
+  describe('junções cruzadas com dados financeiros', () => {
+    const joined = () => ({ regions: [{ uf: 'GO' }], cropIds: [soy], paymentMethodIds: [cash] });
+    const countRows = (table: typeof buyerRegions | typeof buyerCrops | typeof buyerPaymentMethods, contactId: string) =>
+      db.withTenant(
+        tenant.id,
+        async (tx) =>
+          (
+            await tx
+              .select({ id: table.id })
+              .from(table as typeof buyerRegions)
+              .where(eq(table.contactId, contactId))
+          ).length,
+      );
+
+    /** Quantos `change_id` distintos o save mais recente do contato tem. */
+    async function changeIdsOfLastSave(contactId: string): Promise<number> {
+      const client = await pool.connect();
+      try {
+        await client.query('begin');
+        await client.query(`select set_config('app.tenant_id', $1, true)`, [tenant.id]);
+        const { rows } = await client.query<{ n: number }>(
+          `select count(distinct change_id)::int as n from audit_log
+            where change_id = (select change_id from audit_log where entity_id = $1 order by id desc limit 1)`,
+          [contactId],
+        );
+        return rows[0]!.n;
+      } finally {
+        await client.query('rollback');
+        client.release();
+      }
+    }
+
+    it('Corretor salva só as junções sobre linha que só tem financeiro: a linha fica e o financeiro é preservado', async () => {
+      const created = await seedBuyer({ ...FINANCIAL });
+
+      const saved = await as(broker).patch(created.id, { buyerProfile: joined() });
+
+      expect(saved.status).toBe(200);
+      expect(await storedOf(created.id)).toMatchObject(FINANCIAL);
+      expect(await countRows(buyerRegions, created.id)).toBe(1);
+      expect(await countRows(buyerCrops, created.id)).toBe(1);
+      expect(await countRows(buyerPaymentMethods, created.id)).toBe(1);
+      expect((await json(await as(manager).get(created.id))).buyerProfile).toMatchObject({
+        ...FINANCIAL,
+        cropIds: [soy],
+        paymentMethodIds: [cash],
+      });
+    });
+
+    it('Corretor retira o papel de perfil com junções e financeiro: 4 tabelas apagadas num change_id; histórico mascara o financeiro', async () => {
+      const created = await seedBuyer({ urgency: 'high', ...FINANCIAL, ...joined() });
+      expect(await countRows(buyerCrops, created.id)).toBe(1);
+
+      const response = await as(broker).patch(created.id, { roles: ['owner'] });
+
+      expect(response.status).toBe(200);
+      expect(await storedOf(created.id)).toBeUndefined();
+      expect(await countRows(buyerRegions, created.id)).toBe(0);
+      expect(await countRows(buyerCrops, created.id)).toBe(0);
+      expect(await countRows(buyerPaymentMethods, created.id)).toBe(0);
+      expect(await changeIdsOfLastSave(created.id)).toBe(1);
+
+      const forBroker = await as(broker).history(created.id);
+      const changes = forBroker.entries[0]!.children.flatMap((child) => child.changes);
+      expect(changes).toContainEqual({
+        field: 'Patrimônio estimado',
+        from: null,
+        to: null,
+        restricted: HISTORY_RESTRICTED_MESSAGE,
+      });
+      expect(JSON.stringify(forBroker)).not.toMatch(/50\.000\.000|9\.000\.000|50000000|9000000/);
+
+      const forManager = await as(manager).history(created.id);
+      expect(JSON.stringify(forManager)).toMatch(/R\$ 50\.000\.000,00/);
+      expect(JSON.stringify(forManager)).toMatch(/R\$ 9\.000\.000,00/);
+    });
+
+    it('Corretor cria perfil só com junções: resposta sem as chaves financeiras', async () => {
+      const created = await json(
+        await as(broker).post({ personType: 'pf', name: 'Só junções', roles: ['buyer'], buyerProfile: joined() }),
+      );
+
+      expect(created.buyerProfile).toMatchObject({ cropIds: [soy], paymentMethodIds: [cash] });
+      expect(JSON.stringify(created)).not.toMatch(/estimatedNetWorth|investmentCapacity/);
+      expect(await countRows(buyerCrops, created.id)).toBe(1);
     });
   });
 });

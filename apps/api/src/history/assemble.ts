@@ -48,8 +48,11 @@ export interface HistoryChildDeclaration<Table extends string = string> {
   entity: Table;
   /** A coluna que aponta para o pai: é por ela que o filho é achado. */
   parentColumn: string;
-  /** Coluna que nomeia o filho no título da linha ("Documento adicionado: Matrícula 12.345"). */
-  nameColumn?: string;
+  /**
+   * Coluna que nomeia o filho no título da linha ("Documento adicionado: Matrícula 12.345").
+   * Com mais de uma, vale a primeira preenchida: a região é município ou UF, nunca os dois.
+   */
+  nameColumn?: string | readonly string[];
   /**
    * Coluna booleana que marca um filho entre os irmãos (o proprietário principal).
    * Não vira linha do filho: a troca vira uma alteração da entrada, "Proprietário
@@ -115,6 +118,12 @@ export const labelWith = (word: string, { label, gender }: { label: string; gend
   `${label} ${inflect(word, gender)}`;
 
 const byId = (a: AuditRow, b: AuditRow) => a.id - b.id;
+
+/** A coluna que nomeia o filho neste estado: a primeira declarada que tem valor, senão a primeira declarada. */
+function nameColumnOf(declaration: HistoryChildDeclaration, state: ChildState): string | undefined {
+  const columns = [declaration.nameColumn ?? []].flat();
+  return columns.find((column) => state[column] !== null && state[column] !== undefined) ?? columns[0];
+}
 
 function metaOf(registry: Readonly<Record<string, EntityMeta>>, entity: string): EntityMeta {
   const meta = registry[entity];
@@ -327,7 +336,6 @@ function primaryChangesOf(sources: readonly ChildSource[], changeId: string, opt
   return sources.flatMap(({ declaration, fields, histories }) => {
     const flag = declaration.primaryFlag;
     if (!flag) return [];
-    const nameField = fields.find((field) => field.column === declaration.nameColumn);
     let lost: string | null = null;
     let gained: string | null = null;
     for (const history of histories.values()) {
@@ -339,7 +347,12 @@ function primaryChangesOf(sources: readonly ChildSource[], changeId: string, opt
       if (flagRows.length === 0) continue;
       const before = flagRows[0]!.oldValue === 'true';
       const after = kindOf(saved) !== 'deleted' && flagRows.at(-1)!.newValue === 'true';
-      const name = childName(nameField, declaration.nameColumn ? state[declaration.nameColumn] : null, options);
+      const nameColumn = nameColumnOf(declaration, state);
+      const name = childName(
+        fields.find((field) => field.column === nameColumn),
+        nameColumn ? state[nameColumn] : null,
+        options,
+      );
       if (before && !after) lost = name;
       if (after && !before) gained = name;
     }
@@ -369,8 +382,12 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
       if (kind === 'updated' && changes.length === 0) return [];
 
       const shortTitle = labelWith(CHILD_VERBS[kind], meta);
-      const nameField = fields.find((field) => field.column === declaration.nameColumn);
-      const name = childName(nameField, declaration.nameColumn ? state[declaration.nameColumn] : null, options);
+      const nameColumn = nameColumnOf(declaration, state);
+      const name = childName(
+        fields.find((field) => field.column === nameColumn),
+        nameColumn ? state[nameColumn] : null,
+        options,
+      );
       return [
         {
           child: { title: name ? `${shortTitle}: ${name}` : shortTitle, changes: changes.map(({ change }) => change) },

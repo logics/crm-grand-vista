@@ -226,6 +226,13 @@ export type {
 export {
   BUYER_PROFILE_AREA_ORDER_MESSAGE,
   BUYER_PROFILE_FINANCIAL_KEYS,
+  BUYER_PROFILE_CROP_INACTIVE_MESSAGE,
+  BUYER_PROFILE_CROP_UNKNOWN_MESSAGE,
+  BUYER_PROFILE_PAYMENT_METHOD_INACTIVE_MESSAGE,
+  BUYER_PROFILE_PAYMENT_METHOD_UNKNOWN_MESSAGE,
+  BUYER_PROFILE_REGION_INACTIVE_MESSAGE,
+  BUYER_PROFILE_REGION_INVALID_MESSAGE,
+  BUYER_PROFILE_REGION_UNKNOWN_MESSAGE,
   BUYER_PROFILE_PURCHASE_PROFILE_INACTIVE_MESSAGE,
   BUYER_PROFILE_PURCHASE_PROFILE_UNKNOWN_MESSAGE,
   BUYER_PROFILE_CONCURRENT_SAVE_MESSAGE,
@@ -234,10 +241,11 @@ export {
   QUALIFICATION_LEVELS,
   QUALIFICATION_LEVEL_LABELS,
   buyerProfileOutputSchema,
+  buyerRegionKeyOf,
   buyerProfileSchema,
   isBuyerProfileEmpty,
 } from './buyer-profile.js';
-export type { BuyerProfile, BuyerProfileInput, QualificationLevel } from './buyer-profile.js';
+export type { BuyerProfile, BuyerProfileInput, BuyerRegionKey, QualificationLevel } from './buyer-profile.js';
 export { describeCommissionIssue, splitCommission, validateCommission } from './commission.js';
 export type {
   CommissionGroup,
