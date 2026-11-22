@@ -137,6 +137,7 @@ describe('provisionamento de empresa', () => {
     expect(Admin!.permissions).toEqual(catalog.map((permission) => permission.code).sort());
     // Por consulta ao banco, não por lista no código: a permissão futura entrou.
     expect(Admin!.permissions).toContain(futurePermission);
+    expect(Admin!.permissions).toContain('contatos.ver_dados_financeiros');
     expect(Admin!.permissions).toEqual(
       expect.arrayContaining(PERMISSION_CATALOG.filter((p) => p.scope === 'tenant').map((p) => p.code)),
     );
@@ -163,6 +164,7 @@ describe('provisionamento de empresa', () => {
         .sort(),
     );
     expect(Gestor!.permissions).toContain('comissao.ver_de_terceiros');
+    expect(Gestor!.permissions).toContain('contatos.ver_dados_financeiros');
     expect(Gestor!.permissions).toContain(futurePermission);
     expect(Gestor!.permissions).not.toContain('perfis_de_acesso.gerenciar');
     expect(new Set(Object.values(Gestor!.scopes))).toEqual(new Set(['all']));
@@ -187,6 +189,7 @@ describe('provisionamento de empresa', () => {
       scopes: { fazendas: 'own', oportunidades: 'own', contatos: 'all' },
     });
     expect(Corretor!.permissions).not.toContain('comissao.ver_de_terceiros');
+    expect(Corretor!.permissions).not.toContain('contatos.ver_dados_financeiros');
     expect(Corretor!.permissions).not.toContain('configuracoes.gerenciar');
   });
 

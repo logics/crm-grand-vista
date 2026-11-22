@@ -146,7 +146,10 @@ describe('junções do perfil de compra', () => {
     it('POST grava colunas e as três junções num change_id; GET devolve igual', async () => {
       const created = await buyer(goAndRioVerde());
 
+      // O admin tem `contatos.ver_dados_financeiros`: as chaves financeiras saem (nulas).
       expect(created.buyerProfile).toEqual({
+        estimatedNetWorth: null,
+        investmentCapacity: null,
         purchaseProfileId: null,
         avgTicket: null,
         maxTicket: null,

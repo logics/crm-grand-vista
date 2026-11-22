@@ -40,6 +40,7 @@ const MODULES = {
       criar: 'Cadastrar contatos',
       editar: 'Editar contatos, inclusive perfil de compra e cadeia de indicação',
       excluir: 'Excluir contatos',
+      ver_dados_financeiros: 'Ver e editar o patrimônio estimado e a capacidade de investimento dos compradores',
     },
   },
   oportunidades: {

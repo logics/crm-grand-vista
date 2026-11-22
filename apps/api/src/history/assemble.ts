@@ -6,6 +6,7 @@
 import {
   DEFAULT_DISPLAY_CONTEXT,
   FIELD_REGISTRY,
+  HISTORY_RESTRICTED_MESSAGE,
   SYSTEM_AUTHOR,
   metaFields,
   formatFieldValue,
@@ -146,6 +147,8 @@ interface VisibleChange {
 interface FormatOptions {
   references: ReferenceNames;
   context: DisplayContext;
+  /** Quem lê: campo com `requiresPermission` sai mascarado se ele não a tem. */
+  reader: EffectiveAccess;
 }
 
 /** Objeto JSON gravado pelo wrapper; qualquer outra coisa conta como vazio. */
@@ -162,15 +165,25 @@ function formatReference(references: ReferenceNames, reference: Reference, id: s
 
 /**
  * As alterações visíveis de um campo, formatadas: nenhuma para coluna oculta,
- * uma por chave para jsonb expandido. Se o save gravou a coluna mais de uma
+ * uma por chave para jsonb expandido. Campo que exige permissão que o leitor não
+ * tem sai como uma alteração só, com o rótulo e `HISTORY_RESTRICTED_MESSAGE`,
+ * sem os valores (nem os anteriores de uma exclusão). Se o save gravou a coluna mais de uma
  * vez (inseriu e alterou no mesmo envio), vale o valor anterior da primeira
  * linha e o novo da última.
  */
-function formatChanges(field: EntityField, rows: readonly AuditRow[], { references, context }: FormatOptions): VisibleChange[] {
+function formatChanges(
+  field: EntityField,
+  rows: readonly AuditRow[],
+  { references, context, reader }: FormatOptions,
+): VisibleChange[] {
   const [first] = rows;
   const last = rows.at(-1);
   if (!first || !last || field.type === 'hidden') return [];
   const gender = field.gender ?? 'm';
+
+  if (field.requiresPermission && !reader.permissions.has(field.requiresPermission)) {
+    return [{ change: { field: field.label, from: null, to: null, restricted: HISTORY_RESTRICTED_MESSAGE }, gender }];
+  }
 
   if (field.type === 'jsonb') {
     return field
@@ -418,7 +431,7 @@ export function assembleHistory(rows: readonly AuditRow[], options: AssembleOpti
   const { entity, entityId, children = [], registry = FIELD_REGISTRY, authors, references, reader } = options;
   const meta = metaOf(registry, entity);
   const fields = metaFields(meta);
-  const formatting: ChildrenContext = { entityId, references, context: options.context ?? DEFAULT_DISPLAY_CONTEXT };
+  const formatting: ChildrenContext = { entityId, references, reader, context: options.context ?? DEFAULT_DISPLAY_CONTEXT };
 
   const sorted = [...rows].sort(byId);
   const seen = visibleChildren(sorted, options, reader);
