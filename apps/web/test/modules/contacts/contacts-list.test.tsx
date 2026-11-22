@@ -2,7 +2,7 @@
 import '../../support/dom.js';
 import type { PermissionCode } from '@crm/shared';
 import { belowQuery } from '@crm/ui';
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { session, stubFakeApi } from '../../support/fake-api.js';
@@ -299,6 +299,7 @@ describe('lista de contatos: grupos, contagem e limpar', () => {
     for (const name of ['Papéis', 'Tipo de pessoa', 'Classificação', 'Origem do lead']) {
       expect(contactGroup.getByRole('combobox', { name })).toBeInTheDocument();
     }
+    expect(contactGroup.getByRole('group', { name: 'Cadastrado em' })).toBeInTheDocument();
     const profileGroup = within(screen.getByRole('group', { name: 'Perfil de compra' }));
     for (const name of [
       'Perfil de compra',
@@ -324,7 +325,24 @@ describe('lista de contatos: grupos, contagem e limpar', () => {
     await waitFor(() => expect(lastListParams(api)?.has('role')).toBe(false));
     expect(lastListParams(api)?.has('region')).toBe(false);
     expect(lastListParams(api)?.has('createdFrom')).toBe(false);
+    expect(lastListParams(api)?.has('createdTo')).toBe(false);
     expect(screen.queryByRole('button', { name: /Limpar busca e filtros/ })).toBeNull();
+    // o foco não se perde com o botão: vai ao campo de busca
+    expect(document.activeElement).toBe(screen.getByRole('searchbox'));
+  });
+
+  it('"Limpar" não envia a busca: é botão, não submit', async () => {
+    const { api } = open('?q=rio');
+    const user = userEvent.setup();
+    await screen.findByRole('table');
+    const clear = screen.getByRole('button', { name: /Limpar busca e filtros/ });
+    expect(clear).toHaveAttribute('type', 'button');
+    const before = api.requests.filter((r) => r.path === '/e/grand-vista/contacts').length;
+    await user.click(clear);
+    await waitFor(() => expect(lastListParams(api)?.has('q')).toBe(false));
+    const after = api.requests.filter((r) => r.path === '/e/grand-vista/contacts');
+    // um único pedido novo, já sem a busca (um submit enviaria também o termo antigo)
+    expect(after.length).toBe(before + 1);
   });
 
   it('sem filtro não há botão de limpar; só com busca, ele aparece sem contagem', async () => {
@@ -363,5 +381,22 @@ describe('lista de contatos: grupos, contagem e limpar', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(toggle).toHaveTextContent('2');
     expect(screen.getByRole('combobox', { name: 'Região de interesse' })).toBeInTheDocument();
+  });
+
+  it('no mobile, a URL que passa a trazer filtro do perfil abre o grupo, e sem filtro ele não fecha sozinho', async () => {
+    stubMobile();
+    const { router } = open();
+    await screen.findByRole('list', { name: 'Resultados' });
+    const toggle = screen.getByRole('button', { name: /Perfil de compra/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await act(() => router.navigate('/e/grand-vista/contacts?region=GO'));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Perfil de compra/ })).toHaveAttribute('aria-expanded', 'true'),
+    );
+
+    await act(() => router.navigate('/e/grand-vista/contacts'));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Limpar busca e filtros/ })).toBeNull());
+    expect(screen.getByRole('button', { name: /Perfil de compra/ })).toHaveAttribute('aria-expanded', 'true');
   });
 });

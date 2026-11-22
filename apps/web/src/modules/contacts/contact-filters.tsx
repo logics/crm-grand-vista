@@ -28,7 +28,7 @@ import {
   cn,
   useBelowBreakpoint,
 } from '@crm/ui';
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { ListQueryState } from '../../listing/list-query.js';
 import { useTenantSlug } from '../../shell/tenant-query.js';
 import { resolveMunicipalities, searchMunicipalities } from '../municipalities/municipality-source.js';
@@ -128,10 +128,26 @@ export function ContactFilters({ query, update, filtered, clearFilters }: ListQu
   const total = activeFilterCount(query);
   // no mobile o grupo do perfil começa fechado, salvo se a URL já traz filtro dele; é estado de tela, não vai à URL
   const [profileOpen, setProfileOpen] = useState(profileCount > 0);
+  // a URL que passa a trazer filtro do perfil (voltar no histórico, link novo) abre o grupo; sem filtro, não fecha o que o usuário abriu
+  const [hadProfileFilter, setHadProfileFilter] = useState(profileCount > 0);
+  if (profileCount > 0 !== hadProfileFilter) {
+    setHadProfileFilter(profileCount > 0);
+    if (profileCount > 0) setProfileOpen(true);
+  }
+  const contactGroupRef = useRef<HTMLDivElement>(null);
+  // o botão de limpar some ao limpar: o foco vai ao campo de busca da lista (ou, sem ele, ao primeiro filtro)
+  const clearAndRefocus = () => {
+    clearFilters();
+    const group = contactGroupRef.current;
+    const target =
+      group?.closest('form')?.querySelector<HTMLElement>('input[type="search"]') ??
+      group?.querySelector<HTMLElement>('button, input');
+    target?.focus();
+  };
   const showProfile = !mobile || profileOpen;
   return (
     <>
-      <div role="group" aria-label="Filtros do contato" className={group}>
+      <div ref={contactGroupRef} role="group" aria-label="Filtros do contato" className={group}>
         <Field label={CONTACT_ROLES_LABEL} className={width.wide}>
           <AsyncCombobox
             multiple
@@ -195,7 +211,14 @@ export function ContactFilters({ query, update, filtered, clearFilters }: ListQu
         </Field>
         {filtered && (
           // `type="button"`: dentro do formulário de busca, sem isso o botão enviaria a busca
-          <Button type="button" variant="ghost" size="sm" icon="x" count={total > 0 ? total : undefined} onClick={clearFilters}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            icon="x"
+            count={total > 0 ? total : undefined}
+            onClick={clearAndRefocus}
+          >
             Limpar busca e filtros
           </Button>
         )}
@@ -224,9 +247,7 @@ export function ContactFilters({ query, update, filtered, clearFilters }: ListQu
         <div
           id={`${profileId}-fields`}
           hidden={!showProfile}
-          className={
-            showProfile ? 'flex basis-full flex-wrap items-end gap-4 max-mobile:flex-col max-mobile:items-stretch' : 'hidden'
-          }
+          className={cn(showProfile && 'flex basis-full flex-wrap items-end gap-4 max-mobile:flex-col max-mobile:items-stretch')}
         >
           <Field label={FIELD_REGISTRY.buyer_profiles.label} className={width.regular}>
             <VocabularyField
