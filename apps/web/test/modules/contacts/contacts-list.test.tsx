@@ -32,7 +32,10 @@ const contact = (overrides = {}) => ({
 
 const page = (items: unknown[]) => ({ items, total: items.length, page: 1, pageSize: 25 });
 
-const open = (search = '', { items = [contact()], permissions = ['contatos.ver', 'contatos.criar'] as PermissionCode[] } = {}) => {
+const open = (
+  search = '',
+  { items = [contact()], permissions = ['contatos.ver', 'contatos.criar'] as PermissionCode[] } = {},
+) => {
   const api = stubFakeApi({
     session: session(),
     permissions,
@@ -142,7 +145,17 @@ describe('lista de contatos: colunas', () => {
   });
 
   it('pessoa jurídica mostra a razão social abaixo do nome', async () => {
-    open('', { items: [contact({ id: 'c2', personType: 'pj', name: 'Fazenda Boa Vista', legalName: 'Boa Vista Agropecuária Ltda', taxId: '34028316000103' })] });
+    open('', {
+      items: [
+        contact({
+          id: 'c2',
+          personType: 'pj',
+          name: 'Fazenda Boa Vista',
+          legalName: 'Boa Vista Agropecuária Ltda',
+          taxId: '34028316000103',
+        }),
+      ],
+    });
 
     const row = within(await screen.findByRole('row', { name: /Fazenda Boa Vista/ }));
     expect(row.getByText('Boa Vista Agropecuária Ltda')).toBeInTheDocument();
@@ -196,5 +209,76 @@ describe('lista de contatos no mobile', () => {
     expect(card.getByText('Comprador')).toBeInTheDocument();
     expect(card.getByText(/99999-1234/)).toBeInTheDocument();
     expect(card.getByRole('link', { name: /WhatsApp/ })).toBeInTheDocument();
+  });
+});
+
+describe('lista de contatos: filtros do perfil de compra', () => {
+  const investor = { id: '0197c000-0000-7000-8000-0000000000d1', name: 'Investidor', active: true };
+  const soy = { id: '0197c000-0000-7000-8000-0000000000e1', name: 'Soja', active: true };
+  const rioVerde = { ibgeCode: '5218805', name: 'Rio Verde', uf: 'GO', active: true };
+
+  const openWithProfile = (search = '') => {
+    const api = stubFakeApi({
+      session: session(),
+      permissions: ['contatos.ver'],
+      records: {
+        '/e/grand-vista/contacts': page([contact()]),
+        '/e/grand-vista/settings/vocabularies/contact-classifications/options': { items: [classA] },
+        '/e/grand-vista/settings/vocabularies/lead-sources/options': { items: [referral] },
+        '/e/grand-vista/settings/vocabularies/purchase-profiles/options': { items: [investor] },
+        '/e/grand-vista/settings/vocabularies/crops/options': { items: [soy] },
+        '/e/grand-vista/municipalities': { items: [rioVerde, { uf: 'GO' }] },
+      },
+    });
+    return { api, ...renderApp(`/e/grand-vista/contacts${search}`) };
+  };
+
+  it('o link reabre os filtros: a API recebe tudo e os controles mostram', async () => {
+    const { api } = openWithProfile(
+      `?purchaseProfileId=${investor.id}&qualificationLevel=hot,qualified&urgency=high&cropId=${soy.id}&region=5218805,GO`,
+    );
+
+    await screen.findByRole('table');
+    await waitFor(() => expect(lastListParams(api)?.get('region')).toBe('5218805,GO'));
+    expect(Object.fromEntries(lastListParams(api)!)).toMatchObject({
+      purchaseProfileId: investor.id,
+      qualificationLevel: 'hot,qualified',
+      urgency: 'high',
+      cropId: soy.id,
+      region: '5218805,GO',
+    });
+    expect(await screen.findByRole('combobox', { name: 'Grau de qualificação' })).toHaveTextContent(/Quente.*Qualificado/s);
+    expect(screen.getByRole('combobox', { name: 'Urgência da compra' })).toHaveTextContent('Alta');
+    expect(await screen.findByRole('combobox', { name: 'Perfil de compra' })).toHaveTextContent('Investidor');
+    expect(await screen.findByRole('combobox', { name: 'Cultura de interesse' })).toHaveTextContent('Soja');
+    expect(await screen.findByRole('combobox', { name: 'Região de interesse' })).toHaveTextContent(/Rio Verde — GO.*Goiás/s);
+  });
+
+  it('escolher grau e região escreve na URL e envia à API', async () => {
+    const { api, router } = openWithProfile('?role=buyer');
+    const user = userEvent.setup();
+    await screen.findByRole('table');
+
+    await user.click(screen.getByRole('combobox', { name: 'Grau de qualificação' }));
+    await user.click(await screen.findByRole('option', { name: 'Quente' }));
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('qualificationLevel')).toBe('hot'));
+    expect(new URLSearchParams(router.state.location.search).get('role')).toBe('buyer');
+    await waitFor(() => expect(lastListParams(api)?.get('qualificationLevel')).toBe('hot'));
+  });
+
+  it('Rio Verde e a UF Goiás viram region=5218805,GO na URL e no pedido', async () => {
+    const { api, router } = openWithProfile();
+    const user = userEvent.setup();
+    await screen.findByRole('table');
+
+    const picker = screen.getByRole('combobox', { name: 'Região de interesse' });
+    await user.click(picker);
+    await user.click(await screen.findByRole('option', { name: /Rio Verde/ }));
+    await user.click(await screen.findByRole('option', { name: /Goiás/ }));
+
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('region')).toBe('5218805,GO'));
+    await waitFor(() => expect(lastListParams(api)?.get('region')).toBe('5218805,GO'));
   });
 });

@@ -3,6 +3,9 @@
 import {
   auditLog,
   auditedWrites,
+  buyerCrops,
+  buyerProfiles,
+  buyerRegionCovers,
   contactClassifications,
   contactRoles,
   contacts,
@@ -39,6 +42,7 @@ import {
   type ListPage,
   type UpdateContactInput,
 } from '@crm/shared';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { and, eq, getTableColumns, getTableName, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import {
   buyerProfilesByContact,
@@ -131,6 +135,10 @@ function searchByNormalizedTerms(q: string | undefined): (SQL | undefined)[] {
 
 function contactFilters(query: ContactListQuery): (SQL | undefined)[] {
   const { role, personType, classificationId, leadSourceId, createdFrom, createdTo } = query;
+  const profileColumn = (column: AnyPgColumn, values: readonly string[] | undefined) =>
+    values
+      ? sql`exists (select 1 from ${buyerProfiles} where ${buyerProfiles.contactId} = ${contacts.id} and ${inArray(column, [...values])})`
+      : undefined;
   return [
     role
       ? sql`exists (select 1 from ${contactRoles} where ${contactRoles.contactId} = ${contacts.id} and ${inArray(contactRoles.role, role)})`
@@ -138,6 +146,13 @@ function contactFilters(query: ContactListQuery): (SQL | undefined)[] {
     personType ? eq(contacts.personType, personType) : undefined,
     classificationId ? eq(contacts.classificationId, classificationId) : undefined,
     leadSourceId ? eq(contacts.leadSourceId, leadSourceId) : undefined,
+    profileColumn(buyerProfiles.purchaseProfileId, query.purchaseProfileId),
+    profileColumn(buyerProfiles.qualificationLevel, query.qualificationLevel),
+    profileColumn(buyerProfiles.urgency, query.urgency),
+    query.cropId
+      ? sql`exists (select 1 from ${buyerCrops} where ${buyerCrops.contactId} = ${contacts.id} and ${inArray(buyerCrops.cropId, query.cropId)})`
+      : undefined,
+    query.region ? buyerRegionCovers(contacts.id, query.region) : undefined,
     createdFrom ? sql`${registeredDay} >= ${createdFrom}::date` : undefined,
     createdTo ? sql`${registeredDay} <= ${createdTo}::date` : undefined,
   ];

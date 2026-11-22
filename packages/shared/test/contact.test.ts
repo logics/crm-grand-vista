@@ -126,9 +126,7 @@ describe('documento nos schemas de contato', () => {
   });
 
   it('põe o CNPJ alfanumérico em maiúsculas', () => {
-    expect(createContactSchema.parse({ ...base, personType: 'pj', taxId: '12.abc.345/01de-35' }).taxId).toBe(
-      '12ABC34501DE35',
-    );
+    expect(createContactSchema.parse({ ...base, personType: 'pj', taxId: '12.abc.345/01de-35' }).taxId).toBe('12ABC34501DE35');
   });
 
   it('o documento é opcional: vazio vira ausência', () => {
@@ -165,10 +163,51 @@ describe('contactListQuerySchema', () => {
     expect(parse({ role: '' }).success).toBe(false);
   });
 
+  it('filtros do perfil de compra: listas separadas por vírgula, sem repetição', () => {
+    const id = '0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e6f';
+    const data = parse({
+      purchaseProfileId: `${id},${id}`,
+      qualificationLevel: 'hot,qualified',
+      urgency: 'high',
+      cropId: id,
+      region: '5218805,GO',
+    }).data;
+    expect(data).toMatchObject({
+      purchaseProfileId: [id],
+      qualificationLevel: ['hot', 'qualified'],
+      urgency: ['high'],
+      cropId: [id],
+      region: ['5218805', 'GO'],
+    });
+  });
+
+  it('filtros do perfil de compra recusam valor inválido, inclusive região malformada', () => {
+    const invalid: Record<string, string>[] = [
+      { purchaseProfileId: 'x' },
+      { qualificationLevel: 'ardente' },
+      { urgency: 'nenhuma' },
+      { cropId: 'x' },
+      { region: 'XX' },
+      { region: '123' },
+      { region: 'GO,' },
+    ];
+    for (const bad of invalid) {
+      expect(parse(bad).success).toBe(false);
+    }
+  });
+
   it('aceita os demais filtros e recusa valor inválido', () => {
     const id = '0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e6f';
-    expect(parse({ personType: 'pj', classificationId: id, leadSourceId: id, createdFrom: '2026-01-31', createdTo: '2026-02-28' }).success).toBe(true);
-    const invalid: Record<string, string>[] = [{ personType: 'xx' }, { classificationId: '1' }, { createdFrom: '31/01/2026' }, { createdTo: '2026-02-30' }];
+    expect(
+      parse({ personType: 'pj', classificationId: id, leadSourceId: id, createdFrom: '2026-01-31', createdTo: '2026-02-28' })
+        .success,
+    ).toBe(true);
+    const invalid: Record<string, string>[] = [
+      { personType: 'xx' },
+      { classificationId: '1' },
+      { createdFrom: '31/01/2026' },
+      { createdTo: '2026-02-30' },
+    ];
     for (const bad of invalid) {
       expect(parse(bad).success, JSON.stringify(bad)).toBe(false);
     }

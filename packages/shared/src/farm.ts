@@ -69,7 +69,8 @@ export const FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE = 'A área útil não pode s
 export const FARM_APTITUDE_UNKNOWN_MESSAGE = 'Aptidão inválida.';
 export const FARM_CROP_UNKNOWN_MESSAGE = 'Cultura inválida.';
 export const FARM_COORDINATES_PAIR_MESSAGE = 'Informe a latitude e a longitude juntas.';
-export const FARM_NO_DEFAULT_STATUS_MESSAGE = 'Cadastre um status comercial ativo com o significado "Disponível" antes de cadastrar fazendas.';
+export const FARM_NO_DEFAULT_STATUS_MESSAGE =
+  'Cadastre um status comercial ativo com o significado "Disponível" antes de cadastrar fazendas.';
 
 export const FARM_PRICING_MODE_REQUIRED_MESSAGE = 'Informe o modo de precificação.';
 export const FARM_PRICING_FIELD_NOT_APPLICABLE_MESSAGE = 'Este campo não vale para o modo de precificação escolhido.';
@@ -117,7 +118,10 @@ export const positiveDecimalSchema = (integerDigits: number, scale: number, requ
     .trim()
     .min(1, requiredMessage)
     .regex(pattern, invalidMessage)
-    .refine((value) => !pattern.test(value) || compareDecimal(value, '0') > 0, `${invalidMessage.replace(/\.$/, '')} deve ser maior que zero.`);
+    .refine(
+      (value) => !pattern.test(value) || compareDecimal(value, '0') > 0,
+      `${invalidMessage.replace(/\.$/, '')} deve ser maior que zero.`,
+    );
 };
 
 const farmNameSchema = z
@@ -126,7 +130,10 @@ const farmNameSchema = z
   .min(1, 'Informe o nome.')
   .max(FARM_NAME_MAX_LENGTH, `O nome aceita até ${FARM_NAME_MAX_LENGTH} caracteres.`);
 
-const ibgeCodeSchema = z.string({ error: 'Informe o município.' }).min(1, 'Informe o município.').regex(/^\d{7}$/, FARM_MUNICIPALITY_UNKNOWN_MESSAGE);
+const ibgeCodeSchema = z
+  .string({ error: 'Informe o município.' })
+  .min(1, 'Informe o município.')
+  .regex(/^\d{7}$/, FARM_MUNICIPALITY_UNKNOWN_MESSAGE);
 
 /** Área útil acima da total, quando as duas vêm juntas. */
 export const usableExceedsTotal = (totalAreaHa: string | undefined, usableAreaHa: string | null | undefined): boolean =>
@@ -151,7 +158,11 @@ const DISTANCE_PATTERN = /^\d{1,6}(\.\d{1,2})?$/;
 
 /** Distância em km como o `numeric(8,2)` aceita; o `CHECK` de ≥ 0 já sai da forma (sem sinal). */
 const distanceSchema = (label: string) =>
-  z.string({ error: `${label} inválida.` }).trim().regex(DISTANCE_PATTERN, `${label} inválida.`).nullable();
+  z
+    .string({ error: `${label} inválida.` })
+    .trim()
+    .regex(DISTANCE_PATTERN, `${label} inválida.`)
+    .nullable();
 
 const coordinateSchema = (label: 'Latitude' | 'Longitude', limit: number) =>
   z
@@ -159,7 +170,9 @@ const coordinateSchema = (label: 'Latitude' | 'Longitude', limit: number) =>
     .trim()
     .regex(COORDINATE_PATTERN, `${label} inválida.`)
     .refine(
-      (value) => !COORDINATE_PATTERN.test(value) || (compareDecimal(value, String(-limit)) >= 0 && compareDecimal(value, String(limit)) <= 0),
+      (value) =>
+        !COORDINATE_PATTERN.test(value) ||
+        (compareDecimal(value, String(-limit)) >= 0 && compareDecimal(value, String(limit)) <= 0),
       `${label} deve ficar entre -${limit} e ${limit}.`,
     )
     .nullable();
@@ -167,7 +180,11 @@ const coordinateSchema = (label: 'Latitude' | 'Longitude', limit: number) =>
 /** Uma ou nenhuma das duas coordenadas é erro de campo, no que falta. */
 const coordinatesPairIssue = (latitude: string | null, longitude: string | null, ctx: z.RefinementCtx) => {
   if ((latitude === null) !== (longitude === null)) {
-    ctx.addIssue({ code: 'custom', path: [latitude === null ? 'latitude' : 'longitude'], message: FARM_COORDINATES_PAIR_MESSAGE });
+    ctx.addIssue({
+      code: 'custom',
+      path: [latitude === null ? 'latitude' : 'longitude'],
+      message: FARM_COORDINATES_PAIR_MESSAGE,
+    });
   }
 };
 
@@ -209,8 +226,18 @@ export const ownersSchema = z.array(farmOwnerInputSchema).superRefine((owners, c
 
 const pricingShape = {
   pricingMode: z.enum(PRICING_MODES, { error: FARM_PRICING_MODE_REQUIRED_MESSAGE }).nullable(),
-  askingPrice: positiveDecimalSchema(14, ASKING_PRICE_SCALE, FARM_ASKING_PRICE_REQUIRED_MESSAGE, 'Preço pedido inválido.').nullable(),
-  valuationBags: positiveDecimalSchema(10, VALUATION_BAGS_SCALE, FARM_VALUATION_BAGS_REQUIRED_MESSAGE, 'Quantidade de sacas inválida.').nullable(),
+  askingPrice: positiveDecimalSchema(
+    14,
+    ASKING_PRICE_SCALE,
+    FARM_ASKING_PRICE_REQUIRED_MESSAGE,
+    'Preço pedido inválido.',
+  ).nullable(),
+  valuationBags: positiveDecimalSchema(
+    10,
+    VALUATION_BAGS_SCALE,
+    FARM_VALUATION_BAGS_REQUIRED_MESSAGE,
+    'Quantidade de sacas inválida.',
+  ).nullable(),
   valuationBagsUnit: z.enum(VALUATION_BAGS_UNITS, { error: FARM_VALUATION_UNIT_REQUIRED_MESSAGE }).nullable(),
   valuationBagsAlqueireType: z.enum(ALQUEIRE_TYPES, { error: FARM_VALUATION_ALQUEIRE_TYPE_REQUIRED_MESSAGE }).nullable(),
   valuationCropId: z.uuid({ error: FARM_VALUATION_CROP_UNKNOWN_MESSAGE }).nullable(),
@@ -229,8 +256,7 @@ const PRICING_FIELDS = Object.keys(pricingShape) as (keyof typeof pricingShape)[
  */
 const checkPricing = (value: PricingFields, ctx: z.RefinementCtx, { patch }: { patch: boolean }) => {
   const present = (field: keyof typeof pricingShape) => value[field] !== undefined && value[field] !== null;
-  const refuse = (field: keyof typeof pricingShape, message: string) =>
-    ctx.addIssue({ code: 'custom', path: [field], message });
+  const refuse = (field: keyof typeof pricingShape, message: string) => ctx.addIssue({ code: 'custom', path: [field], message });
 
   if (value.pricingMode === undefined && patch) {
     if (PRICING_FIELDS.some(present)) refuse('pricingMode', FARM_PRICING_MODE_REQUIRED_MESSAGE);
@@ -498,7 +524,7 @@ export const FARM_REGION_INVALID_MESSAGE = 'Região inválida: informe o código
 export const FARM_NO_PRICE_WITH_PRICE_MESSAGE = '"Sem preço" não combina com valor mínimo ou máximo.';
 
 /** Lista separada por vírgula, sem repetição e sem item vazio; cada item passa por `item`. */
-const commaListSchema = <TItem extends z.ZodType<unknown, string>>(item: TItem, message: string) =>
+export const commaListSchema = <TItem extends z.ZodType<unknown, string>>(item: TItem, message: string) =>
   z
     .string()
     .transform((value) => [...new Set(value.split(',').map((token) => token.trim()))])
@@ -513,8 +539,10 @@ const statusFilterSchema = commaListSchema(z.uuid({ error: FARM_STATUS_UNKNOWN_M
 const UF_SET: ReadonlySet<string> = new Set(UFS);
 
 /** Região: código IBGE de município (7 dígitos) ou sigla de UF, misturados. */
-const regionFilterSchema = commaListSchema(
-  z.string({ error: FARM_REGION_INVALID_MESSAGE }).refine((token) => /^\d{7}$/.test(token) || UF_SET.has(token), FARM_REGION_INVALID_MESSAGE),
+export const regionFilterSchema = commaListSchema(
+  z
+    .string({ error: FARM_REGION_INVALID_MESSAGE })
+    .refine((token) => /^\d{7}$/.test(token) || UF_SET.has(token), FARM_REGION_INVALID_MESSAGE),
   FARM_REGION_INVALID_MESSAGE,
 );
 
@@ -544,17 +572,22 @@ export const farmListFilters = {
   areaMax: areaFilterSchema('Área máxima inválida.').optional(),
   priceMin: priceFilterSchema('Valor mínimo inválido.').optional(),
   priceMax: priceFilterSchema('Valor máximo inválido.').optional(),
-  noPrice: z.literal('true', { error: 'Sem preço aceita só "true".' }).transform(() => true as const).optional(),
+  noPrice: z
+    .literal('true', { error: 'Sem preço aceita só "true".' })
+    .transform(() => true as const)
+    .optional(),
   maxDistanceToHighwayKm: distanceFilterSchema('Distância até a rodovia inválida.').optional(),
   maxDistanceToWarehouseKm: distanceFilterSchema('Distância até o armazém inválida.').optional(),
   ownerContactId: z.uuid({ error: FARM_OWNER_UNKNOWN_MESSAGE }).optional(),
 };
 
-export const farmListQuerySchema = listQuerySchema({ sortable: FARM_SORT_FIELDS, filters: farmListFilters }).superRefine((query, ctx) => {
-  if (query.noPrice && (query.priceMin !== undefined || query.priceMax !== undefined)) {
-    ctx.addIssue({ code: 'custom', path: ['noPrice'], message: FARM_NO_PRICE_WITH_PRICE_MESSAGE });
-  }
-});
+export const farmListQuerySchema = listQuerySchema({ sortable: FARM_SORT_FIELDS, filters: farmListFilters }).superRefine(
+  (query, ctx) => {
+    if (query.noPrice && (query.priceMin !== undefined || query.priceMax !== undefined)) {
+      ctx.addIssue({ code: 'custom', path: ['noPrice'], message: FARM_NO_PRICE_WITH_PRICE_MESSAGE });
+    }
+  },
+);
 export type FarmListQuery = z.output<typeof farmListQuerySchema>;
 
 export const farmPageSchema = listPageSchema(farmSchema);
@@ -624,7 +657,10 @@ export const FARM_OPTIONS_MAX_PAGE_SIZE = 50;
  */
 export const farmOptionsQuerySchema = z.object({
   q: z.string().trim().max(FARM_NAME_MAX_LENGTH).optional(),
-  cursor: z.string().regex(/^\d{1,9}$/, 'Cursor inválido.').optional(),
+  cursor: z
+    .string()
+    .regex(/^\d{1,9}$/, 'Cursor inválido.')
+    .optional(),
   limit: z.coerce.number().int().min(1).max(FARM_OPTIONS_MAX_PAGE_SIZE).default(FARM_OPTIONS_PAGE_SIZE),
   ids: z
     .string()
@@ -648,7 +684,10 @@ const BAGS_SUMMARY_FORMAT = { minScale: 0, maxScale: 2 };
  * Sacas não viram reais (sem cotação nesta spec).
  */
 export function farmPriceSummary(
-  farm: Pick<Farm, 'pricingMode' | 'askingPrice' | 'valuationBags' | 'valuationBagsUnit' | 'valuationBagsAlqueireType' | 'valuationCrop'>,
+  farm: Pick<
+    Farm,
+    'pricingMode' | 'askingPrice' | 'valuationBags' | 'valuationBagsUnit' | 'valuationBagsAlqueireType' | 'valuationCrop'
+  >,
 ): string {
   if (farm.pricingMode === 'brl' && farm.askingPrice) return formatMoney(farm.askingPrice);
   if (farm.pricingMode === 'bags' && farm.valuationBags && farm.valuationBagsUnit) {
