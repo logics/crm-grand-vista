@@ -2,7 +2,7 @@
 import '../../support/dom.js';
 import type { PermissionCode } from '@crm/shared';
 import { belowQuery } from '@crm/ui';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { session, stubFakeApi } from '../../support/fake-api.js';
@@ -280,5 +280,88 @@ describe('lista de contatos: filtros do perfil de compra', () => {
 
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('region')).toBe('5218805,GO'));
     await waitFor(() => expect(lastListParams(api)?.get('region')).toBe('5218805,GO'));
+  });
+});
+
+describe('lista de contatos: grupos, contagem e limpar', () => {
+  const stubMobile = () =>
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === belowQuery('mobile') || query === belowQuery('rail'),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+
+  it('os filtros ficam em dois grupos rotulados, com o perfil de compra no segundo', async () => {
+    open();
+    await screen.findByRole('table');
+
+    const contactGroup = within(screen.getByRole('group', { name: 'Filtros do contato' }));
+    for (const name of ['Papéis', 'Tipo de pessoa', 'Classificação', 'Origem do lead']) {
+      expect(contactGroup.getByRole('combobox', { name })).toBeInTheDocument();
+    }
+    const profileGroup = within(screen.getByRole('group', { name: 'Perfil de compra' }));
+    for (const name of [
+      'Perfil de compra',
+      'Grau de qualificação',
+      'Urgência da compra',
+      'Cultura de interesse',
+      'Região de interesse',
+    ]) {
+      expect(profileGroup.getByRole('combobox', { name })).toBeInTheDocument();
+    }
+  });
+
+  it('com filtros, "Limpar busca e filtros" mostra a contagem e limpa a URL e o pedido', async () => {
+    const { api, router } = open('?role=buyer&region=GO&createdFrom=2026-01-01&createdTo=2026-01-31&sort=-createdAt');
+    const user = userEvent.setup();
+    await screen.findByRole('table');
+
+    const clear = screen.getByRole('button', { name: /Limpar busca e filtros/ });
+    expect(clear).toHaveTextContent('3');
+    await user.click(clear);
+
+    await waitFor(() => expect(router.state.location.search).toBe('?sort=-createdAt'));
+    await waitFor(() => expect(lastListParams(api)?.has('role')).toBe(false));
+    expect(lastListParams(api)?.has('region')).toBe(false);
+    expect(lastListParams(api)?.has('createdFrom')).toBe(false);
+    expect(screen.queryByRole('button', { name: /Limpar busca e filtros/ })).toBeNull();
+  });
+
+  it('sem filtro não há botão de limpar; só com busca, ele aparece sem contagem', async () => {
+    open();
+    await screen.findByRole('table');
+    expect(screen.queryByRole('button', { name: /Limpar busca e filtros/ })).toBeNull();
+    cleanup();
+
+    open('?q=rio');
+    await screen.findByRole('table');
+    const clear = screen.getByRole('button', { name: /Limpar busca e filtros/ });
+    expect(clear).toHaveTextContent(/^Limpar busca e filtros$/);
+  });
+
+  it('no mobile, o grupo do perfil começa fechado e abre pelo botão', async () => {
+    stubMobile();
+    open();
+    await screen.findByRole('list', { name: 'Resultados' });
+
+    const toggle = screen.getByRole('button', { name: 'Perfil de compra' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('combobox', { name: 'Região de interesse' })).toBeNull();
+
+    await userEvent.setup().click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('combobox', { name: 'Região de interesse' })).toBeInTheDocument();
+  });
+
+  it('no mobile, a URL com filtro do perfil abre o grupo e a contagem aparece no botão', async () => {
+    stubMobile();
+    open('?region=GO&cropId=0197c000-0000-7000-8000-0000000000e1');
+    await screen.findByRole('list', { name: 'Resultados' });
+
+    const toggle = screen.getByRole('button', { name: /Perfil de compra/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveTextContent('2');
+    expect(screen.getByRole('combobox', { name: 'Região de interesse' })).toBeInTheDocument();
   });
 });

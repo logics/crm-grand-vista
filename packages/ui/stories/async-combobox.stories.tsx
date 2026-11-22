@@ -102,6 +102,15 @@ export const Multipla: Story = {
   render: () => <FarmsField initial={['f1', farms[4]!, 'f7']} />,
 };
 
+export const MultiplaEstreita: Story = {
+  name: 'Múltipla em campo estreito',
+  render: () => (
+    <div className="w-[calc(5*var(--space-10))]">
+      <FarmsField initial={['f1', farms[4]!, 'f7']} />
+    </div>
+  ),
+};
+
 export const MultiplaAberta: Story = {
   name: 'Múltipla aberta',
   render: () => <FarmsField initial={[farms[0]!]} defaultOpen />,
