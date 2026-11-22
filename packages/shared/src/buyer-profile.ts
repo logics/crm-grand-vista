@@ -2,10 +2,12 @@
 // ele procura e de como compra. Vive aninhado em `buyerProfile` no contato e é
 // gravado no save dele, com substituição completa.
 //
-// Patrimônio estimado e capacidade de investimento existem no banco, mas não
-// têm chave aqui: chegam com a permissão própria, para nunca ficarem visíveis a
-// todos. Regiões, culturas e formas de pagamento (as junções) vão no mesmo
-// objeto e na mesma substituição completa: lista ausente é vazia.
+// Patrimônio estimado e capacidade de investimento (dados financeiros) exigem a
+// permissão `contatos.ver_dados_financeiros`: sem ela, não saem na resposta e
+// enviá-los é 403. No schema de entrada ficam como estão — ausente é `undefined`,
+// não `null`, porque ausente preserva o valor gravado e `null` o apaga.
+// Regiões, culturas e formas de pagamento (as junções) vão no mesmo objeto e na
+// mesma substituição completa: lista ausente é vazia.
 import { z } from 'zod';
 import { AREA_SCALE, MONEY_SCALE, compareDecimal } from './decimal.js';
 import { LEVELS, positiveDecimalSchema } from './farm.js';
@@ -49,6 +51,10 @@ const nullable = <T extends z.ZodType>(schema: T) =>
     .optional()
     .transform((value) => value ?? null);
 
+/** Como `nullable`, mas ausente continua ausente: é o que distingue "não mexer" de "apagar". */
+const optionalMoney = (required: string, invalid: string) =>
+  positiveDecimalSchema(14, MONEY_SCALE, required, invalid).nullable().optional();
+
 export const BUYER_PROFILE_REGION_INVALID_MESSAGE = 'Informe a região por município ou por UF, nunca os dois.';
 export const BUYER_PROFILE_REGION_UNKNOWN_MESSAGE = 'Município inválido.';
 export const BUYER_PROFILE_REGION_INACTIVE_MESSAGE = 'O município escolhido está inativo.';
@@ -85,7 +91,8 @@ const exceeds = (pattern: RegExp, low: string | null, high: string | null) =>
 
 /**
  * Perfil de compra de entrada. Campo ausente é nulo (substituição completa, sem
- * merge parcial); chave desconhecida, como as financeiras, é descartada.
+ * merge parcial) — exceto as duas chaves financeiras, ausentes até a permissão
+ * decidir; chave desconhecida é descartada.
  */
 export const buyerProfileSchema = z
   .object({
@@ -102,6 +109,8 @@ export const buyerProfileSchema = z
     maxAreaHa: nullable(areaSchema('área máxima')),
     urgency: nullable(z.enum(LEVELS, { error: 'Urgência inválida.' })),
     qualificationLevel: nullable(z.enum(QUALIFICATION_LEVELS, { error: 'Grau de qualificação inválido.' })),
+    estimatedNetWorth: optionalMoney('Informe o patrimônio estimado.', 'Patrimônio estimado inválido.'),
+    investmentCapacity: optionalMoney('Informe a capacidade de investimento.', 'Capacidade de investimento inválida.'),
   })
   .superRefine((profile, ctx) => {
     if (exceeds(MONEY_PATTERN, profile.avgTicket, profile.maxTicket)) {
@@ -113,7 +122,10 @@ export const buyerProfileSchema = z
   });
 export type BuyerProfileInput = z.output<typeof buyerProfileSchema>;
 
-/** O perfil como a API o devolve: sem as chaves financeiras. */
+/** As duas chaves que exigem `contatos.ver_dados_financeiros`. */
+export const BUYER_PROFILE_FINANCIAL_KEYS = ['estimatedNetWorth', 'investmentCapacity'] as const;
+
+/** O perfil como a API o devolve; as chaves financeiras só existem para quem tem a permissão (nem `null` sem ela). */
 export const buyerProfileOutputSchema = z.object({
   regions: z.array(z.union([z.strictObject({ ibgeCode: z.string() }), z.strictObject({ uf: ufSchema })])),
   cropIds: z.array(z.uuid()),
@@ -125,6 +137,8 @@ export const buyerProfileOutputSchema = z.object({
   maxAreaHa: z.string().nullable(),
   urgency: z.enum(LEVELS).nullable(),
   qualificationLevel: z.enum(QUALIFICATION_LEVELS).nullable(),
+  estimatedNetWorth: z.string().nullable().optional(),
+  investmentCapacity: z.string().nullable().optional(),
 });
 export type BuyerProfile = z.infer<typeof buyerProfileOutputSchema>;
 

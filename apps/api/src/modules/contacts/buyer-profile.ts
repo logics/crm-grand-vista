@@ -6,11 +6,12 @@
 // da linha de `buyer_profiles`, e são gravadas pela diferença contra o estado
 // atual: o histórico mostra só o que entrou e o que saiu, nunca apagar-e-recriar.
 //
-// Patrimônio estimado e capacidade de investimento existem no banco, mas esta
-// fatia não os lê nem os grava: a leitura os ignora e a substituição não os
-// toca (o `set` só leva as colunas de `BuyerProfile`), então o valor gravado é
-// preservado. Perfil "vazio" considera esses valores: a linha só some se eles
-// também estão nulos.
+// Patrimônio estimado e capacidade de investimento (dados financeiros) exigem
+// `contatos.ver_dados_financeiros`. Sem ela, a leitura não os devolve (nem
+// `null`) e a substituição não os toca, então o valor gravado é preservado
+// (a rota já recusou com 403 quem os enviou). Com ela, a substituição é
+// completa como nas demais colunas. Perfil "vazio" considera o dado financeiro
+// que ficaria: a linha só some se ele também é nulo.
 import {
   buyerCrops,
   crops,
@@ -43,7 +44,7 @@ import { and, eq, inArray, or } from 'drizzle-orm';
 
 type ProfileRow = typeof buyerProfiles.$inferSelect;
 
-const NO_COLUMNS: Omit<BuyerProfile, 'regions' | 'cropIds' | 'paymentMethodIds'> = {
+const NO_COLUMNS: Omit<BuyerProfile, 'regions' | 'cropIds' | 'paymentMethodIds' | 'estimatedNetWorth' | 'investmentCapacity'> = {
   purchaseProfileId: null,
   avgTicket: null,
   maxTicket: null,
@@ -53,17 +54,23 @@ const NO_COLUMNS: Omit<BuyerProfile, 'regions' | 'cropIds' | 'paymentMethodIds'>
   qualificationLevel: null,
 };
 
-/** O que a API expõe da linha: nunca as chaves financeiras. */
-function serializeColumns(row: ProfileRow | undefined): typeof NO_COLUMNS {
-  if (!row) return NO_COLUMNS;
+/** O que a API expõe da linha; as chaves financeiras só com `financial` (sem ele nem `null`). */
+function serializeColumns(row: ProfileRow | undefined, financial: boolean) {
   return {
-    purchaseProfileId: row.purchaseProfileId,
-    avgTicket: row.avgTicket,
-    maxTicket: row.maxTicket,
-    minAreaHa: row.minAreaHa,
-    maxAreaHa: row.maxAreaHa,
-    urgency: row.urgency as BuyerProfile['urgency'],
-    qualificationLevel: row.qualificationLevel as BuyerProfile['qualificationLevel'],
+    ...(financial
+      ? { estimatedNetWorth: row?.estimatedNetWorth ?? null, investmentCapacity: row?.investmentCapacity ?? null }
+      : {}),
+    ...(row
+      ? {
+          purchaseProfileId: row.purchaseProfileId,
+          avgTicket: row.avgTicket,
+          maxTicket: row.maxTicket,
+          minAreaHa: row.minAreaHa,
+          maxAreaHa: row.maxAreaHa,
+          urgency: row.urgency as BuyerProfile['urgency'],
+          qualificationLevel: row.qualificationLevel as BuyerProfile['qualificationLevel'],
+        }
+      : NO_COLUMNS),
   };
 }
 
@@ -78,7 +85,11 @@ const byRegionKey = (a: BuyerRegionKey, b: BuyerRegionKey) =>
  * Perfil de cada contato que tem linha ou alguma junção. Só junções: o objeto
  * sai com as colunas nulas. Sem nada, o contato não entra no mapa (perfil nulo).
  */
-export async function buyerProfilesByContact(tx: Transaction, contactIds: readonly string[]): Promise<Map<string, BuyerProfile>> {
+export async function buyerProfilesByContact(
+  tx: Transaction,
+  contactIds: readonly string[],
+  financial: boolean,
+): Promise<Map<string, BuyerProfile>> {
   const byContact = new Map<string, BuyerProfile>();
   if (contactIds.length === 0) return byContact;
   const ids = [...contactIds];
@@ -103,7 +114,7 @@ export async function buyerProfilesByContact(tx: Transaction, contactIds: readon
     const hasJunction = regions.has(id) || cropIds.has(id) || paymentMethodIds.has(id);
     if (!row && !hasJunction) continue;
     byContact.set(id, {
-      ...serializeColumns(row),
+      ...serializeColumns(row, financial),
       regions: (regions.get(id) ?? []).sort(byRegionKey),
       cropIds: (cropIds.get(id) ?? []).sort(),
       paymentMethodIds: (paymentMethodIds.get(id) ?? []).sort(),
@@ -220,8 +231,12 @@ export async function buyerProfileRejection(
   );
 }
 
-const hasFinancialData = (row: ProfileRow | null) =>
-  row !== null && (row.estimatedNetWorth !== null || row.investmentCapacity !== null);
+/** O dado financeiro que a linha terá depois do save: o enviado, com a permissão; o gravado, sem ela. */
+function financialAfter(profile: BuyerProfileInput, current: ProfileRow | null, financial: boolean) {
+  return financial
+    ? { estimatedNetWorth: profile.estimatedNetWorth ?? null, investmentCapacity: profile.investmentCapacity ?? null }
+    : { estimatedNetWorth: current?.estimatedNetWorth ?? null, investmentCapacity: current?.investmentCapacity ?? null };
+}
 
 type Wanted = { current: ReadonlySet<string>; wanted: readonly string[] };
 const added = ({ current, wanted }: Wanted) => wanted.filter((id) => !current.has(id));
@@ -279,9 +294,10 @@ async function applyJunctions(
 
 /**
  * Substituição completa: colunas e as três junções (o que veio ausente já é
- * vazio no schema). Perfil sem nenhuma coluna preenchida (e sem dado financeiro
- * preservado) não tem linha: a existente é apagada, e nenhuma nasce — as
- * junções seguem as suas listas.
+ * vazio no schema). `financial` (a permissão) decide se as duas colunas
+ * financeiras entram na substituição; sem ele, ficam como estão. Perfil sem
+ * nenhuma coluna preenchida (e sem dado financeiro que reste) não tem linha: a
+ * existente é apagada, e nenhuma nasce — as junções seguem as suas listas.
  */
 export async function replaceBuyerProfile(
   writes: AuditedWrites,
@@ -289,14 +305,28 @@ export async function replaceBuyerProfile(
   contactId: string,
   profile: BuyerProfileInput,
   current: CurrentBuyerProfile,
+  financial: boolean,
 ): Promise<void> {
-  const { regions: _regions, cropIds: _cropIds, paymentMethodIds: _paymentMethodIds, ...columns } = profile;
-  if (isBuyerProfileEmpty(columns) && !hasFinancialData(current.row)) {
+  const kept = financialAfter(profile, current.row, financial);
+  const columns = {
+    purchaseProfileId: profile.purchaseProfileId,
+    avgTicket: profile.avgTicket,
+    maxTicket: profile.maxTicket,
+    minAreaHa: profile.minAreaHa,
+    maxAreaHa: profile.maxAreaHa,
+    urgency: profile.urgency,
+    qualificationLevel: profile.qualificationLevel,
+  };
+  if (isBuyerProfileEmpty(columns) && kept.estimatedNetWorth === null && kept.investmentCapacity === null) {
     if (current.row) await writes.delete(buyerProfiles, eq(buyerProfiles.id, current.row.id));
-  } else if (current.row) {
-    await writes.update(buyerProfiles, columns, eq(buyerProfiles.id, current.row.id));
   } else {
-    await writes.insert(buyerProfiles, { ...columns, tenantId, contactId });
+    // Sem a permissão as chaves financeiras ficam fora do `set`: o gravado fica.
+    const values = financial ? { ...columns, ...kept } : columns;
+    if (current.row) {
+      await writes.update(buyerProfiles, values, eq(buyerProfiles.id, current.row.id));
+    } else {
+      await writes.insert(buyerProfiles, { ...values, tenantId, contactId });
+    }
   }
   await applyJunctions(writes, tenantId, contactId, profile, current);
 }

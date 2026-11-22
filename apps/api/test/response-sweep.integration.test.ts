@@ -2,11 +2,23 @@
 // de usuário, e nenhuma resposta pode trazer a flag de super admin — nem no
 // corpo, nem nos cabeçalhos. A lista de rotas vem do próprio app, não deste
 // arquivo: rota nova sem amostra aqui falha a suíte.
-import { commercialStatuses, contacts, createDatabase, createPool, crops, farms } from '@crm/db';
+import {
+  auditedWrites,
+  buyerProfiles,
+  commercialStatuses,
+  contactRoles,
+  contacts,
+  createDatabase,
+  createPool,
+  crops,
+  farms,
+  userProfiles,
+} from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { createAuth } from '../src/modules/auth/auth.js';
+import { seedAccessProfiles } from '../src/provisioning/seeded-access-profiles.js';
 import {
   createLinkedAccessProfile,
   createMembership,
@@ -167,10 +179,12 @@ describe('varredura das respostas da API', () => {
 
   const actors: Actor[] = [{ label: 'anônimo', credentials: null }];
   let tenantSlug: string;
+  let tenantId: string;
 
   beforeAll(async () => {
     const tenant = await createTenant(db, 'varredura');
     tenantSlug = tenant.slug;
+    tenantId = tenant.id;
     // Os nomes não dizem quem tem a flag: a varredura procura a palavra na resposta.
     const commonUser = await createUserWithPassword(db, 'Bruno Corretor');
     const superAdmin = await createUserWithPassword(db, 'Ana Gestora', { isSuperAdmin: true });
@@ -291,4 +305,53 @@ describe('varredura das respostas da API', () => {
     expect(routes.filter((route) => !answered.has(route))).toEqual([]);
     // A varredura é sequencial (rotas × atores) e cresce a cada rota nova: os 5 s padrão não bastam.
   }, SWEEP_TIMEOUT_MS);
+
+  it('comprador com perfil completo: o Gestor lê as chaves financeiras, o Corretor não, e nenhum traz a flag', async () => {
+    const gestor = await createUserWithPassword(db, 'Helena Perfil Gestor');
+    const corretor = await createUserWithPassword(db, 'Igor Perfil Corretor');
+    const contactId = await db.withTenant(tenantId, async (tx) => {
+      const [contact] = await tx
+        .insert(contacts)
+        .values({ tenantId, personType: 'pf', name: 'Comprador com perfil completo' })
+        .returning({ id: contacts.id });
+      await tx.insert(contactRoles).values({ tenantId, contactId: contact!.id, role: 'buyer' });
+      await tx.insert(buyerProfiles).values({
+        tenantId,
+        contactId: contact!.id,
+        urgency: 'high',
+        avgTicket: '8000000.00',
+        estimatedNetWorth: '50000000.00',
+        investmentCapacity: '9000000.00',
+      });
+      const ids = await seedAccessProfiles(tx, auditedWrites(tx, { tenantId, userId: null }), tenantId);
+      for (const [user, name] of [
+        [gestor, 'Gestor'],
+        [corretor, 'Corretor'],
+      ] as const) {
+        await createMembership(db, user.id, tenantId, { isDefault: true });
+        await tx.insert(userProfiles).values({ tenantId, userId: user.id, profileId: ids.get(name)! });
+      }
+      return contact!.id;
+    });
+
+    const read = async (user: Credentials) => {
+      const { status, text } = await call(
+        'GET /e/:tenant/contacts/:id',
+        { path: `/e/${tenantSlug}/contacts/${contactId}` },
+        { label: user.name, credentials: user },
+      );
+      return { status, text, body: JSON.parse(text.slice(text.indexOf('{'))) as { buyerProfile: Record<string, unknown> } };
+    };
+
+    const asManager = await read(gestor);
+    expect(asManager.status).toBe(200);
+    expect(asManager.body.buyerProfile).toMatchObject({ estimatedNetWorth: '50000000.00', investmentCapacity: '9000000.00' });
+    expect(SUPER_ADMIN_TRACE.test(asManager.text)).toBe(false);
+
+    const asBroker = await read(corretor);
+    expect(asBroker.status).toBe(200);
+    expect(asBroker.body.buyerProfile).toMatchObject({ urgency: 'high', avgTicket: '8000000.00' });
+    expect(asBroker.text).not.toMatch(/estimatedNetWorth|investmentCapacity|50000000|9000000\.00/);
+    expect(SUPER_ADMIN_TRACE.test(asBroker.text)).toBe(false);
+  });
 });

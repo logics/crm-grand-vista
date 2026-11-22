@@ -120,6 +120,22 @@ export const ComFilhos: Story = {
   },
 };
 
+/** Campo que exige permissão própria: a alteração aparece com o rótulo e o aviso, sem o antes e o depois. */
+export const CampoRestrito: Story = {
+  name: 'Campo restrito',
+  args: {
+    items: [
+      {
+        id: 1,
+        title: 'Patrimônio estimado alterado',
+        date: '24/07/2026, 14h30',
+        author: 'Rafael Tavares',
+        changes: [{ field: 'Patrimônio estimado', restricted: 'Requer permissão para ver esta alteração' }],
+      },
+    ],
+  },
+};
+
 export const EntradaUnica: Story = {
   name: 'Entrada única',
   args: { items: [{ title: 'Fazenda cadastrada', icon: 'plus', date: '02/07/2026', author: 'Rafael Tavares' }] },

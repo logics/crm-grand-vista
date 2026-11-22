@@ -143,7 +143,8 @@ function contactFilters(query: ContactListQuery): (SQL | undefined)[] {
   ];
 }
 
-export async function listContacts(tx: Transaction, query: ContactListQuery): Promise<ListPage<Contact>> {
+/** `financial`: o leitor tem `contatos.ver_dados_financeiros`; sem ele (o padrão), o perfil sai sem as chaves financeiras. */
+export async function listContacts(tx: Transaction, query: ContactListQuery, financial = false): Promise<ListPage<Contact>> {
   // Base compartilhada: sem cláusula de escopo de dados.
   const page = await paginatedQuery(tx, contactList, query, {
     scope: withoutDataScope,
@@ -152,14 +153,14 @@ export async function listContacts(tx: Transaction, query: ContactListQuery): Pr
   });
   const ids = page.items.map((item) => item.id);
   const roles = await rolesByContact(tx, ids);
-  const profiles = await buyerProfilesByContact(tx, ids);
+  const profiles = await buyerProfilesByContact(tx, ids, financial);
   return { ...page, items: page.items.map((item) => serialize(item, roles.get(item.id) ?? [], profiles.get(item.id) ?? null)) };
 }
 
-export async function getContact(tx: Transaction, id: string): Promise<Contact | null> {
+export async function getContact(tx: Transaction, id: string, financial = false): Promise<Contact | null> {
   const [row] = await tx.select().from(contacts).where(eq(contacts.id, id));
   if (!row) return null;
-  const profile = (await buyerProfilesByContact(tx, [id])).get(id) ?? null;
+  const profile = (await buyerProfilesByContact(tx, [id], financial)).get(id) ?? null;
   return serialize(row, (await rolesByContact(tx, [id])).get(id) ?? [], profile);
 }
 
@@ -252,6 +253,7 @@ export async function createContact(
   tx: Transaction,
   actor: AuditActor,
   input: CreateContactInput,
+  financial = false,
 ): Promise<Contact | ContactRejection> {
   const missing = await referencesMissing(tx, input);
   if (missing) return { rejected: missing };
@@ -268,8 +270,10 @@ export async function createContact(
     legalName: legalNameFor(fields.personType, fields.legalName),
   });
   for (const role of roles) await writes.insert(contactRoles, { tenantId: actor.tenantId!, contactId: row.id, role });
-  if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, row.id, buyerProfile, NO_CURRENT_BUYER_PROFILE);
-  return serialize(row, roles, (await buyerProfilesByContact(tx, [row.id])).get(row.id) ?? null);
+  if (buyerProfile) {
+    await replaceBuyerProfile(writes, actor.tenantId!, row.id, buyerProfile, NO_CURRENT_BUYER_PROFILE, financial);
+  }
+  return serialize(row, roles, (await buyerProfilesByContact(tx, [row.id], financial)).get(row.id) ?? null);
 }
 
 /**
@@ -282,6 +286,7 @@ export async function updateContact(
   actor: AuditActor,
   id: string,
   input: UpdateContactInput,
+  financial = false,
 ): Promise<Contact | ContactRejection | null> {
   const current = await getContact(tx, id);
   if (!current) return null;
@@ -335,9 +340,9 @@ export async function updateContact(
   // Retirar o comprador apaga o perfil no mesmo ponto que limpa a classificação;
   // `null` apaga; objeto substitui; ausente não toca. Quem não era comprador não tem perfil: nada a apagar.
   if ((hasClassification(current.roles) && !isBuyer) || buyerProfile === null) await deleteBuyerProfile(writes, id);
-  else if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, id, buyerProfile, currentProfile);
+  else if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, id, buyerProfile, currentProfile, financial);
 
-  return serialize(row, finalRoles, (await buyerProfilesByContact(tx, [id])).get(id) ?? null);
+  return serialize(row, finalRoles, (await buyerProfilesByContact(tx, [id], financial)).get(id) ?? null);
 }
 
 /**

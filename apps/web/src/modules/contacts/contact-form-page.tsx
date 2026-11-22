@@ -47,6 +47,7 @@ import { resolveMunicipalities, searchMunicipalities } from '../municipalities/m
 import { VocabularyField } from '../settings/vocabulary-field.js';
 import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { PageHeader } from '../../shell/page-header.js';
+import { useCan } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
@@ -104,6 +105,8 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
     Object.values(profileFields.current).some(
       ({ value }) => value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0),
     );
+  // Dado financeiro do comprador: sem a permissão, os campos não existem na tela e as chaves não vão no payload.
+  const canSeeFinancial = useCan('contatos.ver_dados_financeiros');
   const { areaUnit, alqueireType } = useDisplayContext();
   const areaProps = { unit: areaUnit === 'ha' ? 'hectare' : 'alqueire', alqueireType } as const;
   // Vem marcada em contato novo e, na edição, quando os dois números são iguais.
@@ -200,6 +203,26 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
       ];
 
   const profile = FIELD_REGISTRY.buyer_profiles.fields;
+  const financialFields: EntityFormField<FormValues>[] = canSeeFinancial
+    ? [
+        {
+          name: 'buyerProfile.estimatedNetWorth',
+          label: profile.estimated_net_worth.label,
+          render: (field) => {
+            track(field.name, field.value, field.onChange as (value: null) => void);
+            return <MoneyInput {...field} value={field.value ?? null} onChange={(value) => field.onChange(value)} />;
+          },
+        },
+        {
+          name: 'buyerProfile.investmentCapacity',
+          label: profile.investment_capacity.label,
+          render: (field) => {
+            track(field.name, field.value, field.onChange as (value: null) => void);
+            return <MoneyInput {...field} value={field.value ?? null} onChange={(value) => field.onChange(value)} />;
+          },
+        },
+      ]
+    : [];
   const searchRegion = useMemo(() => searchMunicipalities(slug, { allowUf: true }), [slug]);
   const resolveRegion = useMemo(() => resolveMunicipalities(slug), [slug]);
   const profileSection = hasClassification(roles)
@@ -282,6 +305,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                 );
               },
             },
+            ...financialFields,
             {
               name: 'buyerProfile.regions',
               label: 'Regiões de interesse',

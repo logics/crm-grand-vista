@@ -7,6 +7,7 @@
 // formulários é derivado dela, nunca declarado de novo.
 import { AREA_FORMAT, type AlqueireType, formatDecimal, formatMoney, formatPercent } from './decimal.js';
 import { formatAlqueires, formatHectares } from './farm.js';
+import type { PermissionCode } from './permissions.js';
 import { formatPhone } from './phone.js';
 
 /** Gênero gramatical da entidade: "Fazenda cadastrad**a**", "Contato cadastrad**o**". */
@@ -20,6 +21,12 @@ interface LabeledField {
    * alterad**a**". Masculino quando omitido.
    */
   gender?: GrammaticalGender;
+  /**
+   * Código de permissão do catálogo que o leitor precisa ter para ver os
+   * valores do campo. Sem ela, o histórico mostra a alteração (o rótulo) sem o
+   * antes e o depois. Vale para campo de registro e de filho, de qualquer entidade.
+   */
+  requiresPermission?: PermissionCode;
 }
 
 /** Campos que se formatam sozinhos, a partir do valor gravado. */
@@ -161,7 +168,5 @@ export function formatFieldValue(
  */
 export function columnToProperty(column: string): string {
   const words = column.replace(/['’]/g, '').match(/[\da-z]+|[A-Z]+(?![a-z])|[A-Z][\da-z]+/g) ?? [];
-  return words
-    .map((word, index) => (index === 0 ? word.toLowerCase() : `${word[0]?.toUpperCase()}${word.slice(1)}`))
-    .join('');
+  return words.map((word, index) => (index === 0 ? word.toLowerCase() : `${word[0]?.toUpperCase()}${word.slice(1)}`)).join('');
 }

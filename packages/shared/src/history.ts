@@ -15,6 +15,9 @@ export const HISTORY_KINDS = ['created', 'updated', 'deleted'] as const;
 
 export type HistoryKind = (typeof HISTORY_KINDS)[number];
 
+/** No lugar dos valores de um campo que exige permissão própria que o leitor não tem. */
+export const HISTORY_RESTRICTED_MESSAGE = 'Requer permissão para ver esta alteração';
+
 export const historyChangeSchema = z.object({
   /** Rótulo do campo, nunca o nome da coluna. */
   field: z.string(),
@@ -24,6 +27,8 @@ export const historyChangeSchema = z.object({
   to: z.string().nullable(),
   /** Texto longo: vem inteiro, e o componente trunca. */
   long: z.literal(true).optional(),
+  /** Presente só no campo mascarado: o texto no lugar do antes e do depois (`from` e `to` vão nulos). */
+  restricted: z.literal(HISTORY_RESTRICTED_MESSAGE).optional(),
 });
 
 export type HistoryChange = z.infer<typeof historyChangeSchema>;
