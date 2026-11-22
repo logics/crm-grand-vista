@@ -357,6 +357,22 @@ describe('lista de contatos: grupos, contagem e limpar', () => {
     expect(clear).toHaveTextContent(/^Limpar busca e filtros$/);
   });
 
+  // jsdom não mede layout: a regressão (grupo de 456px num formulário de 366px, campos cortados à direita) é
+  // guardada pelas classes que a evitam. Sem `min-w-0` o grupo e os campos não encolhem abaixo do conteúdo
+  // do seletor de período e a área principal passa a rolar na horizontal.
+  it('no mobile, o grupo e os campos podem encolher abaixo do conteúdo e ocupam a largura toda', async () => {
+    stubMobile();
+    open();
+    await screen.findByRole('list', { name: 'Resultados' });
+
+    const group = screen.getByRole('group', { name: 'Filtros do contato' });
+    expect(group).toHaveClass('min-w-0', 'basis-full');
+    for (const field of group.querySelectorAll('[data-slot="field"]')) {
+      expect(field).toHaveClass('max-mobile:w-full', 'max-mobile:min-w-0');
+    }
+    expect(group.querySelectorAll('[data-slot="field"]')).toHaveLength(5);
+  });
+
   it('no mobile, o grupo do perfil começa fechado e abre pelo botão', async () => {
     stubMobile();
     open();

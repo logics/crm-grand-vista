@@ -92,10 +92,10 @@ function FixedMultiSelect<TId extends string>({
 // Larguras dos campos pelos tokens (`--space-10` = 40px). `w-N` fora da escala do tema não gera CSS: o campo
 // ficaria do tamanho do conteúdo e o painel mudaria de altura a cada valor escolhido. No mobile, uma coluna.
 const width = {
-  wide: 'w-[calc(6*var(--space-10))] max-mobile:w-full', // 240: papéis, cultura, período
-  person: 'w-[calc(5.5*var(--space-10))] max-mobile:w-full', // 220: "Pessoa física e jurídica" cabe
-  regular: 'w-[calc(5*var(--space-10))] max-mobile:w-full', // 200
-  region: 'w-[calc(7*var(--space-10))] max-mobile:w-full', // 280: "Goiás (UF)" e "Rio Verde — GO" na mesma altura
+  wide: 'w-[calc(6*var(--space-10))] max-mobile:w-full max-mobile:min-w-0', // 240: papéis, cultura, período
+  person: 'w-[calc(5.5*var(--space-10))] max-mobile:w-full max-mobile:min-w-0', // 220: "Pessoa física e jurídica" cabe
+  regular: 'w-[calc(5*var(--space-10))] max-mobile:w-full max-mobile:min-w-0', // 200
+  region: 'w-[calc(7*var(--space-10))] max-mobile:w-full max-mobile:min-w-0', // 280: "Goiás (UF)" e "Rio Verde — GO" na mesma altura
 };
 
 const idList = (entries: { id: string }[]) => (entries.length > 0 ? entries.map((entry) => entry.id) : undefined);
@@ -116,7 +116,7 @@ function activeFilterCount(query: ContactQuery) {
   return contact + (period ? 1 : 0) + profileFilterCount(query);
 }
 
-const group = 'order-last flex basis-full flex-wrap items-end gap-4';
+const group = 'order-last flex min-w-0 basis-full flex-wrap items-end gap-4';
 
 export function ContactFilters({ query, update, filtered, clearFilters }: ListQueryState<typeof contactListQuerySchema>) {
   const slug = useTenantSlug();
