@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '../../support/dom.js';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { session, stubFakeApi } from '../../support/fake-api.js';
@@ -27,7 +27,16 @@ const contact = (overrides = {}) => ({
   ...overrides,
 });
 
+const soy = { id: '0197c000-0000-7000-8000-0000000000d1', name: 'Soja', active: true };
+const corn = { id: '0197c000-0000-7000-8000-0000000000d2', name: 'Milho', active: true };
+const cash = { id: '0197c000-0000-7000-8000-0000000000e1', name: 'À vista', active: true };
+const barter = { id: '0197c000-0000-7000-8000-0000000000e2', name: 'Permuta', active: true };
+const rioVerde = { ibgeCode: '5218805', name: 'Rio Verde', uf: 'GO', active: true };
+
 const profile = {
+  regions: [{ uf: 'GO' }, { ibgeCode: rioVerde.ibgeCode }],
+  cropIds: [soy.id, corn.id],
+  paymentMethodIds: [cash.id, barter.id],
   purchaseProfileId: investor.id,
   qualificationLevel: 'hot',
   urgency: 'high',
@@ -46,6 +55,9 @@ const view = (record: unknown, permissions: string[] = ['contatos.ver'], areaDis
       '/e/grand-vista/contacts/c1/history': { entries: [] },
       '/e/grand-vista/settings': { defaultAlqueireType: 'goiano', areaDisplayUnit },
       '/e/grand-vista/settings/vocabularies/purchase-profiles/options': { items: [investor] },
+      '/e/grand-vista/settings/vocabularies/crops/options': { items: [corn, soy] },
+      '/e/grand-vista/settings/vocabularies/payment-methods/options': { items: [cash, barter] },
+      '/e/grand-vista/municipalities': { items: [rioVerde] },
     },
   });
   renderApp('/e/grand-vista/contacts/c1');
@@ -71,6 +83,40 @@ describe('ficha do contato: perfil de compra', () => {
     expect(within(section).getByText('500 ha')).toBeInTheDocument();
     expect(within(section).getByText('1.500 ha')).toBeInTheDocument();
     expect(within(section).queryByText(/Patrimônio|Capacidade/)).not.toBeInTheDocument();
+  });
+
+  it('mostra as regiões, as culturas e as formas de pagamento pelos nomes', async () => {
+    view(contact({ buyerProfile: profile }));
+
+    const section = (await screen.findAllByText('Perfil de compra'))[0]!.closest('[data-section]') as HTMLElement;
+    const value = async (label: string) =>
+      (await within(section).findByText(label)).closest('div')!.querySelector('dd') as HTMLElement;
+
+    await waitFor(async () => expect(await value('Regiões de interesse')).toHaveTextContent('Goiás (UF), Rio Verde — GO'));
+    await waitFor(async () => expect(await value('Culturas de interesse')).toHaveTextContent('Milho, Soja'));
+    await waitFor(async () => expect(await value('Formas de pagamento')).toHaveTextContent('À vista, Permuta'));
+  });
+
+  it('comprador só com junções mostra a seção, não o estado vazio', async () => {
+    view(
+      contact({
+        buyerProfile: {
+          regions: [{ uf: 'MT' }],
+          cropIds: [],
+          paymentMethodIds: [],
+          purchaseProfileId: null,
+          qualificationLevel: null,
+          urgency: null,
+          avgTicket: null,
+          maxTicket: null,
+          minAreaHa: null,
+          maxAreaHa: null,
+        },
+      }),
+    );
+
+    expect(await screen.findByText('Mato Grosso (UF)')).toBeInTheDocument();
+    expect(screen.queryByText('Sem perfil de compra')).not.toBeInTheDocument();
   });
 
   it('mostra as áreas em alqueires quando a empresa usa alqueire', async () => {

@@ -18,6 +18,9 @@ const messages = (value: unknown) => (parse(value).error?.issues ?? []).map((iss
 describe('buyerProfileSchema', () => {
   it('campo omitido vira nulo (substituição completa)', () => {
     expect(parse({}).data).toEqual({
+      regions: [],
+      cropIds: [],
+      paymentMethodIds: [],
       purchaseProfileId: null,
       avgTicket: null,
       maxTicket: null,
@@ -98,5 +101,40 @@ describe('metadados de campo de buyer_profiles', () => {
 
   it('a UF da região de interesse sai como "Goiás (UF)"', () => {
     expect(FIELD_REGISTRY.buyer_regions.fields.uf).toMatchObject({ options: { GO: 'Goiás (UF)' } });
+  });
+});
+
+describe('buyerProfileSchema — junções', () => {
+  const crop = '6f1c1d7a-0b6e-4a54-9a43-0d6f2b8f4a11';
+  const other = '8a2b6c1e-3d1f-4b7a-8c55-1e7a3c9d5b22';
+
+  it('região é { ibgeCode } ou { uf }; listas ausentes são vazias', () => {
+    const data = parse({ regions: [{ ibgeCode: '5218805' }, { uf: 'GO' }], cropIds: [crop] }).data!;
+    expect(data.regions).toEqual([{ ibgeCode: '5218805' }, { uf: 'GO' }]);
+    expect(data.cropIds).toEqual([crop]);
+    expect(data.paymentMethodIds).toEqual([]);
+  });
+
+  it('região repetida é deduplicada pela chave; redundante (UF e município da UF) é aceita', () => {
+    const data = parse({ regions: [{ uf: 'GO' }, { ibgeCode: '5218805' }, { uf: 'GO' }, { ibgeCode: '5218805' }] }).data!;
+    expect(data.regions).toEqual([{ uf: 'GO' }, { ibgeCode: '5218805' }]);
+  });
+
+  it('cultura e forma de pagamento repetidas são deduplicadas', () => {
+    const data = parse({ cropIds: [crop, other, crop], paymentMethodIds: [other, other] }).data!;
+    expect(data.cropIds).toEqual([crop, other]);
+    expect(data.paymentMethodIds).toEqual([other]);
+  });
+
+  it('região com ibgeCode e uf, ou sem nenhum, é recusada', () => {
+    expect(parse({ regions: [{ ibgeCode: '5218805', uf: 'GO' }] }).success).toBe(false);
+    expect(parse({ regions: [{}] }).success).toBe(false);
+    expect(parse({ regions: [{ ibgeCode: '123' }] }).success).toBe(false);
+    expect(parse({ regions: [{ uf: 'XX' }] }).success).toBe(false);
+  });
+
+  it('id de cultura malformado é recusado', () => {
+    expect(parse({ cropIds: ['x'] }).success).toBe(false);
+    expect(parse({ paymentMethodIds: ['x'] }).success).toBe(false);
   });
 });

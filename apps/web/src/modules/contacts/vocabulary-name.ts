@@ -13,3 +13,14 @@ export function useVocabularyName(vocabulary: VocabularyKey, id: string | null):
   );
   return entry.data?.name ?? null;
 }
+
+/**
+ * Nomes das entradas que o contato guarda por lista de ids, na ordem do cadastro
+ * (alfabética); vazio enquanto carrega. Uma consulta só por lista.
+ */
+export function useVocabularyNames(vocabulary: VocabularyKey, ids: readonly string[]): string[] {
+  const entries = useTenantQuery(['vocabulary-entries', vocabulary, [...ids].sort().join(',')], async (slug) =>
+    resolveVocabularyOptions(slug, vocabulary)([...ids]),
+  );
+  return (entries.data ?? []).map((entry) => entry.name);
+}
