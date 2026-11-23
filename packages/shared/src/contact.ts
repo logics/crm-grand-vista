@@ -1,7 +1,13 @@
 // Contato: pessoa física ou jurídica, com papéis acumuláveis — o parceiro que
 // indica um comprador hoje pode ser o comprador de amanhã, no mesmo cadastro.
 import { z } from 'zod';
-import { BUYER_PROFILE_REQUIRES_BUYER_MESSAGE, buyerProfileOutputSchema, buyerProfileSchema } from './buyer-profile.js';
+import {
+  BUYER_PROFILE_REQUIRES_BUYER_MESSAGE,
+  QUALIFICATION_LEVELS,
+  buyerProfileOutputSchema,
+  buyerProfileSchema,
+} from './buyer-profile.js';
+import { LEVELS, commaListSchema, regionFilterSchema } from './farm.js';
 import { optionalText } from './text.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { INVALID_PHONE_MESSAGE, isBlankPhone, normalizePhone } from './phone.js';
@@ -223,6 +229,16 @@ export const contactListFilters = {
   personType: z.enum(PERSON_TYPES, { error: 'Tipo de pessoa inválido.' }).optional(),
   classificationId: z.uuid({ error: 'Classificação do cliente inválida.' }).optional(),
   leadSourceId: z.uuid({ error: 'Origem do lead inválida.' }).optional(),
+  // Perfil de compra (spec fase-1-perfil-de-compra): cada um é lista separada por vírgula, qualquer valor.
+  purchaseProfileId: commaListSchema(z.uuid({ error: 'Perfil de compra inválido.' }), 'Perfil de compra inválido.').optional(),
+  qualificationLevel: commaListSchema(
+    z.enum(QUALIFICATION_LEVELS, { error: 'Grau de qualificação inválido.' }),
+    'Grau de qualificação inválido.',
+  ).optional(),
+  urgency: commaListSchema(z.enum(LEVELS, { error: 'Urgência inválida.' }), 'Urgência inválida.').optional(),
+  cropId: commaListSchema(z.uuid({ error: 'Cultura inválida.' }), 'Cultura inválida.').optional(),
+  /** Código IBGE de município ou sigla de UF, misturados; a cobertura vale nos dois sentidos (`buyerRegionCovers`). */
+  region: regionFilterSchema.optional(),
   createdFrom: z.iso.date({ error: 'Data inicial inválida.' }).optional(),
   createdTo: z.iso.date({ error: 'Data final inválida.' }).optional(),
 };

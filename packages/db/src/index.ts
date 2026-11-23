@@ -9,3 +9,4 @@ export { uuidv7 } from './uuid.js';
 export * from './schema/index.js';
 export { normalizedText } from './schema/vocabulary.js';
 export type { VocabularyTable } from './schema/vocabulary.js';
+export { buyerRegionCovers } from './buyer-region-coverage.js';

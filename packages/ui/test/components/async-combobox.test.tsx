@@ -512,6 +512,16 @@ describe('AsyncCombobox', () => {
       expect(screen.getByRole('combobox', { name: 'Fazendas' })).toHaveTextContent('Escolha as fazendas');
     });
 
+    it('com chips, o gatilho mantém uma faixa de clique e o texto do chip deixa o clique passar', () => {
+      render(<Multiple search={fakeSearch().search} initial={[farms[0]!]} />);
+
+      // o jsdom não mede layout: o teste só fixa as classes que garantem a área de clique
+      const trigger = screen.getByRole('combobox', { name: 'Fazendas' });
+      expect(trigger).toHaveClass('h-auto', 'min-w-[var(--space-10)]', 'self-stretch');
+      const chip = screen.getByText('Fazenda Três Barras', { selector: '[data-slot="tag"]' });
+      expect(chip).toHaveClass('pointer-events-none', '[&_button]:pointer-events-auto');
+    });
+
     it('hidrata os chips por ID e não resolve de novo o que já conhece', async () => {
       const user = setup();
       const resolve = vi.fn(async (ids: string[]) => farms.filter((farm) => ids.includes(farm.id)));

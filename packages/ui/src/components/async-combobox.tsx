@@ -459,7 +459,8 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
               return (
                 <Tag
                   key={keyOf(entry)}
-                  className={aboveTrigger}
+                  // o texto do chip deixa o clique passar ao gatilho (abre a lista); só o "x" o recebe
+                  className={cn(aboveTrigger, 'pointer-events-none [&_button]:pointer-events-auto')}
                   onRemove={
                     locked || !item
                       ? undefined
@@ -485,6 +486,9 @@ export function AsyncCombobox<T>(props: AsyncComboboxProps<T>) {
                 // na múltipla com chips, o placeholder sai e o botão vira só área de clique;
                 // sem eles, 120px (3 × --space-10) bastam para o placeholder
                 (!hasValue || !props.multiple) && 'min-w-[calc(3*var(--space-10))]',
+                // com chips, `h-full` mediria 0 (a moldura é `h-auto`): o gatilho garante uma faixa de 40px (--space-10) por toda a altura da linha:
+                // em campo estreito ela quebra para a linha de baixo e segue sendo o lugar de acrescentar
+                props.multiple && hasValue && 'h-auto min-w-[var(--space-10)] self-stretch',
                 !hasValue && 'text-text-faint',
               )}
               {...control}
