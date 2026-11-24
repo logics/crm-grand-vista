@@ -3,7 +3,6 @@
 import {
   BUYER_PROFILE_CONCURRENT_SAVE_MESSAGE,
   CONTACT_NOT_FOUND_MESSAGE,
-  REFERRAL_CHAIN_CONCURRENT_SAVE_MESSAGE,
   TAX_ID_TAKEN_MESSAGE,
   contactDuplicatesQuerySchema,
   contactListQuerySchema,
@@ -17,7 +16,7 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { databaseError, isForeignKeyInUse, SQLSTATE } from '../../database-error.js';
 import { noPermissionRequired, requirePermission } from '../../authorization/route-access.js';
-import { ReferralChainRejection, contactReferralHistoryChild } from '../referrals/routes.js';
+import { contactReferralHistoryChild, referralRefusal } from '../referrals/routes.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import { hydrateContactNames, listContactOptions } from './options.js';
 import type { TenantEnv } from '../../tenant-context.js';
@@ -96,30 +95,6 @@ async function withTaxIdRefusals<T>(c: Context<TenantEnv>, taxId: string | null 
     }
     throw error;
   }
-}
-
-/** Constraints únicas de `referral_links`: dois saves do mesmo contato empatam no `COMMIT` (a de posição é adiável). */
-const REFERRAL_LINKS_TABLE = 'referral_links';
-
-/** A recusa da cadeia (400 no campo, com a posição do item) ou a corrida de dois saves (409). Outro erro, nada. */
-function referralRefusal(c: Context<TenantEnv>, error: unknown) {
-  if (error instanceof ReferralChainRejection) {
-    return c.json(
-      {
-        error: {
-          code: 'validation_error',
-          message: error.message,
-          field: 'referralChain',
-          ...(error.position === undefined ? {} : { position: error.position }),
-        },
-      } as const,
-      400,
-    );
-  }
-  const { code, table } = databaseError(error);
-  if (code === SQLSTATE.uniqueViolation && table === REFERRAL_LINKS_TABLE)
-    return c.json(conflict(REFERRAL_CHAIN_CONCURRENT_SAVE_MESSAGE), 409);
-  return null;
 }
 
 export function createContactsRoutes() {

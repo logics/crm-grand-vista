@@ -8,6 +8,7 @@ export const SQLSTATE = {
   // `ON DELETE RESTRICT` falha com 23001; `NO ACTION`, com 23503. A regra é do RESTRICT, mas os dois são "em uso".
   restrictViolation: '23001',
   foreignKeyViolation: '23503',
+  checkViolation: '23514',
   invalidText: '22P02',
 } as const;
 

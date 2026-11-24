@@ -10,7 +10,6 @@ import {
   PERSON_TYPE_LABELS,
   buyerRegionKeyOf,
   referralChainInputOf,
-  referralChainInputSchema,
   type ReferralLink,
   createContactSchema,
   isMunicipality,
@@ -60,14 +59,16 @@ import { ReferralChainField, toReferralLinks } from '../referrals/referral-chain
 
 const FORM_ID = 'contact-form';
 
-/** O contato mais a opção só do formulário: sem coluna, ela não existe na API. */
 /**
+ * O contato mais as opções só do formulário. A opção `sameNumber` não tem coluna.
  * Na tela a cadeia é a lista de elos do editor (com nome e posição), não o corpo
- * da API: o tipo de entrada do schema é emprestado, e `save` converte com
- * `referralChainInputOf` — nunca vai `name` nem `position`.
+ * da API: o campo tem schema próprio, e `save` converte com `referralChainInputOf`
+ * — nunca vai `name` nem `position`.
  */
-const referralLinksField = z.custom<ReferralLink[]>() as unknown as z.ZodOptional<typeof referralChainInputSchema>;
-const contactFormSchema = createContactSchema.safeExtend({ sameNumber: z.boolean(), referralChain: referralLinksField });
+const contactFormSchema = createContactSchema.safeExtend({
+  sameNumber: z.boolean(),
+  referralChain: z.custom<ReferralLink[]>().optional(),
+});
 type FormValues = z.input<typeof contactFormSchema>;
 /**
  * Sem o papel comprador a seção não existe: o que sobrou nos campos dela não vai
@@ -142,7 +143,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
     const { buyerProfile, ...rest } = withWhatsapp;
     const withoutChain = buyerProfile === null && !contact?.roles.includes('buyer') ? rest : withWhatsapp;
     const values = chainTouched.current
-      ? { ...withoutChain, referralChain: referralChainInputOf((chainLinks ?? []) as unknown as ReferralLink[]) }
+      ? { ...withoutChain, referralChain: referralChainInputOf(chainLinks ?? []) }
       : withoutChain;
     setDuplicate(null);
     const confirmed = skipDuplicateCheck.current;
@@ -417,7 +418,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
           relationshipOrigin: contact?.relationshipOrigin ?? '',
           strategicNotes: contact?.strategicNotes ?? '',
           ...(contact?.buyerProfile ? { buyerProfile: contact.buyerProfile } : {}),
-          referralChain: toReferralLinks(contact?.referralChain ?? []) as unknown as FormValues['referralChain'],
+          referralChain: toReferralLinks(contact?.referralChain ?? []),
         }}
         onDirtyChange={setDirty}
         onCancel={() => {
@@ -599,7 +600,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                 render: (field) => (
                   <ReferralChainField
                     subject={{ kind: 'contact', id: contact?.id ?? '', name: typedName.trim() || 'este contato' }}
-                    value={(field.value ?? []) as unknown as ReferralLink[]}
+                    value={field.value ?? []}
                     onChange={(links) => {
                       chainTouched.current = true;
                       field.onChange(links);

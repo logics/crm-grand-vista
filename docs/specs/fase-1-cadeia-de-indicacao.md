@@ -54,7 +54,7 @@ Com `tenant_id`, timestamps, RLS e `FORCE ROW LEVEL SECURITY`, pelas convençõe
 
 - `num_nonnulls(subject_contact_id, subject_farm_id) = 1`
 - `num_nonnulls(referrer_user_id, referrer_contact_id) = 1`
-- `subject_contact_id IS DISTINCT FROM referrer_contact_id`: o contato não aparece na própria cadeia
+- `subject_contact_id IS NULL OR referrer_contact_id IS NULL OR subject_contact_id <> referrer_contact_id`: o contato não aparece na própria cadeia. `IS DISTINCT FROM` trata dois nulos como iguais e barraria a fazenda indicada por usuário, que tem os dois lados nulos.
 
 Restrições e índices:
 

@@ -4,7 +4,7 @@ Cadeia de indicação (`referral_links`): "o Pedro veio pelo João, que soube pe
 
 - **Spec:** `docs/specs/fase-1-cadeia-de-indicacao.md`; ADR 0005; issue #186 (contato). A fazenda usa a mesma tabela na #187.
 - **Tabela que possui:** `referral_links`, completa para os dois sujeitos (contato e fazenda). As duas restrições de posição são `DEFERRABLE INITIALLY DEFERRED`, escritas à mão na migration `0028`.
-- **Depende de:** `@crm/db`, `@crm/shared` (regra pura e schemas), `modules/contacts` (`ensureContactRole`, `declareRoleUsage`)
+- **Depende de:** `@crm/db`, `@crm/shared` (regra pura e schemas), `src/contact-roles` (`ensureContactRole`, `declareRoleUsage`); **nunca** importa `modules/contacts` (sem ciclo)
 
 ## Convenções locais
 
@@ -14,3 +14,4 @@ Cadeia de indicação (`referral_links`): "o Pedro veio pelo João, que soube pe
 - Todo contato da cadeia ganha o papel Corretor externo (`ensureContactRole`, idempotente); esvaziar a cadeia não o retira.
 - `readReferralChain` nunca seleciona `is_super_admin`.
 - `contactReferralHistoryChild` declara o elo como filho do histórico do contato; o `qualifier` (em `src/history`) põe "(posição N)" só no cadastro.
+- `referralRefusal` (em `routes.ts`) traduz a recusa da regra e o CHECK/UNIQUE de `referral_links` em 400 no campo `referralChain`; só dessa tabela.

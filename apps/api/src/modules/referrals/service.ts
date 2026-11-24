@@ -15,7 +15,7 @@ import {
   type ReferralSubject,
 } from '@crm/shared';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { ensureContactRole } from '../contacts/service.js';
+import { ensureContactRole } from '../../contact-roles/ensure.js';
 
 /** Sujeito da cadeia: por ora o contato (a fazenda usa a tabela na #187). */
 export type ContactSubject = ReferralSubject & { kind: 'contact' };

@@ -109,8 +109,6 @@ export const REFERRAL_NOTES_MAX_LENGTH = 500;
 export const REFERRAL_CHAIN_TOO_LONG_MESSAGE = `A cadeia de indicação aceita até ${MAX_REFERRAL_CHAIN_LENGTH} indicadores.`;
 export const REFERRAL_NOTES_TOO_LONG_MESSAGE = `A nota aceita até ${REFERRAL_NOTES_MAX_LENGTH} caracteres.`;
 export const REFERRAL_USER_NOT_IN_TEAM_MESSAGE = 'Usuário não faz parte da equipe.';
-export const REFERRAL_CHAIN_CONCURRENT_SAVE_MESSAGE =
-  'A cadeia de indicação foi alterada por outra pessoa ao mesmo tempo. Recarregue e tente de novo.';
 export const REFERRAL_CONTACT_UNKNOWN_MESSAGE = 'Contato não encontrado nesta empresa.';
 
 const referrerInputSchema = z.discriminatedUnion('kind', [

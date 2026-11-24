@@ -54,7 +54,7 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
-import { ensureContactRole } from '../contacts/service.js';
+import { ensureContactRole } from '../../contact-roles/ensure.js';
 import { defaultEntries } from '../settings/service.js';
 
 type FarmRow = typeof farms.$inferSelect;
@@ -114,51 +114,52 @@ async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Far
   const unique = <T>(values: readonly (T | null)[]) => [...new Set(values.filter((value): value is T => value !== null))];
 
   const farmIds = rows.map((row) => row.id);
-  const [municipalityRows, statusRows, userRows, postRows, valuationCropRows, aptitudeRows, cropRows, ownerRows] = await Promise.all([
-    tx
-      .select({ ibgeCode: municipalities.ibgeCode, name: municipalities.name, uf: municipalities.uf })
-      .from(municipalities)
-      .where(inArray(municipalities.ibgeCode, unique(rows.map((row) => row.municipalityIbgeCode)))),
-    tx
-      .select({ id: commercialStatuses.id, name: commercialStatuses.name, systemMeaning: commercialStatuses.systemMeaning })
-      .from(commercialStatuses)
-      .where(inArray(commercialStatuses.id, unique(rows.map((row) => row.commercialStatusId)))),
-    tx
-      .select({ id: users.id, name: users.name })
-      .from(users)
-      .where(inArray(users.id, unique(rows.map((row) => row.responsibleUserId)))),
-    tx
-      .select({ id: tradingPosts.id, name: tradingPosts.name })
-      .from(tradingPosts)
-      .where(inArray(tradingPosts.id, unique(rows.map((row) => row.tradingPostId)))),
-    tx
-      .select({ id: crops.id, name: crops.name })
-      .from(crops)
-      .where(inArray(crops.id, unique(rows.map((row) => row.valuationCropId)))),
-    tx
-      .select({ farmId: farmAptitudes.farmId, id: aptitudes.id, name: aptitudes.name })
-      .from(farmAptitudes)
-      .innerJoin(aptitudes, eq(aptitudes.id, farmAptitudes.aptitudeId))
-      .where(inArray(farmAptitudes.farmId, farmIds))
-      .orderBy(sql`${aptitudes.name} collate "pt-BR-x-icu"`, asc(aptitudes.id)),
-    tx
-      .select({ farmId: farmCrops.farmId, id: crops.id, name: crops.name })
-      .from(farmCrops)
-      .innerJoin(crops, eq(crops.id, farmCrops.cropId))
-      .where(inArray(farmCrops.farmId, farmIds))
-      .orderBy(sql`${crops.name} collate "pt-BR-x-icu"`, asc(crops.id)),
-    tx
-      .select({
-        farmId: farmOwners.farmId,
-        contactId: farmOwners.contactId,
-        name: contacts.name,
-        isPrimary: farmOwners.isPrimary,
-      })
-      .from(farmOwners)
-      .innerJoin(contacts, eq(contacts.id, farmOwners.contactId))
-      .where(inArray(farmOwners.farmId, farmIds))
-      .orderBy(asc(farmOwners.id)),
-  ]);
+  const [municipalityRows, statusRows, userRows, postRows, valuationCropRows, aptitudeRows, cropRows, ownerRows] =
+    await Promise.all([
+      tx
+        .select({ ibgeCode: municipalities.ibgeCode, name: municipalities.name, uf: municipalities.uf })
+        .from(municipalities)
+        .where(inArray(municipalities.ibgeCode, unique(rows.map((row) => row.municipalityIbgeCode)))),
+      tx
+        .select({ id: commercialStatuses.id, name: commercialStatuses.name, systemMeaning: commercialStatuses.systemMeaning })
+        .from(commercialStatuses)
+        .where(inArray(commercialStatuses.id, unique(rows.map((row) => row.commercialStatusId)))),
+      tx
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(inArray(users.id, unique(rows.map((row) => row.responsibleUserId)))),
+      tx
+        .select({ id: tradingPosts.id, name: tradingPosts.name })
+        .from(tradingPosts)
+        .where(inArray(tradingPosts.id, unique(rows.map((row) => row.tradingPostId)))),
+      tx
+        .select({ id: crops.id, name: crops.name })
+        .from(crops)
+        .where(inArray(crops.id, unique(rows.map((row) => row.valuationCropId)))),
+      tx
+        .select({ farmId: farmAptitudes.farmId, id: aptitudes.id, name: aptitudes.name })
+        .from(farmAptitudes)
+        .innerJoin(aptitudes, eq(aptitudes.id, farmAptitudes.aptitudeId))
+        .where(inArray(farmAptitudes.farmId, farmIds))
+        .orderBy(sql`${aptitudes.name} collate "pt-BR-x-icu"`, asc(aptitudes.id)),
+      tx
+        .select({ farmId: farmCrops.farmId, id: crops.id, name: crops.name })
+        .from(farmCrops)
+        .innerJoin(crops, eq(crops.id, farmCrops.cropId))
+        .where(inArray(farmCrops.farmId, farmIds))
+        .orderBy(sql`${crops.name} collate "pt-BR-x-icu"`, asc(crops.id)),
+      tx
+        .select({
+          farmId: farmOwners.farmId,
+          contactId: farmOwners.contactId,
+          name: contacts.name,
+          isPrimary: farmOwners.isPrimary,
+        })
+        .from(farmOwners)
+        .innerJoin(contacts, eq(contacts.id, farmOwners.contactId))
+        .where(inArray(farmOwners.farmId, farmIds))
+        .orderBy(asc(farmOwners.id)),
+    ]);
   const groupByFarm = (items: readonly { farmId: string; id: string; name: string }[]) => {
     const grouped = new Map<string, { id: string; name: string }[]>();
     for (const { farmId, id, name } of items) grouped.set(farmId, [...(grouped.get(farmId) ?? []), { id, name }]);
@@ -232,7 +233,12 @@ function farmSearchAlso(tx: Transaction, q: string | undefined): (SQL | undefine
       tx
         .select({ one: sql`1` })
         .from(municipalities)
-        .where(and(eq(municipalities.ibgeCode, farms.municipalityIbgeCode), sql`${normalizedText(municipalities.name)} like ${pattern}`)),
+        .where(
+          and(
+            eq(municipalities.ibgeCode, farms.municipalityIbgeCode),
+            sql`${normalizedText(municipalities.name)} like ${pattern}`,
+          ),
+        ),
     ),
     exists(
       tx
@@ -245,7 +251,12 @@ function farmSearchAlso(tx: Transaction, q: string | undefined): (SQL | undefine
 }
 
 /** Existe linha da junção da fazenda com algum dos ids (qualquer um dos escolhidos). */
-const joinedWithAny = (tx: Transaction, join: typeof farmAptitudes | typeof farmCrops | typeof farmOwners, column: AnyPgColumn, ids: readonly string[]) =>
+const joinedWithAny = (
+  tx: Transaction,
+  join: typeof farmAptitudes | typeof farmCrops | typeof farmOwners,
+  column: AnyPgColumn,
+  ids: readonly string[],
+) =>
   exists(
     tx
       .select({ one: sql`1` })
@@ -288,7 +299,9 @@ function farmFilters(tx: Transaction, access: EffectiveAccess, query: FarmListQu
     query.cropId ? joinedWithAny(tx, farmCrops, farmCrops.cropId, query.cropId) : undefined,
     status,
     // `own` já vê só as próprias: o filtro de corretor não tem o que acrescentar.
-    query.responsibleUserId && dataScopeOf(access, 'fazendas') === 'all' ? inArray(farms.responsibleUserId, query.responsibleUserId) : undefined,
+    query.responsibleUserId && dataScopeOf(access, 'fazendas') === 'all'
+      ? inArray(farms.responsibleUserId, query.responsibleUserId)
+      : undefined,
     query.salesPotential ? inArray(farms.salesPotential, query.salesPotential) : undefined,
     query.priority ? inArray(farms.priority, query.priority) : undefined,
     query.waterAvailability ? inArray(farms.waterAvailability, query.waterAvailability) : undefined,
@@ -318,7 +331,10 @@ export async function listFarms(tx: Transaction, access: EffectiveAccess, query:
 }
 
 async function findRow(tx: Transaction, access: EffectiveAccess, id: string, lock = false): Promise<FarmRow | null> {
-  const query = tx.select().from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+  const query = tx
+    .select()
+    .from(farms)
+    .where(and(eq(farms.id, id), scopeOf(access)));
   const [row] = await (lock ? query.for('update') : query);
   return row ?? null;
 }
@@ -331,7 +347,11 @@ const DUPLICATES_LIMIT = 20;
  * dentro do escopo de dados de quem consulta. Igualdade, não substring. Sem
  * nome ou sem município não há o que comparar: lista vazia.
  */
-export async function findFarmDuplicates(tx: Transaction, access: EffectiveAccess, query: FarmDuplicatesQuery): Promise<FarmDuplicate[]> {
+export async function findFarmDuplicates(
+  tx: Transaction,
+  access: EffectiveAccess,
+  query: FarmDuplicatesQuery,
+): Promise<FarmDuplicate[]> {
   const { name, municipalityIbgeCode, excludeId } = query;
   if (!name || !municipalityIbgeCode) return [];
   const rows = await tx
@@ -362,7 +382,10 @@ export async function findFarmDuplicates(tx: Transaction, access: EffectiveAcces
 }
 
 export async function farmVisible(tx: Transaction, access: EffectiveAccess, id: string): Promise<boolean> {
-  const [row] = await tx.select({ id: farms.id }).from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+  const [row] = await tx
+    .select({ id: farms.id })
+    .from(farms)
+    .where(and(eq(farms.id, id), scopeOf(access)));
   return row !== undefined;
 }
 
@@ -439,7 +462,8 @@ function pricingColumns(input: CreateFarmInput | UpdateFarmInput) {
     askingPrice: mode === 'brl' ? (input.askingPrice ?? null) : null,
     valuationBags: bags ? (input.valuationBags ?? null) : null,
     valuationBagsUnit: bags ? (input.valuationBagsUnit ?? null) : null,
-    valuationBagsAlqueireType: bags && input.valuationBagsUnit === 'per_alqueire' ? (input.valuationBagsAlqueireType ?? null) : null,
+    valuationBagsAlqueireType:
+      bags && input.valuationBagsUnit === 'per_alqueire' ? (input.valuationBagsAlqueireType ?? null) : null,
     valuationCropId: bags ? (input.valuationCropId ?? null) : null,
   };
 }
@@ -467,7 +491,10 @@ const SCALAR_FIELDS = [
 ] as const;
 
 const scalarValues = (input: CreateFarmInput) =>
-  Object.fromEntries(SCALAR_FIELDS.map((field) => [field, input[field] ?? null])) as Pick<typeof farms.$inferInsert, (typeof SCALAR_FIELDS)[number]>;
+  Object.fromEntries(SCALAR_FIELDS.map((field) => [field, input[field] ?? null])) as Pick<
+    typeof farms.$inferInsert,
+    (typeof SCALAR_FIELDS)[number]
+  >;
 
 /** As duas coordenadas ou nenhuma: no PATCH vale o par efetivo (enviado, senão gravado). */
 function coordinatesRejection(input: UpdateFarmInput, current: FarmRow): FarmRejection | null {
@@ -519,7 +546,13 @@ async function currentJunctionIds(tx: Transaction, farmId: string): Promise<{ ap
 type Writes = ReturnType<typeof auditedWrites>;
 
 /** Leva o conjunto gravado ao pedido, só pela diferença: quem não mudou não é regravado nem entra no histórico. */
-async function applyAptitudes(writes: Writes, tenantId: string, farmId: string, current: ReadonlySet<string>, wanted: readonly string[]) {
+async function applyAptitudes(
+  writes: Writes,
+  tenantId: string,
+  farmId: string,
+  current: ReadonlySet<string>,
+  wanted: readonly string[],
+) {
   const removed = [...current].filter((id) => !wanted.includes(id));
   if (removed.length > 0) {
     await writes.delete(farmAptitudes, and(eq(farmAptitudes.farmId, farmId), inArray(farmAptitudes.aptitudeId, removed))!);
@@ -529,7 +562,13 @@ async function applyAptitudes(writes: Writes, tenantId: string, farmId: string, 
   }
 }
 
-async function applyCrops(writes: Writes, tenantId: string, farmId: string, current: ReadonlySet<string>, wanted: readonly string[]) {
+async function applyCrops(
+  writes: Writes,
+  tenantId: string,
+  farmId: string,
+  current: ReadonlySet<string>,
+  wanted: readonly string[],
+) {
   const removed = [...current].filter((id) => !wanted.includes(id));
   if (removed.length > 0) {
     await writes.delete(farmCrops, and(eq(farmCrops.farmId, farmId), inArray(farmCrops.cropId, removed))!);
@@ -626,7 +665,8 @@ export async function updateFarm(
   // Um `change_id` por save: a fazenda e as junções vão no mesmo histórico.
   const writes = auditedWrites(tx, actor);
   // O modo manda no bloco: com ele no corpo, as seis colunas são regravadas num save só.
-  const { pricingMode, askingPrice, valuationBags, valuationBagsUnit, valuationBagsAlqueireType, valuationCropId, ...rest } = fields;
+  const { pricingMode, askingPrice, valuationBags, valuationBagsUnit, valuationBagsAlqueireType, valuationCropId, ...rest } =
+    fields;
   const set: Partial<typeof farms.$inferInsert> = {
     ...rest,
     ...(pricingMode !== undefined &&

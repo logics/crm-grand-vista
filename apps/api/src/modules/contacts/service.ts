@@ -1,7 +1,6 @@
 // Contatos da empresa ativa. Contato, papéis e auditoria vão numa transação só
 // (a que a rota abre por `withTenant`), num `change_id` por save.
 import {
-  auditLog,
   auditedWrites,
   buyerCrops,
   buyerProfiles,
@@ -10,9 +9,7 @@ import {
   contactRoles,
   contacts,
   normalizedText,
-  diffRecords,
   leadSources,
-  uuidv7,
   type AuditActor,
   type Transaction,
 } from '@crm/db';
@@ -44,7 +41,7 @@ import {
   type UpdateContactInput,
 } from '@crm/shared';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { and, eq, getTableColumns, getTableName, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import {
   buyerProfilesByContact,
   currentBuyerProfile,
@@ -54,7 +51,7 @@ import {
   replaceBuyerProfile,
 } from './buyer-profile.js';
 import { deleteReferralChain, readReferralChain, replaceReferralChain } from '../referrals/service.js';
-import { countRoleUsage, pluralLabelOfTable, usageOfTable } from './role-usage.js';
+import { countRoleUsage, pluralLabelOfTable, usageOfTable } from '../../contact-roles/usage.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
@@ -465,44 +462,5 @@ export async function deleteContact(tx: Transaction, actor: AuditActor, id: stri
   await deleteReferralChain(writes, { id });
   await writes.delete(contactRoles, eq(contactRoles.contactId, id));
   await writes.delete(contacts, eq(contacts.id, id));
-  return true;
-}
-
-/** Garantir papel: acrescenta se faltar, na transação de quem chama. Verdadeiro se acrescentou. */
-export async function ensureContactRole(
-  tx: Transaction,
-  actor: AuditActor,
-  contactId: string,
-  role: ContactRole,
-): Promise<boolean> {
-  // `ON CONFLICT DO NOTHING` no unique (contact_id, role): chamadas simultâneas não
-  // estouram 23505; quem perde a corrida não recebe linha e devolve falso.
-  const [row] = await tx
-    .insert(contactRoles)
-    .values({ tenantId: actor.tenantId!, contactId, role })
-    .onConflictDoNothing({ target: [contactRoles.contactId, contactRoles.role] })
-    .returning();
-  if (!row) return false;
-
-  // Mesma auditoria de `auditedWrites.insert` (um campo por linha, valor anterior nulo,
-  // um `change_id` por chamada); o insert acima não passa pelo wrapper por causa do ON CONFLICT.
-  const after: Record<string, unknown> = {};
-  for (const [key, column] of Object.entries(getTableColumns(contactRoles))) {
-    after[column.name] = row[key as keyof typeof row];
-  }
-  const changeId = uuidv7();
-  const changes = diffRecords(null, after);
-  await tx.insert(auditLog).values(
-    changes.map((change) => ({
-      tenantId: actor.tenantId,
-      entity: getTableName(contactRoles),
-      entityId: row.id,
-      changeId,
-      field: change.field,
-      oldValue: change.oldValue,
-      newValue: change.newValue,
-      userId: actor.userId,
-    })),
-  );
   return true;
 }
