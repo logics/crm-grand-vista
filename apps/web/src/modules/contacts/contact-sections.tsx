@@ -8,9 +8,10 @@ import {
   formatPhone,
   formatTaxId,
   hasLegalName,
-  type Contact,
+  type ContactDetail,
 } from '@crm/shared';
 import { SpecList } from '@crm/ui';
+import { ContactReferralSection } from '../referrals/contact-referral-section.js';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
 import { BuyerProfileSection } from './buyer-profile-section.js';
 import { useVocabularyName } from './vocabulary-name.js';
@@ -19,11 +20,11 @@ import { useVocabularyName } from './vocabulary-name.js';
 // compra, fazendas do proprietário, cadeia de indicação) registra a sua aqui,
 // com `contactSections.register`, sem editar a página.
 
-export const contactSections = createRecordSectionRegistry<Contact>();
+export const contactSections = createRecordSectionRegistry<ContactDetail>();
 
 const fields = FIELD_REGISTRY.contacts.fields;
 
-function DataSection({ record }: { record: Contact }) {
+function DataSection({ record }: { record: ContactDetail }) {
   const classification = useVocabularyName('contact-classifications', record.classificationId);
   const leadSource = useVocabularyName('lead-sources', record.leadSourceId);
   return (
@@ -54,4 +55,11 @@ contactSections.register({
   order: 20,
   roles: ['buyer'],
   component: BuyerProfileSection,
+});
+
+contactSections.register({
+  key: 'referral-chain',
+  title: 'Cadeia de indicação',
+  order: 15,
+  component: ContactReferralSection,
 });

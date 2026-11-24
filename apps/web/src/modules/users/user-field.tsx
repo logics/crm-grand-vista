@@ -22,19 +22,18 @@ async function fetchTeam(slug: string): Promise<UserOption[]> {
 
 const fold = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
+/** A busca de equipe do `UserField`, para quem monta o seu seletor (o editor da cadeia de indicação). */
+export function searchTeamUsers(slug: string) {
+  return async (term: string) => {
+    const needle = fold(term.trim());
+    const team = await fetchTeam(slug);
+    return { items: needle ? team.filter((user) => fold(`${user.name} ${user.email}`).includes(needle)) : team };
+  };
+}
+
 export function UserField(props: UserFieldProps) {
   const slug = useTenantSlug();
-  const search = useMemo(
-    () => async (term: string) => {
-      const needle = fold(term.trim());
-      const team = await fetchTeam(slug);
-      return { items: needle ? team.filter((user) => fold(`${user.name} ${user.email}`).includes(needle)) : team };
-    },
-    [slug],
-  );
-  const resolve = useMemo(
-    () => async (ids: string[]) => (await fetchTeam(slug)).filter((user) => ids.includes(user.id)),
-    [slug],
-  );
+  const search = useMemo(() => searchTeamUsers(slug), [slug]);
+  const resolve = useMemo(() => async (ids: string[]) => (await fetchTeam(slug)).filter((user) => ids.includes(user.id)), [slug]);
   return <UserPicker {...props} search={search} resolve={resolve} />;
 }

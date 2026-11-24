@@ -17,6 +17,7 @@ const contact = (overrides = {}) => ({
   relationshipOrigin: null,
   strategicNotes: null,
   roles: ['buyer'],
+  referralChain: [],
   createdAt: '2026-01-02T10:00:00.000Z',
   ...overrides,
 });

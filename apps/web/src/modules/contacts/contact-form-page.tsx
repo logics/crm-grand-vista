@@ -9,6 +9,9 @@ import {
   PERSON_TYPES,
   PERSON_TYPE_LABELS,
   buyerRegionKeyOf,
+  referralChainInputOf,
+  referralChainInputSchema,
+  type ReferralLink,
   createContactSchema,
   isMunicipality,
   type ContactDuplicate,
@@ -53,11 +56,18 @@ import { TextLink } from '../../shell/text-link.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
 import { TaxIdTakenError, createContact, fetchContact, fetchDuplicates, updateContact } from './contacts-api.js';
 import { ContactDuplicateWarning } from './contact-duplicate-warning.js';
+import { ReferralChainField, toReferralLinks } from '../referrals/referral-chain-field.js';
 
 const FORM_ID = 'contact-form';
 
 /** O contato mais a opção só do formulário: sem coluna, ela não existe na API. */
-const contactFormSchema = createContactSchema.safeExtend({ sameNumber: z.boolean() });
+/**
+ * Na tela a cadeia é a lista de elos do editor (com nome e posição), não o corpo
+ * da API: o tipo de entrada do schema é emprestado, e `save` converte com
+ * `referralChainInputOf` — nunca vai `name` nem `position`.
+ */
+const referralLinksField = z.custom<ReferralLink[]>() as unknown as z.ZodOptional<typeof referralChainInputSchema>;
+const contactFormSchema = createContactSchema.safeExtend({ sameNumber: z.boolean(), referralChain: referralLinksField });
 type FormValues = z.input<typeof contactFormSchema>;
 /**
  * Sem o papel comprador a seção não existe: o que sobrou nos campos dela não vai
@@ -117,15 +127,23 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
   // Contatos parecidos achados antes de salvar; "salvar mesmo assim" pula a consulta uma vez.
   const [matches, setMatches] = useState<ContactDuplicate[]>([]);
   const skipDuplicateCheck = useRef(false);
+  // O nome digitado encabeça a cadeia ("Quem indicou Pedro?") e acompanha o campo.
+  const [typedName, setTypedName] = useState(contact?.name ?? '');
+  // A cadeia só vai no payload se a seção foi tocada: ausente não mexe no que está gravado.
+  const chainTouched = useRef(false);
   const [dirty, setDirty] = useState(false);
   const guard = useUnsavedChangesGuard(dirty);
   const back = tenantPath(slug, contact ? `contacts/${contact.id}` : 'contacts');
 
   const save = async ({ sameNumber: copy, ...parsed }: z.output<typeof contactFormSchema>) => {
-    const withWhatsapp = copy ? { ...parsed, whatsapp: parsed.phone ?? null } : parsed;
+    const { referralChain: chainLinks, ...fromForm } = parsed;
+    const withWhatsapp = copy ? { ...fromForm, whatsapp: fromForm.phone ?? null } : fromForm;
     // `buyerProfile: null` apaga o perfil: só vai quando o contato era comprador e deixou de ser.
     const { buyerProfile, ...rest } = withWhatsapp;
-    const values = buyerProfile === null && !contact?.roles.includes('buyer') ? rest : withWhatsapp;
+    const withoutChain = buyerProfile === null && !contact?.roles.includes('buyer') ? rest : withWhatsapp;
+    const values = chainTouched.current
+      ? { ...withoutChain, referralChain: referralChainInputOf((chainLinks ?? []) as unknown as ReferralLink[]) }
+      : withoutChain;
     setDuplicate(null);
     const confirmed = skipDuplicateCheck.current;
     skipDuplicateCheck.current = false;
@@ -399,6 +417,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
           relationshipOrigin: contact?.relationshipOrigin ?? '',
           strategicNotes: contact?.strategicNotes ?? '',
           ...(contact?.buyerProfile ? { buyerProfile: contact.buyerProfile } : {}),
+          referralChain: toReferralLinks(contact?.referralChain ?? []) as unknown as FormValues['referralChain'],
         }}
         onDirtyChange={setDirty}
         onCancel={() => {
@@ -439,7 +458,16 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
               {
                 name: 'name',
                 label: contactNameLabel(personType),
-                render: (field) => <Input {...field} value={field.value ?? ''} />,
+                render: (field) => (
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(event) => {
+                      setTypedName(event.target.value);
+                      field.onChange(event);
+                    }}
+                  />
+                ),
               },
               ...legalNameFields,
               {
@@ -555,6 +583,30 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
                 label: FIELD_REGISTRY.contacts.fields.strategic_notes.label,
                 colSpan: 2,
                 render: (field) => <Textarea {...field} value={field.value ?? ''} />,
+              },
+            ],
+          },
+          {
+            id: 'indicacao',
+            title: 'Cadeia de indicação',
+            description: 'Quem trouxe este contato e de quem essa pessoa soube. O primeiro da lista trouxe direto.',
+            fields: [
+              {
+                name: 'referralChain',
+                label: 'Indicadores',
+                hint: 'Arraste pela alça ou use o teclado para mudar a ordem.',
+                colSpan: 2,
+                render: (field) => (
+                  <ReferralChainField
+                    subject={{ kind: 'contact', id: contact?.id ?? '', name: typedName.trim() || 'este contato' }}
+                    value={(field.value ?? []) as unknown as ReferralLink[]}
+                    onChange={(links) => {
+                      chainTouched.current = true;
+                      field.onChange(links);
+                    }}
+                    onBlur={field.onBlur}
+                  />
+                ),
               },
             ],
           },

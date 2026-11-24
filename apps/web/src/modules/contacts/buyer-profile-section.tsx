@@ -1,4 +1,4 @@
-import { FIELD_REGISTRY, LEVEL_LABELS, QUALIFICATION_LEVEL_LABELS, formatFieldValue, type Contact } from '@crm/shared';
+import { FIELD_REGISTRY, LEVEL_LABELS, QUALIFICATION_LEVEL_LABELS, formatFieldValue, type ContactDetail } from '@crm/shared';
 import { Button, EmptyState, SpecList } from '@crm/ui';
 import { useNavigate } from 'react-router';
 import { useCan } from '../../shell/tenant-access.js';
@@ -16,7 +16,7 @@ const fields = FIELD_REGISTRY.buyer_profiles.fields;
  * o rótulo, e o servidor nem manda os valores). Sem perfil, estado vazio com o
  * atalho para o formulário.
  */
-export function BuyerProfileSection({ record }: { record: Contact }) {
+export function BuyerProfileSection({ record }: { record: ContactDetail }) {
   const slug = useTenantSlug();
   const navigate = useNavigate();
   const canEdit = useCan('contatos.editar');
