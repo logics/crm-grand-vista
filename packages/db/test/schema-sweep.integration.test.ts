@@ -65,6 +65,7 @@ describe('varredura de schema', () => {
       'profile_data_scopes',
       'profile_permissions',
       'purchase_profiles',
+      'referral_links',
       'tenant_settings',
       'trading_post_municipalities',
       'trading_posts',
