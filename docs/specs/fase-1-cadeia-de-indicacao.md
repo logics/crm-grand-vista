@@ -40,15 +40,15 @@ Esta spec **consome e estende** as peças abaixo, nunca as reescreve:
 
 Com `tenant_id`, timestamps, RLS e `FORCE ROW LEVEL SECURITY`, pelas convenções.
 
-| Coluna | Tipo | Regra |
-|---|---|---|
-| `id` | uuid PK | o wrapper de auditoria exige `id` |
-| `subject_contact_id` | uuid nulo → `contacts` `CASCADE` | sujeito contato |
-| `subject_farm_id` | uuid nulo → `farms` `CASCADE` | sujeito fazenda |
-| `referrer_user_id` | uuid nulo → `users` `RESTRICT` | indicador corretor interno |
-| `referrer_contact_id` | uuid nulo → `contacts` `RESTRICT` | indicador contato |
-| `position` | int NOT NULL | `CHECK (position BETWEEN 1 AND 10)`; 1 = trouxe direto |
-| `notes` | text nulo | `CHECK (char_length(notes) <= 500)` |
+| Coluna                | Tipo                              | Regra                                                  |
+| --------------------- | --------------------------------- | ------------------------------------------------------ |
+| `id`                  | uuid PK                           | o wrapper de auditoria exige `id`                      |
+| `subject_contact_id`  | uuid nulo → `contacts` `CASCADE`  | sujeito contato                                        |
+| `subject_farm_id`     | uuid nulo → `farms` `CASCADE`     | sujeito fazenda                                        |
+| `referrer_user_id`    | uuid nulo → `users` `RESTRICT`    | indicador corretor interno                             |
+| `referrer_contact_id` | uuid nulo → `contacts` `RESTRICT` | indicador contato                                      |
+| `position`            | int NOT NULL                      | `CHECK (position BETWEEN 1 AND 10)`; 1 = trouxe direto |
+| `notes`               | text nulo                         | `CHECK (char_length(notes) <= 500)`                    |
 
 `CHECK`s:
 
