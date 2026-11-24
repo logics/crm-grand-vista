@@ -1,6 +1,6 @@
 # Modelo de dados completo
 
-> **Leitura obrigatória:** `CLAUDE.md`, `CONTEXT.md` (glossário), as três ADRs em `docs/adr/`, e as seções "Arquitetura multi-tenant e segurança" e "Modelo de dados" do `Plano_Geral_de_Desenvolvimento.md`.
+> **Leitura obrigatória:** `CLAUDE.md`, `CONTEXT.md` (glossário), as ADRs em `docs/adr/`, e as seções "Arquitetura multi-tenant e segurança" e "Modelo de dados" do `Plano_Geral_de_Desenvolvimento.md`.
 
 Todas as tabelas das seis fases, desenhadas de uma vez. O objetivo é que as migrations entre fases sejam **somente aditivas** — tabela nova ou coluna nula — e nunca reestruturação de tabela com dados de cliente dentro. Tabelas de fases posteriores são criadas quando a fase chegar; o que é fechado agora é a *forma*.
 
@@ -104,9 +104,9 @@ Forma comum: `name` text, `display_order` int NOT NULL DEFAULT 0, `active` boole
 
 | Tabela | Colunas distintivas |
 |---|---|
-| `referral_links` | Sujeito polimórfico: `subject_contact_id` / `subject_farm_id`, exatamente um. Indicador polimórfico: `referrer_user_id` / `referrer_contact_id`, exatamente um. Mais `position` int (1 = quem trouxe direto) e `notes`. Índices `(tenant_id, subject_contact_id, position)` e `(tenant_id, subject_farm_id, position)` |
+| `referral_links` | Sujeito polimórfico: `subject_contact_id` / `subject_farm_id` (`CASCADE`), exatamente um. Indicador polimórfico: `referrer_user_id` / `referrer_contact_id` (`RESTRICT`), exatamente um. Mais `position` int 1..10 (1 = quem trouxe direto) e `notes` (até 500). **Restrições únicas adiáveis** (`DEFERRABLE INITIALLY DEFERRED`, não índice parcial) `(tenant_id, subject_contact_id, position)` e `(tenant_id, subject_farm_id, position)`, para a troca de posições checar só no fim da transação; únicas do indicador por sujeito; índices `(tenant_id, referrer_contact_id)` e `(tenant_id, referrer_user_id)` para o filtro "Indicado por". Ver `fase-1-cadeia-de-indicacao.md` |
 
-Modela "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda veio pelo corretor Carlos, que soube pelo Antônio", em N níveis, para os dois lados, sem depender de o proprietário estar identificado. **Independente da comissão:** quem indica não necessariamente recebe, e quem recebe não necessariamente indicou.
+Modela "o Pedro veio pelo João, que pegou com o Sebastião" e "essa fazenda veio pelo corretor Carlos, que soube pelo Antônio", em N níveis, para os dois lados, sem depender de o proprietário estar identificado. Cada registro guarda a própria lista, sem montá-la a partir das cadeias dos indicadores (ADR 0005). **Independente da comissão:** quem indica não necessariamente recebe, e quem recebe não necessariamente indicou.
 
 ---
 
