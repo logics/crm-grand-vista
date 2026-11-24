@@ -18,7 +18,13 @@ const AUTHOR_ID = '0190a000-0000-7000-8000-0000000000aa';
 const AT = new Date('2026-07-24T17:30:00.000Z');
 
 let nextId = 1;
-const row = (changeId: string, field: string, oldValue: string | null, newValue: string | null, extra: Partial<AuditRow> = {}): AuditRow => ({
+const row = (
+  changeId: string,
+  field: string,
+  oldValue: string | null,
+  newValue: string | null,
+  extra: Partial<AuditRow> = {},
+): AuditRow => ({
   id: nextId++,
   entity: 'users',
   entityId: USER_ID,
@@ -48,7 +54,11 @@ describe('assembleHistory', () => {
     const [image] = assemble([row('c2', 'image', null, 'foto.png')]);
     const [verified] = assemble([row('c3', 'email_verified', 'false', 'true')]);
 
-    expect(name).toMatchObject({ kind: 'updated', title: 'Nome alterado', changes: [{ field: 'Nome', from: 'Ana', to: 'Ana Paula' }] });
+    expect(name).toMatchObject({
+      kind: 'updated',
+      title: 'Nome alterado',
+      changes: [{ field: 'Nome', from: 'Ana', to: 'Ana Paula' }],
+    });
     expect(image).toMatchObject({ title: 'Foto alterada' });
     expect(verified?.changes).toEqual([{ field: 'E-mail verificado', from: 'Não', to: 'Sim' }]);
   });
@@ -152,7 +162,15 @@ describe('assembleHistory', () => {
       row('c2', 'user_id', after, gone, { entity: 'memberships', entityId: MEMBERSHIP_ID }),
     ];
     const users = referenceKey({ table: 'users', nameColumn: 'name' });
-    const names = new Map([[users, new Map([[before, 'Bruno'], [after, 'Carla']])]]);
+    const names = new Map([
+      [
+        users,
+        new Map([
+          [before, 'Bruno'],
+          [after, 'Carla'],
+        ]),
+      ],
+    ]);
 
     const [deleted, renamed] = assembleHistory(rows, {
       ...base,
@@ -223,8 +241,8 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
 
   const farm = (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
     row(changeId, field, oldValue, newValue, { entity: 'farms', entityId: FARM_ID });
-  const child = (entity: string, entityId: string) =>
-    (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
+  const child =
+    (entity: string, entityId: string) => (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
       row(changeId, field, oldValue, newValue, { entity, entityId });
   const doc = child('farm_documents', DOC_ID);
 
@@ -264,7 +282,11 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
   });
 
   it('só um filho no save: o título é o do filho', () => {
-    const [entry] = assembleFarm([doc('c1', 'id', null, DOC_ID), doc('c1', 'farm_id', null, FARM_ID), doc('c1', 'title', null, 'CAR')]);
+    const [entry] = assembleFarm([
+      doc('c1', 'id', null, DOC_ID),
+      doc('c1', 'farm_id', null, FARM_ID),
+      doc('c1', 'title', null, 'CAR'),
+    ]);
 
     expect(entry).toMatchObject({ kind: 'updated', title: 'Documento adicionado', changes: [] });
   });
@@ -278,7 +300,9 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
 
     expect(entry).toMatchObject({
       title: 'Documento removido',
-      children: [{ title: 'Documento removido: Matrícula 12.345', changes: [{ field: 'Título', from: 'Matrícula 12.345', to: null }] }],
+      children: [
+        { title: 'Documento removido: Matrícula 12.345', changes: [{ field: 'Título', from: 'Matrícula 12.345', to: null }] },
+      ],
     });
   });
 
@@ -293,13 +317,19 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
     expect(entries[0]).toMatchObject({
       changeId: 'c2',
       title: 'Documento alterado',
-      children: [{ title: 'Documento alterado: CAR retificado', changes: [{ field: 'Título', from: 'CAR', to: 'CAR retificado' }] }],
+      children: [
+        { title: 'Documento alterado: CAR retificado', changes: [{ field: 'Título', from: 'CAR', to: 'CAR retificado' }] },
+      ],
     });
   });
 
   it('filho de outro registro não entra', () => {
     const other = child('farm_documents', '0190a000-0000-7000-8000-00000000d002');
-    const entries = assembleFarm([other('c1', 'id', null, 'x'), other('c1', 'farm_id', null, OTHER_FARM_ID), other('c1', 'title', null, 'CAR')]);
+    const entries = assembleFarm([
+      other('c1', 'id', null, 'x'),
+      other('c1', 'farm_id', null, OTHER_FARM_ID),
+      other('c1', 'title', null, 'CAR'),
+    ]);
 
     expect(entries).toEqual([]);
   });
@@ -435,7 +465,10 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
         },
       },
     } satisfies Record<string, EntityMeta>;
-    const [entry] = assembleHistory([farm('c1', 'custom_fields', '{}', '{"irrigation":"Sim"}')], { ...options, registry: feminine });
+    const [entry] = assembleHistory([farm('c1', 'custom_fields', '{}', '{"irrigation":"Sim"}')], {
+      ...options,
+      registry: feminine,
+    });
 
     expect(entry?.title).toBe('Irrigação alterada');
   });
@@ -468,8 +501,14 @@ describe('assembleHistory com filhos, referências e jsonb expandido', () => {
 
     expect(wanted).toEqual(
       new Map([
-        [referenceKey({ table: 'farm_statuses', nameColumn: 'name' }), { table: 'farm_statuses', nameColumn: 'name', ids: new Set([STATUS_OLD, STATUS_NEW]) }],
-        [referenceKey({ table: 'users', nameColumn: 'name' }), { table: 'users', nameColumn: 'name', ids: new Set([COLLEAGUE_ID, AUTHOR_ID]) }],
+        [
+          referenceKey({ table: 'farm_statuses', nameColumn: 'name' }),
+          { table: 'farm_statuses', nameColumn: 'name', ids: new Set([STATUS_OLD, STATUS_NEW]) },
+        ],
+        [
+          referenceKey({ table: 'users', nameColumn: 'name' }),
+          { table: 'users', nameColumn: 'name', ids: new Set([COLLEAGUE_ID, AUTHOR_ID]) },
+        ],
       ]),
     );
   });
@@ -502,25 +541,22 @@ describe('referência a município', () => {
   });
 
   it('o histórico exibe "Município: Bom Jesus — GO", nunca o nome sozinho', () => {
-    const [entry] = assembleHistory(
-      [row('c1', 'municipality_id', IBGE_OLD, IBGE_NEW, { entity: 'farms', entityId: FARM_ID })],
-      {
-        entity: 'farms',
-        entityId: FARM_ID,
-        registry,
-        authors: new Map(),
-        references: new Map([
-          [
-            referenceKey(municipalityReference),
-            new Map([
-              [IBGE_OLD, referenceName(municipalityReference, { name: 'Rio Verde', uf: 'GO' })],
-              [IBGE_NEW, referenceName(municipalityReference, { name: 'Bom Jesus', uf: 'GO' })],
-            ]),
-          ],
-        ]),
-        reader: {} as EffectiveAccess,
-      },
-    );
+    const [entry] = assembleHistory([row('c1', 'municipality_id', IBGE_OLD, IBGE_NEW, { entity: 'farms', entityId: FARM_ID })], {
+      entity: 'farms',
+      entityId: FARM_ID,
+      registry,
+      authors: new Map(),
+      references: new Map([
+        [
+          referenceKey(municipalityReference),
+          new Map([
+            [IBGE_OLD, referenceName(municipalityReference, { name: 'Rio Verde', uf: 'GO' })],
+            [IBGE_NEW, referenceName(municipalityReference, { name: 'Bom Jesus', uf: 'GO' })],
+          ]),
+        ],
+      ]),
+      reader: {} as EffectiveAccess,
+    });
     expect(entry?.changes).toEqual([{ field: 'Município', from: 'Rio Verde — GO', to: 'Bom Jesus — GO' }]);
   });
 
@@ -556,12 +592,17 @@ describe('referência a município', () => {
         },
       ],
       references: new Map([
-        [referenceKey({ table: 'contacts', nameColumn: 'name' }), new Map([[CONTACT_A, 'João'], [CONTACT_B, 'Maria']])],
+        [
+          referenceKey({ table: 'contacts', nameColumn: 'name' }),
+          new Map([
+            [CONTACT_A, 'João'],
+            [CONTACT_B, 'Maria'],
+          ]),
+        ],
       ]),
     };
-    const owner =
-      (entityId: string) => (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
-        row(changeId, field, oldValue, newValue, { entity: 'farm_owners', entityId });
+    const owner = (entityId: string) => (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
+      row(changeId, field, oldValue, newValue, { entity: 'farm_owners', entityId });
     const ownerA = owner(OWNER_A);
     const ownerB = owner(OWNER_B);
 
@@ -603,5 +644,95 @@ describe('referência a município', () => {
         children: [],
       });
     });
+  });
+});
+
+describe('qualifier do filho (cadeia de indicação)', () => {
+  const CONTACT_ID = '0190a000-0000-7000-8000-0000000000c1';
+  const LINK_A = '0190a000-0000-7000-8000-00000000e001';
+  const LINK_B = '0190a000-0000-7000-8000-00000000e002';
+  const JOAO = '0190a000-0000-7000-8000-0000000000a1';
+  const SEBASTIAO = '0190a000-0000-7000-8000-0000000000a2';
+
+  const registry = {
+    contacts: { label: 'Contato', gender: 'm', fields: { ...RECORD_COLUMNS, name: { type: 'text', label: 'Nome' } } },
+    referral_links: {
+      label: 'Indicador',
+      gender: 'm',
+      fields: {
+        ...RECORD_COLUMNS,
+        subject_contact_id: HIDDEN,
+        referrer_contact_id: {
+          type: 'reference',
+          label: 'Corretor externo',
+          references: { table: 'contacts', nameColumn: 'name' },
+        },
+        position: { type: 'number', label: 'Posição', gender: 'f' },
+      },
+    },
+  } satisfies Record<string, EntityMeta>;
+
+  const declaration: HistoryChildDeclaration = {
+    entity: 'referral_links',
+    parentColumn: 'subject_contact_id',
+    nameColumn: 'referrer_contact_id',
+    qualifier: { column: 'position', kinds: ['created'], format: (value) => `posição ${value}` },
+  };
+  const link = (entityId: string) => (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
+    row(changeId, field, oldValue, newValue, { entity: 'referral_links', entityId });
+  const a = link(LINK_A);
+  const b = link(LINK_B);
+  const contact = (changeId: string, field: string, oldValue: string | null, newValue: string | null) =>
+    row(changeId, field, oldValue, newValue, { entity: 'contacts', entityId: CONTACT_ID });
+
+  const assemble = (rows: AuditRow[]) =>
+    assembleHistory(rows, {
+      ...base,
+      entity: 'contacts',
+      entityId: CONTACT_ID,
+      registry,
+      children: [declaration],
+      references: new Map([
+        [
+          referenceKey({ table: 'contacts', nameColumn: 'name' }),
+          new Map([
+            [JOAO, 'João'],
+            [SEBASTIAO, 'Sebastião'],
+          ]),
+        ],
+      ]),
+    });
+
+  it('só o cadastro leva "(posição N)"; alterado e removido ficam sem', () => {
+    const rows = [
+      contact('c1', 'id', null, CONTACT_ID),
+      a('c1', 'id', null, LINK_A),
+      a('c1', 'subject_contact_id', null, CONTACT_ID),
+      a('c1', 'referrer_contact_id', null, JOAO),
+      a('c1', 'position', null, '1'),
+      b('c1', 'id', null, LINK_B),
+      b('c1', 'subject_contact_id', null, CONTACT_ID),
+      b('c1', 'referrer_contact_id', null, SEBASTIAO),
+      b('c1', 'position', null, '2'),
+      // Inversão: os dois mudam só a posição.
+      a('c2', 'position', '1', '2'),
+      b('c2', 'position', '2', '1'),
+      // Remoção do Sebastião.
+      b('c3', 'id', LINK_B, null),
+      b('c3', 'subject_contact_id', CONTACT_ID, null),
+      b('c3', 'referrer_contact_id', SEBASTIAO, null),
+      b('c3', 'position', '1', null),
+    ];
+    const byChange = Object.fromEntries(assemble(rows).map((entry) => [entry.changeId, entry]));
+
+    expect(byChange['c1']?.children.map((child) => child.title)).toEqual([
+      'Indicador adicionado: João (posição 1)',
+      'Indicador adicionado: Sebastião (posição 2)',
+    ]);
+    expect(byChange['c2']?.children).toEqual([
+      { title: 'Indicador alterado: João', changes: [{ field: 'Posição', from: '1', to: '2' }] },
+      { title: 'Indicador alterado: Sebastião', changes: [{ field: 'Posição', from: '2', to: '1' }] },
+    ]);
+    expect(byChange['c3']?.children[0]?.title).toBe('Indicador removido: Sebastião');
   });
 });

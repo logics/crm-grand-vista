@@ -54,6 +54,12 @@ export interface HistoryChildDeclaration<Table extends string = string> {
    */
   nameColumn?: string | readonly string[];
   /**
+   * Complemento do título do filho, lido de uma coluna dele: "Indicador adicionado: João
+   * (posição 1)". Só nos `kinds` pedidos — a posição aparece no cadastro, e na alteração
+   * ela já é uma linha própria ("Posição: 1 → 2").
+   */
+  qualifier?: { column: string; kinds: readonly HistoryKind[]; format: (value: string) => string };
+  /**
    * Coluna booleana que marca um filho entre os irmãos (o proprietário principal).
    * Não vira linha do filho: a troca vira uma alteração da entrada, "Proprietário
    * principal: João → Maria", de quem perdeu a marca para quem a ganhou.
@@ -362,6 +368,20 @@ function primaryChangesOf(sources: readonly ChildSource[], changeId: string, opt
   });
 }
 
+/** "Indicador adicionado: João (posição 1)": o nome do filho e, se a declaração pede, o complemento. */
+function titleOfChild(
+  declaration: HistoryChildDeclaration,
+  kind: HistoryKind,
+  state: ChildState,
+  shortTitle: string,
+  name: string | null,
+): string {
+  const { qualifier } = declaration;
+  const raw = qualifier ? state[qualifier.column] : null;
+  const suffix = qualifier && raw && qualifier.kinds.includes(kind) ? ` (${qualifier.format(raw)})` : '';
+  return name ? `${shortTitle}: ${name}${suffix}` : `${shortTitle}${suffix}`;
+}
+
 /** As linhas dos filhos (já só os visíveis) num save, uma por filho. */
 function childrenOf(sources: readonly ChildSource[], changeId: string, options: ChildrenContext): VisibleChild[] {
   return sources.flatMap(({ declaration, meta, fields, histories }) =>
@@ -390,7 +410,10 @@ function childrenOf(sources: readonly ChildSource[], changeId: string, options: 
       );
       return [
         {
-          child: { title: name ? `${shortTitle}: ${name}` : shortTitle, changes: changes.map(({ change }) => change) },
+          child: {
+            title: titleOfChild(declaration, kind, state, shortTitle, name),
+            changes: changes.map(({ change }) => change),
+          },
           shortTitle,
         },
       ];

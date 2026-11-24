@@ -230,7 +230,7 @@ export const FIELD_REGISTRY = {
         references: { table: 'contacts', nameColumn: 'name' },
       },
       position: { type: 'number', label: 'Posição', gender: 'f' },
-      notes: { type: 'long_text', label: 'Nota', gender: 'f' },
+      notes: { type: 'text', label: 'Nota', gender: 'f' },
     },
   },
   farm_aptitudes: {

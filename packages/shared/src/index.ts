@@ -55,6 +55,7 @@ export {
 export type { AlqueireType, DecimalFormat, ParsedDecimal } from './decimal.js';
 export {
   MAX_REFERRAL_CHAIN_LENGTH,
+  REFERRAL_CHAIN_CONCURRENT_SAVE_MESSAGE,
   REFERRAL_CHAIN_TOO_LONG_MESSAGE,
   REFERRAL_CONTACT_UNKNOWN_MESSAGE,
   REFERRAL_NOTES_MAX_LENGTH,

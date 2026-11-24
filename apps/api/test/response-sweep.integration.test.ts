@@ -3,6 +3,7 @@
 // corpo, nem nos cabeçalhos. A lista de rotas vem do próprio app, não deste
 // arquivo: rota nova sem amostra aqui falha a suíte.
 import {
+  accessProfiles,
   auditedWrites,
   buyerProfiles,
   commercialStatuses,
@@ -12,19 +13,17 @@ import {
   createPool,
   crops,
   farms,
+  referralLinks,
   userProfiles,
+  users,
 } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { createAuth } from '../src/modules/auth/auth.js';
 import { seedAccessProfiles } from '../src/provisioning/seeded-access-profiles.js';
-import {
-  createLinkedAccessProfile,
-  createMembership,
-  createTenant,
-  createUserWithPassword,
-} from './support/fixtures.js';
+import { createLinkedAccessProfile, createMembership, createTenant, createUserWithPassword } from './support/fixtures.js';
 import { loginAs } from './support/http.js';
 
 const env = loadApiEnv();
@@ -248,6 +247,27 @@ describe('varredura das respostas da API', () => {
       await createLinkedAccessProfile(db, tenant.id, user.id, `Perfil de ${user.name}`);
     }
 
+    // Cadeia mista no contato da varredura: o usuário comum na 1, um contato na 2 e, na 3, um
+    // usuário que vira super admin **depois** de gravado como indicador. Nenhuma resposta (inclusive o
+    // `GET /contacts/:id` e o histórico) pode trazer a flag dele.
+    const laterSuperAdmin = await createUserWithPassword(db, 'Diego Indicador');
+    await createMembership(db, laterSuperAdmin.id, tenant.id);
+    await db.withTenant(tenant.id, async (tx) => {
+      const [brokerContact] = await tx
+        .insert(contacts)
+        .values({ tenantId: tenant.id, personType: 'pf', name: 'Indicador externo da varredura' })
+        .returning({ id: contacts.id });
+      await tx.insert(contactRoles).values({ tenantId: tenant.id, contactId: brokerContact!.id, role: 'external_broker' });
+      await tx.insert(referralLinks).values([
+        { tenantId: tenant.id, subjectContactId: sweepContact.id, referrerUserId: commonUser.id, position: 1 },
+        { tenantId: tenant.id, subjectContactId: sweepContact.id, referrerContactId: brokerContact!.id, position: 2 },
+        { tenantId: tenant.id, subjectContactId: sweepContact.id, referrerUserId: laterSuperAdmin.id, position: 3 },
+      ]);
+    });
+    await db.semTenant({ reason: 'cli' }, (tx) =>
+      tx.update(users).set({ isSuperAdmin: true }).where(eq(users.id, laterSuperAdmin.id)),
+    );
+
     actors.push(
       { label: 'usuário comum', credentials: commonUser },
       { label: 'super admin com vínculo e perfil', credentials: superAdmin },
@@ -258,8 +278,7 @@ describe('varredura das respostas da API', () => {
   afterAll(() => pool.end());
 
   /** Sessão nova por requisição: a rota de logout não derruba a amostra seguinte. */
-  const cookieFor = async ({ credentials }: Actor): Promise<string | null> =>
-    credentials ? loginAs(app, credentials) : null;
+  const cookieFor = async ({ credentials }: Actor): Promise<string | null> => (credentials ? loginAs(app, credentials) : null);
 
   const call = async (route: string, sample: Sample, actor: Actor) => {
     const method = route.slice(0, route.indexOf(' '));
@@ -284,27 +303,31 @@ describe('varredura das respostas da API', () => {
     expect(Object.keys(SAMPLES).sort()).toEqual(routes);
   });
 
-  it('nenhuma resposta traz a flag de super admin, para nenhum tipo de usuário', async () => {
-    const leaks: string[] = [];
-    const answered = new Set<string>();
+  it(
+    'nenhuma resposta traz a flag de super admin, para nenhum tipo de usuário',
+    async () => {
+      const leaks: string[] = [];
+      const answered = new Set<string>();
 
-    for (const route of routes) {
-      for (const actor of actors) {
-        // Rota sem amostra já falha o teste acima; aqui ela conta como não respondida.
-        const sample = SAMPLES[route]?.(actor, tenantSlug);
-        if (!sample) continue;
-        const { status, text } = await call(route, sample, actor);
+      for (const route of routes) {
+        for (const actor of actors) {
+          // Rota sem amostra já falha o teste acima; aqui ela conta como não respondida.
+          const sample = SAMPLES[route]?.(actor, tenantSlug);
+          if (!sample) continue;
+          const { status, text } = await call(route, sample, actor);
 
-        if (SUPER_ADMIN_TRACE.test(text)) leaks.push(`${route} como ${actor.label} (${status})`);
-        if (actor.credentials && status >= 200 && status < 300) answered.add(route);
+          if (SUPER_ADMIN_TRACE.test(text)) leaks.push(`${route} como ${actor.label} (${status})`);
+          if (actor.credentials && status >= 200 && status < 300) answered.add(route);
+        }
       }
-    }
 
-    expect(leaks).toEqual([]);
-    // Amostra que só colhe 4xx não prova nada: toda rota respondeu 2xx a alguém logado.
-    expect(routes.filter((route) => !answered.has(route))).toEqual([]);
-    // A varredura é sequencial (rotas × atores) e cresce a cada rota nova: os 5 s padrão não bastam.
-  }, SWEEP_TIMEOUT_MS);
+      expect(leaks).toEqual([]);
+      // Amostra que só colhe 4xx não prova nada: toda rota respondeu 2xx a alguém logado.
+      expect(routes.filter((route) => !answered.has(route))).toEqual([]);
+      // A varredura é sequencial (rotas × atores) e cresce a cada rota nova: os 5 s padrão não bastam.
+    },
+    SWEEP_TIMEOUT_MS,
+  );
 
   it('comprador com perfil completo: o Gestor lê as chaves financeiras, o Corretor não, e nenhum traz a flag', async () => {
     const gestor = await createUserWithPassword(db, 'Helena Perfil Gestor');
@@ -353,5 +376,28 @@ describe('varredura das respostas da API', () => {
     expect(asBroker.body.buyerProfile).toMatchObject({ urgency: 'high', avgTicket: '8000000.00' });
     expect(asBroker.text).not.toMatch(/estimatedNetWorth|investmentCapacity|50000000|9000000\.00/);
     expect(SUPER_ADMIN_TRACE.test(asBroker.text)).toBe(false);
+  });
+  it('contato de cadeia mista: a cadeia sai com os nomes, inclusive o de quem virou super admin depois, sem traço da flag', async () => {
+    const gestor = await createUserWithPassword(db, 'Lia Leitora Gestor');
+    await db.withTenant(tenantId, async (tx) => {
+      // Os perfis semeados já existem (o teste do comprador os criou); só se lê o do Gestor.
+      const [profile] = await tx.select({ id: accessProfiles.id }).from(accessProfiles).where(eq(accessProfiles.name, 'Gestor'));
+      await createMembership(db, gestor.id, tenantId, { isDefault: true });
+      await tx.insert(userProfiles).values({ tenantId, userId: gestor.id, profileId: profile!.id });
+    });
+    const reader = { label: gestor.name, credentials: gestor };
+    const detail = await call('GET /e/:tenant/contacts/:id', { path: `/e/${tenantSlug}/contacts/${sweepContact.id}` }, reader);
+    const history = await call(
+      'GET /e/:tenant/contacts/:id/history',
+      { path: `/e/${tenantSlug}/contacts/${sweepContact.id}/history` },
+      reader,
+    );
+
+    expect(detail.status).toBe(200);
+    expect(detail.text).toContain('Diego Indicador');
+    expect(detail.text).toContain('Indicador externo da varredura');
+    expect(SUPER_ADMIN_TRACE.test(detail.text)).toBe(false);
+    expect(history.status).toBe(200);
+    expect(SUPER_ADMIN_TRACE.test(history.text)).toBe(false);
   });
 });
