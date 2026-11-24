@@ -80,7 +80,7 @@ r2 ─────────────────────────�
 | `fase-1-fazendas-galerias.md` | Galerias nomeadas e fotos | fazendas, r2 |
 | `fase-1-fazendas-videos.md` | Vídeos nas galerias — sem migration, `farm_media.kind` já aceita `video` | fazendas-galerias |
 | `fase-1-fazendas-documentos.md` | Documentos por categoria | fazendas, r2 |
-| `fase-1-cadeia-de-indicacao.md` | `referral_links` nos dois lados (contato e fazenda) de uma vez, com o `ReferralChainEditor` nas duas fichas | contatos, fazendas |
+| [`fase-1-cadeia-de-indicacao.md`](fase-1-cadeia-de-indicacao.md) | `referral_links` nos dois lados (contato e fazenda) de uma vez, gravada no save do registro, com o `ReferralChainEditor` nos dois formulários; "Indicações feitas" na ficha do contato e o filtro "Indicado por" nas duas listas, sobre o escopo da própria listagem | contatos, fazendas |
 | `fase-1-campos-personalizados.md` | Definição em Configurações (`custom_field_defs`) e renderização e validação do `custom_fields` nas fichas de contato e de fazenda. Última da fase | contatos, fazendas |
 | `fase-1-homologacao.md` | Troca de ambientes e pipeline com aprovação — ver abaixo | fim da fase |
 

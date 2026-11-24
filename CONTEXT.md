@@ -173,8 +173,15 @@ Um dos perfis de acesso (RBAC) semeados por tenant — apenas um pacote de permi
 
 ### Indicação e comissão
 
+**Cadeia de indicação**:
+O caminho que um contato ou uma fazenda percorreu até chegar à corretora, como lista ordenada de indicadores: na posição 1, quem trouxe direto; na 2, de quem esse soube; e assim por diante ("o Pedro veio pelo João, que pegou com o Sebastião"). Cada registro tem a própria cadeia, e uma não se liga à outra: a cadeia do Pedro não é montada a partir da do João. Independente da comissão e da origem do lead.
+_Avoid_: árvore de indicação, rede de indicação
+
 **Indicador**:
-Quem trouxe um contato ou uma fazenda para a cadeia de indicação. Campo polimórfico — pode ser um corretor interno ou um corretor externo.
+Quem ocupa uma posição numa cadeia de indicação. Campo polimórfico: pode ser um corretor interno ou um contato. Um contato que aparece em qualquer posição de qualquer cadeia é, por isso, corretor externo.
+
+**Indicações feitas**:
+A visão inversa da cadeia na ficha de um contato: os contatos e as fazendas em cujas cadeias ele aparece, em qualquer posição. Respeita o escopo de dados de quem está olhando.
 
 **Participante da comissão**:
 Quem recebe parte da comissão de uma venda. Campo polimórfico como o indicador (interno ou externo). Independente do indicador: quem indica não necessariamente recebe comissão, e vice-versa.
