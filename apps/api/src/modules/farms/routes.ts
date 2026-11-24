@@ -41,6 +41,7 @@ declareRoleUsage('owner', {
   inUsePhrase: 'é proprietário de fazenda',
 });
 
+
 const notFound = { error: { code: 'not_found', message: FARM_NOT_FOUND_MESSAGE } } as const;
 const idSchema = z.uuid();
 
@@ -63,88 +64,85 @@ function ownersConflict(error: unknown) {
 const canView = () => requirePermission('fazendas.ver');
 
 export function createFarmsRoutes() {
-  return (
-    new Hono<TenantEnv>()
-      .get('/', canView(), zValidator('query', farmListQuerySchema), async (c) => {
-        const query = c.req.valid('query');
-        return c.json(await c.var.withTenant((tx) => listFarms(tx, c.var.access, query)), 200);
-      })
-      .post('/', requirePermission('fazendas.criar'), zValidator('json', createFarmSchema), async (c) => {
-        const { tenant, userId, access, withTenant } = c.var;
-        let result;
-        try {
-          result = await withTenant((tx) => createFarm(tx, { tenantId: tenant.id, userId }, access, c.req.valid('json')));
-        } catch (error) {
-          return c.json(ownersConflict(error), 409);
-        }
-        if (isForbidden(result)) return c.json(forbidden(result.forbidden), 403);
-        if (isRejection(result)) return c.json(rejection(result.rejected, result.field), 400);
-        return c.json(result, 201);
-      })
-      .get('/by-owner/:contactId', canView(), zValidator('query', farmListQuerySchema), async (c) => {
-        const contactId = c.req.param('contactId');
-        const query = c.req.valid('query');
-        // Contato malformado, inexistente ou de outra empresa: lista vazia, sem revelar.
-        if (!idSchema.safeParse(contactId).success)
-          return c.json({ items: [], total: 0, page: query.page, pageSize: query.pageSize }, 200);
-        return c.json(await c.var.withTenant((tx) => listFarmsOfOwner(tx, c.var.access, contactId, query)), 200);
-      })
-      // Antes de `/:id`, senão "options" seria lido como id.
-      .get('/options', canView(), zValidator('query', farmOptionsQuerySchema), async (c) => {
-        const query = c.req.valid('query');
-        return c.json(await c.var.withTenant((tx) => listFarmOptions(tx, c.var.access, query)), 200);
-      })
-      // Antes de `/:id`, senão "duplicates" seria lido como id.
-      .get('/duplicates', canView(), zValidator('query', farmDuplicatesQuerySchema), async (c) => {
-        const query = c.req.valid('query');
-        return c.json({ items: await c.var.withTenant((tx) => findFarmDuplicates(tx, c.var.access, query)) }, 200);
-      })
-      .get('/:id', canView(), async (c) => {
-        if (!isId(c)) return c.json(notFound, 404);
-        const farm = await c.var.withTenant((tx) => getFarm(tx, c.var.access, c.req.param('id')));
-        return farm ? c.json(farm, 200) : c.json(notFound, 404);
-      })
-      .patch('/:id', requirePermission('fazendas.editar'), zValidator('json', updateFarmSchema), async (c) => {
-        if (!isId(c)) return c.json(notFound, 404);
-        const { tenant, userId, access, withTenant } = c.var;
-        let result;
-        try {
-          result = await withTenant((tx) =>
-            updateFarm(tx, { tenantId: tenant.id, userId }, access, c.req.param('id'), c.req.valid('json')),
-          );
-        } catch (error) {
-          return c.json(ownersConflict(error), 409);
-        }
-        if (result === null) return c.json(notFound, 404);
-        if (isForbidden(result)) return c.json(forbidden(result.forbidden), 403);
-        if (isRejection(result)) return c.json(rejection(result.rejected, result.field), 400);
-        return c.json(result, 200);
-      })
-      .delete('/:id', requirePermission('fazendas.excluir'), async (c) => {
-        if (!isId(c)) return c.json(notFound, 404);
-        const { tenant, userId, access, withTenant } = c.var;
-        const result = await withTenant((tx) => deleteFarm(tx, { tenantId: tenant.id, userId }, access, c.req.param('id')));
-        if (result === null) return c.json(notFound, 404);
-        if (isDeleteRefused(result)) return c.json({ error: { code: 'conflict', message: result.conflict } }, 409);
-        return c.body(null, 204);
-      })
-      .route(
-        '/',
-        createHistoryRoutes({
-          entity: 'farms',
-          children: [
-            { entity: 'farm_aptitudes', parentColumn: 'farm_id', nameColumn: 'aptitude_id' },
-            { entity: 'farm_crops', parentColumn: 'farm_id', nameColumn: 'crop_id' },
-            {
-              entity: 'farm_owners',
-              parentColumn: 'farm_id',
-              nameColumn: 'contact_id',
-              primaryFlag: { column: 'is_primary', label: 'Proprietário principal' },
-            },
-          ],
-          access: canView(),
-          isVisible: (tx, c, id) => farmVisible(tx, c.var.access, id),
-        }),
-      )
-  );
+  return new Hono<TenantEnv>()
+    .get('/', canView(), zValidator('query', farmListQuerySchema), async (c) => {
+      const query = c.req.valid('query');
+      return c.json(await c.var.withTenant((tx) => listFarms(tx, c.var.access, query)), 200);
+    })
+    .post('/', requirePermission('fazendas.criar'), zValidator('json', createFarmSchema), async (c) => {
+      const { tenant, userId, access, withTenant } = c.var;
+      let result;
+      try {
+        result = await withTenant((tx) => createFarm(tx, { tenantId: tenant.id, userId }, access, c.req.valid('json')));
+      } catch (error) {
+        return c.json(ownersConflict(error), 409);
+      }
+      if (isForbidden(result)) return c.json(forbidden(result.forbidden), 403);
+      if (isRejection(result)) return c.json(rejection(result.rejected, result.field), 400);
+      return c.json(result, 201);
+    })
+    .get('/by-owner/:contactId', canView(), zValidator('query', farmListQuerySchema), async (c) => {
+      const contactId = c.req.param('contactId');
+      const query = c.req.valid('query');
+      // Contato malformado, inexistente ou de outra empresa: lista vazia, sem revelar.
+      if (!idSchema.safeParse(contactId).success) return c.json({ items: [], total: 0, page: query.page, pageSize: query.pageSize }, 200);
+      return c.json(await c.var.withTenant((tx) => listFarmsOfOwner(tx, c.var.access, contactId, query)), 200);
+    })
+    // Antes de `/:id`, senão "options" seria lido como id.
+    .get('/options', canView(), zValidator('query', farmOptionsQuerySchema), async (c) => {
+      const query = c.req.valid('query');
+      return c.json(await c.var.withTenant((tx) => listFarmOptions(tx, c.var.access, query)), 200);
+    })
+    // Antes de `/:id`, senão "duplicates" seria lido como id.
+    .get('/duplicates', canView(), zValidator('query', farmDuplicatesQuerySchema), async (c) => {
+      const query = c.req.valid('query');
+      return c.json({ items: await c.var.withTenant((tx) => findFarmDuplicates(tx, c.var.access, query)) }, 200);
+    })
+    .get('/:id', canView(), async (c) => {
+      if (!isId(c)) return c.json(notFound, 404);
+      const farm = await c.var.withTenant((tx) => getFarm(tx, c.var.access, c.req.param('id')));
+      return farm ? c.json(farm, 200) : c.json(notFound, 404);
+    })
+    .patch('/:id', requirePermission('fazendas.editar'), zValidator('json', updateFarmSchema), async (c) => {
+      if (!isId(c)) return c.json(notFound, 404);
+      const { tenant, userId, access, withTenant } = c.var;
+      let result;
+      try {
+        result = await withTenant((tx) =>
+          updateFarm(tx, { tenantId: tenant.id, userId }, access, c.req.param('id'), c.req.valid('json')),
+        );
+      } catch (error) {
+        return c.json(ownersConflict(error), 409);
+      }
+      if (result === null) return c.json(notFound, 404);
+      if (isForbidden(result)) return c.json(forbidden(result.forbidden), 403);
+      if (isRejection(result)) return c.json(rejection(result.rejected, result.field), 400);
+      return c.json(result, 200);
+    })
+    .delete('/:id', requirePermission('fazendas.excluir'), async (c) => {
+      if (!isId(c)) return c.json(notFound, 404);
+      const { tenant, userId, access, withTenant } = c.var;
+      const result = await withTenant((tx) => deleteFarm(tx, { tenantId: tenant.id, userId }, access, c.req.param('id')));
+      if (result === null) return c.json(notFound, 404);
+      if (isDeleteRefused(result)) return c.json({ error: { code: 'conflict', message: result.conflict } }, 409);
+      return c.body(null, 204);
+    })
+    .route(
+      '/',
+      createHistoryRoutes({
+        entity: 'farms',
+        children: [
+          { entity: 'farm_aptitudes', parentColumn: 'farm_id', nameColumn: 'aptitude_id' },
+          { entity: 'farm_crops', parentColumn: 'farm_id', nameColumn: 'crop_id' },
+          {
+            entity: 'farm_owners',
+            parentColumn: 'farm_id',
+            nameColumn: 'contact_id',
+            primaryFlag: { column: 'is_primary', label: 'Proprietário principal' },
+          },
+        ],
+        access: canView(),
+        isVisible: (tx, c, id) => farmVisible(tx, c.var.access, id),
+      }),
+    );
 }

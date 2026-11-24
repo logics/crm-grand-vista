@@ -36,9 +36,7 @@ describe('papéis em uso, exclusão e garantir papel', () => {
 
   const url = (path = '') => `/e/${tenant.slug}/contacts${path}`;
   const created = async (name: string, roles: string[]) =>
-    (await (
-      await app.request(url(), jsonRequest('POST', { personType: 'pf', name, roles }, managerCookie))
-    ).json()) as ContactBody;
+    (await (await app.request(url(), jsonRequest('POST', { personType: 'pf', name, roles }, managerCookie))).json()) as ContactBody;
   const patch = (id: string, body: unknown) => app.request(url(`/${id}`), jsonRequest('PATCH', body, managerCookie));
   const remove = (id: string, cookie = managerCookie) => app.request(url(`/${id}`), { method: 'DELETE', headers: { cookie } });
   const use = async (contactId: string, times: number) => {
@@ -152,9 +150,7 @@ describe('papéis em uso, exclusão e garantir papel', () => {
       expect((await remove(solto.id)).status).toBe(204);
 
       expect((await app.request(url(`/${solto.id}`), { headers: { cookie: managerCookie } })).status).toBe(404);
-      expect(
-        await db.withTenant(tenant.id, (tx) => tx.select().from(contactRoles).where(eq(contactRoles.contactId, solto.id))),
-      ).toEqual([]);
+      expect(await db.withTenant(tenant.id, (tx) => tx.select().from(contactRoles).where(eq(contactRoles.contactId, solto.id)))).toEqual([]);
     });
 
     it('contato inexistente ou id malformado é 404', async () => {
@@ -179,13 +175,9 @@ describe('papéis em uso, exclusão e garantir papel', () => {
       const second = await db.withTenant(tenant.id, (tx) => ensureContactRole(tx, actor, contato.id, 'owner'));
 
       expect([first, second]).toEqual([true, false]);
-      const roles = await db.withTenant(tenant.id, (tx) =>
-        tx.select().from(contactRoles).where(eq(contactRoles.contactId, contato.id)),
-      );
+      const roles = await db.withTenant(tenant.id, (tx) => tx.select().from(contactRoles).where(eq(contactRoles.contactId, contato.id)));
       expect(roles.map((r) => r.role).sort()).toEqual(['buyer', 'owner']);
-      const history = (await (
-        await app.request(url(`/${contato.id}/history`), { headers: { cookie: managerCookie } })
-      ).json()) as {
+      const history = (await (await app.request(url(`/${contato.id}/history`), { headers: { cookie: managerCookie } })).json()) as {
         entries: { children: { title: string }[] }[];
       };
       const titles = history.entries.flatMap((entry) => entry.children.map((child) => child.title));
@@ -211,13 +203,9 @@ describe('papéis em uso, exclusão e garantir papel', () => {
       const results = await Promise.all([attempt(), attempt()]);
 
       expect([...results].sort()).toEqual([false, true]);
-      const roles = await db.withTenant(tenant.id, (tx) =>
-        tx.select().from(contactRoles).where(eq(contactRoles.contactId, contato.id)),
-      );
+      const roles = await db.withTenant(tenant.id, (tx) => tx.select().from(contactRoles).where(eq(contactRoles.contactId, contato.id)));
       expect(roles.map((r) => r.role).sort()).toEqual(['buyer', 'owner']);
-      const history = (await (
-        await app.request(url(`/${contato.id}/history`), { headers: { cookie: managerCookie } })
-      ).json()) as {
+      const history = (await (await app.request(url(`/${contato.id}/history`), { headers: { cookie: managerCookie } })).json()) as {
         entries: { children: { title: string }[] }[];
       };
       const titles = history.entries.flatMap((entry) => entry.children.map((child) => child.title));
