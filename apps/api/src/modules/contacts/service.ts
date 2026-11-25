@@ -51,6 +51,7 @@ import {
   replaceBuyerProfile,
 } from './buyer-profile.js';
 import { deleteReferralChain, readReferralChain, replaceReferralChain } from '../referrals/service.js';
+import { referredBy } from '../referrals/referred-by.js';
 import { countRoleUsage, pluralLabelOfTable, usageOfTable } from '../../contact-roles/usage.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
@@ -152,6 +153,7 @@ function contactFilters(query: ContactListQuery): (SQL | undefined)[] {
       ? sql`exists (select 1 from ${buyerCrops} where ${buyerCrops.contactId} = ${contacts.id} and ${inArray(buyerCrops.cropId, query.cropId)})`
       : undefined,
     query.region ? buyerRegionCovers(contacts.id, query.region) : undefined,
+    referredBy({ contactIds: query.referrerContactId, userIds: query.referrerUserId }, 'contact'),
     createdFrom ? sql`${registeredDay} >= ${createdFrom}::date` : undefined,
     createdTo ? sql`${registeredDay} <= ${createdTo}::date` : undefined,
   ];

@@ -8,7 +8,7 @@ import {
   buyerProfileSchema,
 } from './buyer-profile.js';
 import { LEVELS, commaListSchema, regionFilterSchema } from './farm.js';
-import { referralChainInputSchema, referralChainOutputSchema } from './referral-chain.js';
+import { REFERRER_FILTER_INVALID_MESSAGE, referralChainInputSchema, referralChainOutputSchema } from './referral-chain.js';
 import { optionalText } from './text.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { INVALID_PHONE_MESSAGE, isBlankPhone, normalizePhone } from './phone.js';
@@ -245,6 +245,12 @@ export const contactListFilters = {
   cropId: commaListSchema(z.uuid({ error: 'Cultura inválida.' }), 'Cultura inválida.').optional(),
   /** Código IBGE de município ou sigla de UF, misturados; a cobertura vale nos dois sentidos (`buyerRegionCovers`). */
   region: regionFilterSchema.optional(),
+  // Indicador em qualquer posição da cadeia (spec fase-1-cadeia-de-indicacao): contato e usuário, qualquer um dos escolhidos.
+  referrerContactId: commaListSchema(
+    z.uuid({ error: REFERRER_FILTER_INVALID_MESSAGE }),
+    REFERRER_FILTER_INVALID_MESSAGE,
+  ).optional(),
+  referrerUserId: commaListSchema(z.uuid({ error: REFERRER_FILTER_INVALID_MESSAGE }), REFERRER_FILTER_INVALID_MESSAGE).optional(),
   createdFrom: z.iso.date({ error: 'Data inicial inválida.' }).optional(),
   createdTo: z.iso.date({ error: 'Data final inválida.' }).optional(),
 };

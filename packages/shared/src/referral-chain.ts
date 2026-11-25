@@ -15,6 +15,9 @@ export const REFERRER_KIND_LABELS = { user: 'Interno', contact: 'Externo' } as c
 
 export const REFERRER_UNLINKED_LABEL = 'Sem acesso';
 
+/** Mensagem do 400 quando `referrerContactId`/`referrerUserId` de uma lista traz id malformado. */
+export const REFERRER_FILTER_INVALID_MESSAGE = 'Indicador inválido.';
+
 /**
  * `linked`: só de usuário; `false` quando perdeu o vínculo com a empresa (marca
  * "Sem acesso"). Ausente = vinculado.
