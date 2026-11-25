@@ -13,7 +13,13 @@ export type ReferrerKind = (typeof REFERRER_KINDS)[number];
 /** Rótulo curto do tipo de indicador na tela: corretor interno ou externo, no glossário. */
 export const REFERRER_KIND_LABELS = { user: 'Interno', contact: 'Externo' } as const satisfies Record<ReferrerKind, string>;
 
-export type Referrer = { kind: ReferrerKind; id: string; name: string };
+export const REFERRER_UNLINKED_LABEL = 'Sem acesso';
+
+/**
+ * `linked`: só de usuário; `false` quando perdeu o vínculo com a empresa (marca
+ * "Sem acesso"). Ausente = vinculado.
+ */
+export type Referrer = { kind: ReferrerKind; id: string; name: string; linked?: boolean };
 
 /** Quem foi indicado: um contato ou uma fazenda. */
 export type ReferralSubject = { kind: 'contact' | 'farm'; id: string; name: string };
@@ -107,6 +113,7 @@ export const MAX_REFERRAL_CHAIN_LENGTH = 10;
 export const REFERRAL_NOTES_MAX_LENGTH = 500;
 
 export const REFERRAL_CHAIN_TOO_LONG_MESSAGE = `A cadeia de indicação aceita até ${MAX_REFERRAL_CHAIN_LENGTH} indicadores.`;
+export const REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE = `Limite de ${MAX_REFERRAL_CHAIN_LENGTH} indicadores atingido.`;
 export const REFERRAL_NOTES_TOO_LONG_MESSAGE = `A nota aceita até ${REFERRAL_NOTES_MAX_LENGTH} caracteres.`;
 export const REFERRAL_USER_NOT_IN_TEAM_MESSAGE = 'Usuário não faz parte da equipe.';
 export const REFERRAL_CONTACT_UNKNOWN_MESSAGE = 'Contato não encontrado nesta empresa.';

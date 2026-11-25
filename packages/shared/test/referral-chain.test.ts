@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_REFERRAL_CHAIN_LENGTH,
+  REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE,
   REFERRAL_CHAIN_TOO_LONG_MESSAGE,
   REFERRAL_NOTES_MAX_LENGTH,
+  REFERRER_UNLINKED_LABEL,
   referralChainInputOf,
   referralChainInputSchema,
   type ReferralLink,
@@ -224,5 +226,20 @@ describe('referralChainInputOf', () => {
       { referrer: { kind: 'contact', id: 'c-joao' }, notes: 'trouxe direto' },
       { referrer: { kind: 'contact', id: 'c-sebastiao' }, notes: null },
     ]);
+  });
+});
+
+describe('limite e vínculo do indicador', () => {
+  it('a mensagem de limite cita MAX_REFERRAL_CHAIN_LENGTH', () => {
+    expect(REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE).toBe(`Limite de ${MAX_REFERRAL_CHAIN_LENGTH} indicadores atingido.`);
+  });
+
+  it('o rótulo de quem perdeu o vínculo é "Sem acesso"', () => {
+    expect(REFERRER_UNLINKED_LABEL).toBe('Sem acesso');
+  });
+
+  it('referralChainInputOf não leva linked', () => {
+    const unlinked: Referrer = { ...carlos, linked: false };
+    expect(referralChainInputOf([link(unlinked, 1)])).toEqual([{ referrer: { kind: 'user', id: 'u-carlos' }, notes: null }]);
   });
 });

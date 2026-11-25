@@ -1,11 +1,20 @@
 // @vitest-environment jsdom
 import '../support/dom.js';
-import type { ContactOption, ReferralLink, ReferralSubject, Referrer, UserOption } from '@crm/shared';
+import {
+  type ContactOption,
+  REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE,
+  type ReferralLink,
+  type ReferralSubject,
+  type Referrer,
+  type UserOption,
+} from '@crm/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Field, ReferralChainEditor, type ReferralChainEditorProps } from '../../src/index.js';
+import { classesWithoutCss } from '../support/classes.js';
+import { compileStyles } from '../support/tailwind.js';
 
 const pedro: ReferralSubject = { kind: 'contact', id: 'c-pedro', name: 'Pedro Almeida' };
 
@@ -252,5 +261,149 @@ describe('ReferralChainEditor — edição', () => {
     for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
     for (const note of screen.getAllByRole('textbox')) expect(note).toBeDisabled();
     expect(screen.getByRole('combobox', { name: 'Cadeia de indicação' })).toBeDisabled();
+  });
+});
+
+/** Dez contatos fictícios, do 1 ao 10, na ordem. */
+const fullChain = (count = 10): ReferralLink[] =>
+  Array.from({ length: count }, (_, index) =>
+    link({ kind: 'contact', id: `c-extra-${index + 1}`, name: `Indicador ${index + 1}` }, index + 1),
+  );
+
+describe('ReferralChainEditor — limite de indicadores', () => {
+  it('com 10 elos, esconde o seletor e mostra o aviso de limite', () => {
+    render(<Harness initial={fullChain()} />);
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getByText(REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE)).toBeVisible();
+    expect(screen.getByText('Limite de 10 indicadores atingido.')).toBeInTheDocument();
+  });
+
+  it('com 9 elos, o seletor continua e não há aviso', () => {
+    render(<Harness initial={fullChain(9)} />);
+
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.queryByText(REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE)).not.toBeInTheDocument();
+  });
+
+  it('somente leitura com 10 elos não mostra o aviso', () => {
+    render(<ReferralChainEditor subject={pedro} value={fullChain()} />);
+
+    expect(screen.queryByText(REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE)).not.toBeInTheDocument();
+  });
+
+  it('o 10º indicador anuncia o limite e leva o foco ao remover dele', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={fullChain(9)} />);
+
+    await user.click(screen.getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: /Antônio Ribeiro/ }));
+
+    expect(
+      screen.getByText(`Antônio Ribeiro entrou na cadeia, na posição 10. ${REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE}`),
+    ).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: 'Remover Antônio Ribeiro' })).toHaveFocus();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('abaixo do limite, o anúncio da entrada não cita o limite', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={twoLevels} />);
+
+    await user.click(screen.getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: /Antônio Ribeiro/ }));
+
+    expect(screen.getByText('Antônio Ribeiro entrou na cadeia, na posição 3.')).toHaveAttribute('role', 'status');
+    expect(screen.queryByText(/Limite de/)).not.toBeInTheDocument();
+  });
+
+  it('removido um elo com a cadeia cheia, o seletor volta', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={fullChain()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Remover Indicador 3' }));
+
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.queryByText(REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE)).not.toBeInTheDocument();
+  });
+});
+
+describe('ReferralChainEditor — indicador sem acesso', () => {
+  const carlosUnlinked: Referrer = { ...carlos, linked: false };
+
+  it('usuário com linked: false mostra Interno e Sem acesso, com o nome do elo', () => {
+    render(<ReferralChainEditor subject={pedro} value={[link(joao, 1), link(carlosUnlinked, 2)]} />);
+
+    const [, second] = items();
+    expect(second).toHaveAccessibleName('2. Carlos Menezes');
+    expect(second).toHaveTextContent('Interno');
+    expect(second).toHaveTextContent('Sem acesso');
+  });
+
+  it('usuário vinculado ou sem linked não mostra Sem acesso', () => {
+    const marina: Referrer = { kind: 'user', id: 'u-marina', name: 'Marina Duarte' };
+    render(<ReferralChainEditor subject={pedro} value={[link({ ...carlos, linked: true }, 1), link(marina, 2)]} />);
+
+    for (const item of items()) expect(item).not.toHaveTextContent('Sem acesso');
+  });
+
+  it('contato nunca mostra Sem acesso', () => {
+    const contactUnlinked: Referrer = { ...joao, linked: false };
+    render(<ReferralChainEditor subject={pedro} value={[link(contactUnlinked, 1)]} />);
+
+    expect(items()[0]).not.toHaveTextContent('Sem acesso');
+  });
+
+  it('o elo sem acesso continua editável: nota e remover', () => {
+    render(<Harness initial={[link(carlosUnlinked, 1)]} />);
+
+    expect(screen.getByRole('textbox', { name: 'Nota sobre Carlos Menezes' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Remover Carlos Menezes' })).toBeEnabled();
+  });
+});
+
+describe('ReferralChainEditor — cadastro rápido de contato', () => {
+  /** Busca que só acha quem tem o termo no nome: "Sebastiana" não acha ninguém. */
+  const filtered = async (term: string) => ({
+    items: contacts.filter((option) => option.name.toLowerCase().includes(term.toLowerCase())),
+  });
+  const filteredUsers = async (term: string) => ({
+    items: users.filter((option) => option.name.toLowerCase().includes(term.toLowerCase())),
+  });
+
+  it('com onCreateContact, o seletor de contato oferece "Cadastrar contato" com o termo buscado', async () => {
+    const onCreateContact = vi.fn();
+    const user = userEvent.setup();
+    const build = await compileStyles();
+    render(<Harness onCreateContact={onCreateContact} searchContacts={filtered} />);
+
+    await user.click(screen.getByRole('combobox'));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastiana');
+    const create = await screen.findByRole('button', { name: 'Cadastrar contato' });
+    expect(classesWithoutCss(build)).toEqual([]);
+    await user.click(create);
+
+    expect(onCreateContact).toHaveBeenCalledWith('Sebastiana');
+  });
+
+  it('sem onCreateContact, não há "Cadastrar contato"', async () => {
+    const user = userEvent.setup();
+    render(<Harness searchContacts={filtered} />);
+
+    await user.click(screen.getByRole('combobox'));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastiana');
+    await screen.findByText(/Nenhum resultado para/);
+    expect(screen.queryByRole('button', { name: 'Cadastrar contato' })).not.toBeInTheDocument();
+  });
+
+  it('na busca de interno, não há "Cadastrar contato"', async () => {
+    const user = userEvent.setup();
+    render(<Harness onCreateContact={vi.fn()} searchContacts={filtered} searchUsers={filteredUsers} />);
+
+    await user.click(screen.getByRole('button', { name: 'Interno' }));
+    await user.click(screen.getByRole('combobox'));
+    await user.type(screen.getByPlaceholderText('Buscar usuário'), 'Sebastiana');
+    await screen.findByText(/Nenhum resultado para/);
+    expect(screen.queryByRole('button', { name: 'Cadastrar contato' })).not.toBeInTheDocument();
   });
 });

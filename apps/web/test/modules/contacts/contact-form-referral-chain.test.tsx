@@ -49,11 +49,18 @@ const chain = [
   { id: 'l2', position: 2, referrer: { kind: 'user', id: MARINA.id, name: MARINA.name, linked: true }, notes: null },
 ];
 
+/** Contato que o cadastro rápido do diálogo cria: o `POST` com este nome é o do diálogo, não o do formulário. */
+const SEBASTIAO_NOVO = {
+  ...SEBASTIAO,
+  id: '0197c000-0000-7000-8000-0000000000b3',
+  name: 'Sebastião Novo',
+};
+
 /** API falsa que guarda o corpo do `POST`/`PATCH` de contato. */
-function stub(record: unknown | null = null) {
+function stub(record: unknown | null = null, permissions: string[] = ['contatos.ver', 'contatos.editar', 'contatos.criar']) {
   stubFakeApi({
     session: session(),
-    permissions: ['contatos.ver', 'contatos.editar', 'contatos.criar'],
+    permissions: permissions as never,
     records: {
       ...(record ? { '/e/grand-vista/contacts/c1': record } : {}),
       '/e/grand-vista/users': { users: [MARINA] },
@@ -66,8 +73,14 @@ function stub(record: unknown | null = null) {
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
+      if (method === 'GET' && String(input).includes('/contacts/options') && String(input).includes('Novo')) {
+        return json({ items: [] });
+      }
       if (method === 'POST' || method === 'PATCH') {
-        sent.push({ method, body: JSON.parse(String(init?.body)) as Record<string, unknown> });
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        sent.push({ method, body });
+        // cadastro rápido: o diálogo cria o contato novo, já com o papel pedido
+        if (method === 'POST' && body['name'] === SEBASTIAO_NOVO.name) return json({ ...contact(), ...SEBASTIAO_NOVO }, 201);
         return json(contact(), method === 'POST' ? 201 : 200);
       }
       if (String(input).includes('/contacts/duplicates')) return json({ items: [] });
@@ -191,5 +204,87 @@ describe('cadeia de indicação no formulário do contato', () => {
 
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]?.body['referralChain']).toEqual([]);
+  });
+
+  it('cadastro rápido: "Cadastrar contato" no seletor abre o diálogo com o nome e Corretor externo marcados, e o contato novo entra como último elo e vai no payload', async () => {
+    const sent = stub();
+    renderApp('/e/grand-vista/contacts/new');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText(/^Nome/), 'Pedro Almeida');
+    await user.click(screen.getByRole('checkbox', { name: 'Comprador' }));
+
+    await user.click(screen.getByRole('combobox', { name: pickerName }));
+    await user.click(await screen.findByRole('option', { name: /João Batista/ }));
+
+    await user.click(screen.getByRole('combobox', { name: pickerName }));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastião Novo');
+    await screen.findByText(/Nenhum resultado para/);
+    // o botão de enviar do formulário tem o mesmo nome: o do seletor é o que está fora do `form`
+    const create = screen.getAllByRole('button', { name: 'Cadastrar contato' }).find((button) => !button.closest('form'));
+    await user.click(create!);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Cadastrar contato' });
+    expect(within(dialog).getByLabelText(/^Nome/)).toHaveValue('Sebastião Novo');
+    expect(within(dialog).getByRole('checkbox', { name: 'Corretor externo' })).toBeChecked();
+    await user.click(within(dialog).getByRole('button', { name: 'Cadastrar contato' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(names()).toEqual(['1. João Batista', '2. Sebastião Novo']);
+    expect(sent.find((request) => request.body['name'] === SEBASTIAO_NOVO.name)?.body['roles']).toEqual(['external_broker']);
+
+    await user.click(screen.getByRole('button', { name: 'Cadastrar contato' }));
+    await waitFor(() => expect(sent.filter((request) => request.body['name'] === 'Pedro Almeida')).toHaveLength(1));
+    expect(sent.find((request) => request.body['name'] === 'Pedro Almeida')?.body['referralChain']).toEqual([
+      { referrer: { kind: 'contact', id: JOAO.id }, notes: null },
+      { referrer: { kind: 'contact', id: SEBASTIAO_NOVO.id }, notes: null },
+    ]);
+  });
+
+  it('sem contatos.criar, o seletor não oferece "Cadastrar contato"', async () => {
+    stub(contact(), ['contatos.ver', 'contatos.editar']);
+    renderApp('/e/grand-vista/contacts/c1/edit');
+    const user = userEvent.setup();
+    await screen.findByLabelText(/^Nome/);
+
+    await user.click(screen.getByRole('combobox', { name: pickerName }));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastião Novo');
+    await screen.findByText(/Nenhum resultado para/);
+    // na edição o botão de enviar é "Salvar alterações": nenhum outro se chama "Cadastrar contato"
+    expect(screen.queryByRole('button', { name: 'Cadastrar contato' })).not.toBeInTheDocument();
+  });
+
+  it('edição: usuário sem vínculo aparece com Sem acesso; sem tocar na seção o payload não leva referralChain; tocando outro elo, o usuário vai no payload sem linked', async () => {
+    const unlinked = [chain[0], { ...chain[1], referrer: { ...MARINA, kind: 'user', linked: false } }];
+    const sent = stub(contact(unlinked));
+    renderApp('/e/grand-vista/contacts/c1/edit');
+    const user = userEvent.setup();
+    await screen.findByLabelText(/^Nome/);
+
+    const [, second] = within(chainList()).getAllByRole('listitem');
+    expect(second).toHaveTextContent('Interno');
+    expect(second).toHaveTextContent('Sem acesso');
+
+    await user.type(screen.getByLabelText(/^Nome/), ' Filho');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]?.body).not.toHaveProperty('referralChain');
+  });
+
+  it('edição: tocando outro elo, o usuário sem vínculo vai no payload sem linked', async () => {
+    const unlinked = [chain[0], { ...chain[1], referrer: { ...MARINA, kind: 'user', linked: false } }];
+    const sent = stub(contact(unlinked));
+    renderApp('/e/grand-vista/contacts/c1/edit');
+    const user = userEvent.setup();
+    await screen.findByLabelText(/^Nome/);
+
+    await user.type(screen.getByRole('textbox', { name: 'Nota sobre João Batista' }), '!');
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]?.body['referralChain']).toEqual([
+      { referrer: { kind: 'contact', id: JOAO.id }, notes: 'trouxe direto!' },
+      { referrer: { kind: 'user', id: MARINA.id }, notes: null },
+    ]);
   });
 });

@@ -56,7 +56,7 @@ export type CommissionVisibility =
 
 export type CommissionEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'children' | 'defaultValue'> &
   CommissionVisibility &
-  PartySearches & {
+  Omit<PartySearches, 'onCreateContact'> & {
     value: CommissionGroup[];
     /** Nova lista de grupos. Sem ela, a comissão é só leitura. */
     onChange?: (groups: CommissionGroup[]) => void;
@@ -353,7 +353,7 @@ function CommissionSummary({
   );
 }
 
-type CommissionGroupSectionProps = PartySearches & {
+type CommissionGroupSectionProps = Omit<PartySearches, 'onCreateContact'> & {
   prefix: string;
   group: CommissionGroup;
   index: number;

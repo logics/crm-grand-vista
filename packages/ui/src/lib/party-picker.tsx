@@ -18,6 +18,8 @@ export type PartySearches = {
   searchUsers?: AsyncComboboxSearch<UserOption>;
   /** Busca de contato (corretor externo), a do `ContactPicker`. Sem ela, só entra usuário. */
   searchContacts?: ContactPickerSearch;
+  /** Cadastro rápido de contato com o termo buscado; sem ele, o seletor de contato não oferece "Cadastrar contato". */
+  onCreateContact?: (term: string) => void;
 };
 
 export type PartyPickerProps = FieldControlProps &
@@ -40,6 +42,7 @@ type PartyOption = { id: string; name: string };
 export function PartyPicker({
   searchUsers,
   searchContacts,
+  onCreateContact,
   defaultKind = 'contact',
   isEligible,
   onPick,
@@ -94,7 +97,7 @@ export function PartyPicker({
         {kind === 'user' && searchUsers ? (
           <UserPicker {...picker} search={eligible(searchUsers, 'user')} />
         ) : (
-          searchContacts && <ContactPicker {...picker} search={eligible(searchContacts, 'contact')} />
+          searchContacts && <ContactPicker {...picker} search={eligible(searchContacts, 'contact')} onCreate={onCreateContact} />
         )}
       </div>
     </div>
