@@ -10,13 +10,16 @@ import {
   VALUATION_BAGS_UNIT_LABELS,
   compareDecimal,
   farmFormSchema,
+  referralChainInputOf,
   type AlqueireType,
   type DocumentStatus,
   type Farm,
+  type FarmDetail,
   type FarmDuplicate,
   type FarmOwnerInput,
   type MunicipalityOption,
   type PricingMode,
+  type ReferralLink,
   type UpdateFarmInput,
   type ValuationBagsUnit,
 } from '@crm/shared';
@@ -54,6 +57,7 @@ import { LoadFailedState, LoadingState } from '../../shell/page-state.js';
 import { useDataScope } from '../../shell/tenant-access.js';
 import { tenantPath } from '../../shell/tenant-path.js';
 import { tenantQueryKey, useTenantQuery, useTenantSlug } from '../../shell/tenant-query.js';
+import { ReferralChainField, toReferralLinks } from '../referrals/referral-chain-field.js';
 import { FarmDuplicateWarning } from './farm-duplicate-warning.js';
 import { FarmOwnersField } from './farm-owners-field.js';
 import { createFarm, fetchFarm, fetchFarmDuplicates, updateFarm } from './farms-api.js';
@@ -63,7 +67,12 @@ const FORM_ID = 'farm-form';
 const fields = FIELD_REGISTRY.farms.fields;
 const ownersField = { label: 'Proprietários' };
 
-type FormValues = z.input<typeof farmFormSchema>;
+/**
+ * O formulário guarda os elos do editor (`ReferralLink[]`, com a posição): o campo
+ * tem schema próprio, e `save` converte com `referralChainInputOf` (sem `position`).
+ */
+const farmFormSchemaWithChain = farmFormSchema.safeExtend({ referralChain: z.custom<ReferralLink[]>().optional() });
+type FormValues = z.input<typeof farmFormSchemaWithChain>;
 type FormSection = EntityFormSection<FormValues>;
 
 const LEVEL_FIELDS = ['salesPotential', 'priority', 'waterAvailability', 'irrigationPotential', 'productivePotential'] as const;
@@ -272,7 +281,7 @@ function ownersChanged(saved: Farm['owners'], desired: readonly FarmOwnerInput[]
   return desired.some((owner) => primaryByContact.get(owner.contactId) !== owner.isPrimary);
 }
 
-function FarmForm({ farm }: { farm: Farm | null }) {
+function FarmForm({ farm }: { farm: FarmDetail | null }) {
   const slug = useTenantSlug();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -283,6 +292,10 @@ function FarmForm({ farm }: { farm: Farm | null }) {
   const [dirty, setDirty] = useState(false);
   const guard = useUnsavedChangesGuard(dirty);
   const me = session?.user;
+  // O nome digitado encabeça a cadeia ("Quem indicou Fazenda X?") e acompanha o campo.
+  const [typedName, setTypedName] = useState(farm?.name ?? '');
+  // A cadeia só vai no payload se a seção foi tocada: ausente não mexe no que está gravado.
+  const chainTouched = useRef(false);
 
   // A praça é sugerida pelo município enquanto a pessoa não a escolheu à mão
   // nesta edição; depois disso, trocar o município não a sobrescreve. O campo
@@ -318,7 +331,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
   const [matches, setMatches] = useState<FarmDuplicate[]>([]);
   const skipDuplicateCheck = useRef(false);
 
-  const save = async (values: z.output<typeof farmFormSchema>) => {
+  const save = async ({ referralChain: chainLinks, ...values }: z.output<typeof farmFormSchemaWithChain>) => {
     const confirmed = skipDuplicateCheck.current;
     skipDuplicateCheck.current = false;
     if (!confirmed) {
@@ -332,9 +345,10 @@ function FarmForm({ farm }: { farm: Farm | null }) {
       if (found.length > 0) return;
     }
     setMatches([]);
-    let saved: Farm;
+    let saved: FarmDetail;
     if (farm) {
       const changes = changesOf(farm, values);
+      if (chainTouched.current) changes.referralChain = referralChainInputOf(chainLinks ?? []);
       saved = Object.keys(changes).length > 0 ? await updateFarm(slug, farm.id, changes) : farm;
     } else {
       const pricing = pricingBlockOf(values);
@@ -349,7 +363,8 @@ function FarmForm({ farm }: { farm: Farm | null }) {
       } = values;
       // Na criação só vai o que o modo usa: sem preço, nada de precificação no corpo.
       const used = Object.fromEntries(Object.entries(pricing).filter(([, value]) => value !== null));
-      saved = await createFarm(slug, { ...base, ...used });
+      const chain = chainTouched.current ? { referralChain: referralChainInputOf(chainLinks ?? []) } : {};
+      saved = await createFarm(slug, { ...base, ...used, ...chain });
     }
     await queryClient.invalidateQueries({ queryKey: tenantQueryKey(slug, 'farms') });
     guard.release();
@@ -366,7 +381,16 @@ function FarmForm({ farm }: { farm: Farm | null }) {
         name: 'name',
         label: fields.name.label,
         colSpan: 2,
-        render: (field) => <Input {...field} value={field.value ?? ''} />,
+        render: (field) => (
+          <Input
+            {...field}
+            value={field.value ?? ''}
+            onChange={(event) => {
+              setTypedName(event.target.value);
+              field.onChange(event);
+            }}
+          />
+        ),
       },
       {
         name: 'municipalityIbgeCode',
@@ -441,6 +465,31 @@ function FarmForm({ farm }: { farm: Farm | null }) {
             value={field.value ?? []}
             onChange={field.onChange}
             names={new Map(farm?.owners.map((owner) => [owner.contactId, owner.name]))}
+          />
+        ),
+      },
+    ],
+  };
+
+  const referralChain: FormSection = {
+    id: 'indicacao',
+    title: 'Cadeia de indicação',
+    description: 'Quem trouxe esta fazenda e de quem essa pessoa soube. O primeiro da lista trouxe direto.',
+    fields: [
+      {
+        name: 'referralChain',
+        label: 'Indicadores',
+        hint: 'Arraste pela alça ou use o teclado para mudar a ordem.',
+        colSpan: 2,
+        render: (field) => (
+          <ReferralChainField
+            subject={{ kind: 'farm', id: farm?.id ?? '', name: typedName.trim() || 'esta fazenda' }}
+            value={field.value ?? []}
+            onChange={(links) => {
+              chainTouched.current = true;
+              field.onChange(links);
+            }}
+            onBlur={field.onBlur}
           />
         ),
       },
@@ -851,7 +900,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
     ],
   };
 
-  const sections: FormSection[] = [identification, owners, areas, pricing, commercial, technical];
+  const sections: FormSection[] = [identification, owners, referralChain, areas, pricing, commercial, technical];
 
   return (
     <div className="flex flex-col gap-gap-shell">
@@ -865,7 +914,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
       />
       <EntityForm
         id={FORM_ID}
-        schema={farmFormSchema}
+        schema={farmFormSchemaWithChain}
         defaultValues={{
           name: farm?.name ?? '',
           municipalityIbgeCode: farm?.municipality.ibgeCode ?? '',
@@ -901,6 +950,7 @@ function FarmForm({ farm }: { farm: Farm | null }) {
           longitude: farm?.longitude ?? null,
           aptitudeIds: farm?.aptitudes.map((item) => item.id) ?? [],
           cropIds: farm?.crops.map((item) => item.id) ?? [],
+          referralChain: toReferralLinks(farm?.referralChain ?? []),
         }}
         onDirtyChange={setDirty}
         onCancel={() => {

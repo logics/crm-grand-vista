@@ -4,6 +4,7 @@ import {
   type ContactFarm,
   type CreateFarmInput,
   type Farm,
+  type FarmDetail,
   type FarmDuplicate,
   type FarmDuplicatesQuery,
   type FarmListQuery,
@@ -70,12 +71,12 @@ export function resolveFarmOptions(slug: string) {
   };
 }
 
-export async function fetchFarm(slug: string, id: string): Promise<Farm> {
+export async function fetchFarm(slug: string, id: string): Promise<FarmDetail> {
   const response = await api.e[':tenant'].farms[':id'].$get({ param: { tenant: slug, id } });
   const status: number = response.status;
   if (status === 404) throw new ResourceNotFoundError();
   if (!response.ok) throw new Error(`Falha ao carregar a fazenda: HTTP ${response.status}.`);
-  return (await response.json()) as Farm;
+  return (await response.json()) as FarmDetail;
 }
 
 export async function fetchFarmDuplicates(slug: string, query: FarmDuplicatesQuery): Promise<FarmDuplicate[]> {
@@ -85,16 +86,16 @@ export async function fetchFarmDuplicates(slug: string, query: FarmDuplicatesQue
   return ((await response.json()) as { items: FarmDuplicate[] }).items;
 }
 
-export async function createFarm(slug: string, json: CreateFarmInput): Promise<Farm> {
+export async function createFarm(slug: string, json: CreateFarmInput): Promise<FarmDetail> {
   const response = await api.e[':tenant'].farms.$post({ param: { tenant: slug }, json });
   if (response.status !== 201) throw await failure(response);
-  return (await response.json()) as Farm;
+  return (await response.json()) as FarmDetail;
 }
 
-export async function updateFarm(slug: string, id: string, json: UpdateFarmInput): Promise<Farm> {
+export async function updateFarm(slug: string, id: string, json: UpdateFarmInput): Promise<FarmDetail> {
   const response = await api.e[':tenant'].farms[':id'].$patch({ param: { tenant: slug, id }, json });
   if (response.status !== 200) throw await failure(response);
-  return (await response.json()) as Farm;
+  return (await response.json()) as FarmDetail;
 }
 
 export const fetchFarmHistory = (slug: string, id: string, cursor: string | undefined) =>

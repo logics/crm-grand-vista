@@ -8,18 +8,20 @@ import {
   formatMoney,
   municipalityLabel,
   type Farm,
+  type FarmDetail,
   type Level,
 } from '@crm/shared';
 import { SpecList } from '@crm/ui';
 import type { ReactNode } from 'react';
 import { createRecordSectionRegistry } from '../../record-sections/record-sections.js';
+import { FarmReferralSection } from '../referrals/farm-referral-section.js';
 import { useAreaFormatter } from '../settings/display-context.js';
 
 // Seções da ficha da fazenda, sobre o mesmo mecanismo da ficha do contato. Cada
 // spec que pendura algo na ficha (mapa, galerias, documentos, cadeia de
 // indicação) registra a sua aqui, com `farmSections.register`, sem editar a página.
 
-export const farmSections = createRecordSectionRegistry<Farm>();
+export const farmSections = createRecordSectionRegistry<FarmDetail>();
 
 const fields = FIELD_REGISTRY.farms.fields;
 
@@ -199,3 +201,10 @@ function DataSection({ record }: { record: Farm }) {
 }
 
 farmSections.register({ key: 'data', title: 'Dados', order: 10, component: DataSection });
+
+farmSections.register({
+  key: 'referral-chain',
+  title: 'Cadeia de indicação',
+  order: 15,
+  component: FarmReferralSection,
+});

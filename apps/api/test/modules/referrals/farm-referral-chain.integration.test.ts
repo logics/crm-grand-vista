@@ -55,7 +55,6 @@ describe('cadeia de indicação da fazenda', () => {
 
   let tenant: Awaited<ReturnType<typeof createTenant>>;
   let other: Awaited<ReturnType<typeof createTenant>>;
-  let manager: { id: string; name: string };
   let broker: { id: string; name: string };
   let carlos: { id: string; name: string };
   let outsider: { id: string; name: string };
@@ -113,7 +112,6 @@ describe('cadeia de indicação da fazenda', () => {
     for (const user of [m!, b!, c!, v!]) await createMembership(db, user.id, tenant.id, { isDefault: true });
     await createMembership(db, o!.id, other.id, { isDefault: true });
     await createMembership(db, s!.id, other.id, { isDefault: true });
-    manager = { id: m!.id, name: m!.name };
     broker = { id: b!.id, name: b!.name };
     carlos = { id: c!.id, name: c!.name };
     outsider = { id: s!.id, name: s!.name };

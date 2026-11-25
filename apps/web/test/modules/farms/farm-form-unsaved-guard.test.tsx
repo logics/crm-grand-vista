@@ -22,6 +22,7 @@ const farm = {
   totalAreaHa: '48.4000',
   usableAreaHa: null,
   owners: [],
+  referralChain: [],
   salesPotential: null,
   priority: null,
   waterAvailability: null,
