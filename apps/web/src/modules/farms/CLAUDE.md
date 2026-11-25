@@ -2,8 +2,8 @@
 
 Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comercial, #147).
 
-- **Spec:** `docs/specs/fase-1-fazendas.md`
-- **Depende de:** `@crm/shared`, `@crm/ui`, `src/listing`, `src/history`, `src/record-sections`, `src/shell`, `modules/settings` (`VocabularyField`, sugestão de praça, contexto de exibição de área), `modules/municipalities`, `modules/users`
+- **Spec:** `docs/specs/fase-1-fazendas.md`; cadeia de indicação (#187): `docs/specs/fase-1-cadeia-de-indicacao.md`
+- **Depende de:** `@crm/shared`, `@crm/ui`, `src/listing`, `src/history`, `src/record-sections`, `src/shell`, `modules/settings` (`VocabularyField`, sugestão de praça, contexto de exibição de área), `modules/municipalities`, `modules/users`, `modules/referrals` (`ReferralChainField`, `FarmReferralSection`)
 
 ## Convenções locais
 
@@ -30,3 +30,8 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comer
 - Lista (#151): filtros em `farm-filters.tsx` (região por `MunicipalityPicker allowUf`, status, área e valor mín/máx, "Sem preço" à vista; praça, aptidões, culturas, níveis, situação documental, distâncias, proprietário e corretor responsável no painel "Mais filtros"), escritos na URL pelo `useListQuery` com o mesmo `farmListQuerySchema` da API; "Sem preço" e valor se desativam mutuamente. Corretor responsável só com escopo `all`; proprietário só com `contatos.ver` (ou vindo no link). Colunas finais com `farmPriceSummary` (reais, sacas ou "Preço não informado"); o mobile usa `FarmCard` (`priceUnit={null}`, status neutro).
 - `FarmField` (`farm-field.tsx`): o `FarmPicker` ligado a `GET /farms/options` (`searchFarmOptions`/`resolveFarmOptions` em `farms-api.ts`). Sem cadastrar; ainda sem consumidor.
 - Revisão de UX (#165): a seção Técnico do formulário nasce recolhida no cadastro (`collapsed` do `EntityFormSection`; na edição abre se já há dado técnico, e abre sozinha com erro de campo); a barra Cancelar/Salvar do `EntityForm` é fixa no rodapé da tela (`actionDock` de `styles.ts`: pedra com sombra flutuante, avisa "Alterações não salvas"); o histórico de alterações saiu da ficha e abre pelo botão "Histórico" (`RecordHistoryButton` de `src/history`, o padrão das fichas); na ficha, Proprietários mostra Principal e Outro/Demais em itens separados, e os textos técnicos longos só aparecem preenchidos; os filtros da lista ficam numa segunda linha, todos com rótulo, e o aviso de "Sem preço" só aparece com o filtro de valor em uso.
+
+## Cadeia de indicação (issue #187)
+
+- Seção `indicacao` ("Cadeia de indicação") do formulário, logo depois de Proprietários, com o `ReferralChainField`; `farmFormSchemaWithChain` estende o schema com os elos do editor e `save` converte com `referralChainInputOf`. Só envia `referralChain` se a seção foi tocada (`chainTouched`); o nome digitado encabeça o seletor (`typedName`).
+- `fetchFarm`, `createFarm` e `updateFarm` devolvem `FarmDetail` (com a cadeia); `farmSections` é `createRecordSectionRegistry<FarmDetail>()`. A ficha registra a seção `referral-chain` (`order: 15`).

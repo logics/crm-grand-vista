@@ -51,6 +51,7 @@ const farm = (owners: { contactId: string; name: string; isPrimary: boolean }[])
   aptitudes: [],
   crops: [],
   owners,
+  referralChain: [],
   createdAt: '2026-01-02T10:00:00.000Z',
 });
 

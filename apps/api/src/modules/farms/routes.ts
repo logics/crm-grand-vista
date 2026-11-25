@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { databaseError, SQLSTATE } from '../../database-error.js';
 import { requirePermission } from '../../authorization/route-access.js';
 import { listFarmOptions } from './options.js';
+import { farmReferralHistoryChild, referralRefusal } from '../referrals/routes.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import { declareRoleUsage } from '../../contact-roles/usage.js';
@@ -75,6 +76,8 @@ export function createFarmsRoutes() {
       try {
         result = await withTenant((tx) => createFarm(tx, { tenantId: tenant.id, userId }, access, c.req.valid('json')));
       } catch (error) {
+        const refused = referralRefusal(c, error);
+        if (refused) return refused;
         return c.json(ownersConflict(error), 409);
       }
       if (isForbidden(result)) return c.json(forbidden(result.forbidden), 403);
@@ -100,7 +103,7 @@ export function createFarmsRoutes() {
     })
     .get('/:id', canView(), async (c) => {
       if (!isId(c)) return c.json(notFound, 404);
-      const farm = await c.var.withTenant((tx) => getFarm(tx, c.var.access, c.req.param('id')));
+      const farm = await c.var.withTenant((tx) => getFarm(tx, c.var.tenant.id, c.var.access, c.req.param('id')));
       return farm ? c.json(farm, 200) : c.json(notFound, 404);
     })
     .patch('/:id', requirePermission('fazendas.editar'), zValidator('json', updateFarmSchema), async (c) => {
@@ -112,6 +115,8 @@ export function createFarmsRoutes() {
           updateFarm(tx, { tenantId: tenant.id, userId }, access, c.req.param('id'), c.req.valid('json')),
         );
       } catch (error) {
+        const refused = referralRefusal(c, error);
+        if (refused) return refused;
         return c.json(ownersConflict(error), 409);
       }
       if (result === null) return c.json(notFound, 404);
@@ -140,6 +145,7 @@ export function createFarmsRoutes() {
             nameColumn: 'contact_id',
             primaryFlag: { column: 'is_primary', label: 'Proprietário principal' },
           },
+          farmReferralHistoryChild,
         ],
         access: canView(),
         isVisible: (tx, c, id) => farmVisible(tx, c.var.access, id),

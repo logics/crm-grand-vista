@@ -20,6 +20,7 @@ import {
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import { UFS, municipalityOptionSchema } from './region.js';
+import { referralChainInputSchema, referralChainOutputSchema } from './referral-chain.js';
 import { optionalText } from './text.js';
 
 /** Nível: o tipo único das colunas de potencial, prioridade e nota. A tabela as protege por `CHECK` montado desta constante. */
@@ -380,6 +381,7 @@ export const createFarmSchema = z
     commercialStatusId: farmEditableShape.commercialStatusId.optional(),
     usableAreaHa: farmEditableShape.usableAreaHa.optional(),
     owners: ownersSchema.optional(),
+    referralChain: referralChainInputSchema.optional(),
     ...optionalOnCreate,
     ...optionalPricing,
   })
@@ -409,7 +411,7 @@ export type CreateFarmInput = z.output<typeof createFarmSchema>;
 
 /** Só o que muda. Área útil sem a total no corpo é conferida contra o cadastro (serviço). */
 export const updateFarmSchema = z
-  .object({ ...farmEditableShape, owners: ownersSchema })
+  .object({ ...farmEditableShape, owners: ownersSchema, referralChain: referralChainInputSchema })
   .partial()
   .superRefine(checkFarmPatch);
 export type UpdateFarmInput = z.output<typeof updateFarmSchema>;
@@ -517,6 +519,10 @@ export const farmSchema = z.object({
   createdAt: z.string(),
 });
 export type Farm = z.infer<typeof farmSchema>;
+
+/** A fazenda com a cadeia de indicação: `GET /:id`, `POST` e `PATCH`; a lista não a carrega. */
+export const farmDetailSchema = farmSchema.extend({ referralChain: referralChainOutputSchema });
+export type FarmDetail = z.infer<typeof farmDetailSchema>;
 
 export const FARM_SORT_FIELDS = ['createdAt', 'name', 'totalAreaHa', 'askingPrice'] as const;
 
