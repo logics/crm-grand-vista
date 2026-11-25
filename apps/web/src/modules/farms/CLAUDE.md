@@ -2,7 +2,7 @@
 
 Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comercial, #147).
 
-- **Spec:** `docs/specs/fase-1-fazendas.md`
+- **Spec:** `docs/specs/fase-1-fazendas.md`; cadeia de indicação (#187): `docs/specs/fase-1-cadeia-de-indicacao.md`
 - **Depende de:** `@crm/shared`, `@crm/ui`, `src/listing`, `src/history`, `src/record-sections`, `src/shell`, `modules/settings` (`VocabularyField`, sugestão de praça, contexto de exibição de área), `modules/municipalities`, `modules/users`, `modules/referrals` (`ReferralChainField`, `FarmReferralSection`)
 
 ## Convenções locais

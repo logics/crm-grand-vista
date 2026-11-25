@@ -406,7 +406,7 @@ describe('varredura das respostas da API', () => {
     const corretor = await createUserWithPassword(db, 'Nando Leitor Corretor');
     const indicador = await createUserWithPassword(db, 'Olga Indicadora');
     await createMembership(db, indicador.id, tenantId);
-    const farmId = await db.withTenant(tenantId, async (tx) => {
+    const { farmId, brokerContactId } = await db.withTenant(tenantId, async (tx) => {
       const profiles = await tx.select({ id: accessProfiles.id, name: accessProfiles.name }).from(accessProfiles);
       const profileOf = (name: string) => profiles.find((profile) => profile.name === name)!.id;
       for (const [user, name] of [
@@ -432,13 +432,24 @@ describe('varredura das respostas da API', () => {
         .values({ tenantId, personType: 'pf', name: 'Indicador externo da fazenda' })
         .returning({ id: contacts.id });
       await tx.insert(contactRoles).values({ tenantId, contactId: brokerContact!.id, role: 'external_broker' });
-      await tx.insert(referralLinks).values([
-        { tenantId, subjectFarmId: farm!.id, referrerUserId: gestor.id, position: 1 },
-        { tenantId, subjectFarmId: farm!.id, referrerContactId: brokerContact!.id, position: 2 },
-        { tenantId, subjectFarmId: farm!.id, referrerUserId: indicador.id, position: 3 },
-      ]);
-      return farm!.id;
+      return { farmId: farm!.id, brokerContactId: brokerContact!.id };
     });
+    // A cadeia entra pelo PATCH, o caminho real e auditado: é ele que alimenta o histórico lido abaixo.
+    const seeded = await call(
+      'PATCH /e/:tenant/farms/:id',
+      {
+        path: `/e/${tenantSlug}/farms/${farmId}`,
+        body: {
+          referralChain: [
+            { referrer: { kind: 'user', id: gestor.id } },
+            { referrer: { kind: 'contact', id: brokerContactId } },
+            { referrer: { kind: 'user', id: indicador.id } },
+          ],
+        },
+      },
+      { label: gestor.name, credentials: gestor },
+    );
+    expect(seeded.status).toBe(200);
     // O indicador vira super admin **depois** de gravado: nenhuma resposta pode trazer a flag dele.
     await db.semTenant({ reason: 'cli' }, (tx) => tx.update(users).set({ isSuperAdmin: true }).where(eq(users.id, indicador.id)));
 
@@ -450,12 +461,10 @@ describe('varredura das respostas da API', () => {
       ] as const) {
         const { status, text } = await call(route, { path }, reader);
         expect(status, `${route} como ${user.name}`).toBe(200);
-        // A cadeia foi semeada direto no banco, sem auditoria: o histórico vem vazio, e o detalhe traz os nomes.
-        if (route.endsWith(':id')) {
-          expect(text).toContain('Indicador externo da fazenda');
-          expect(text).toContain('Olga Indicadora');
-          expect(text).toContain('"linked":');
-        }
+        // Detalhe e histórico trazem os nomes dos indicadores, inclusive o de quem virou super admin depois.
+        expect(text).toContain('Indicador externo da fazenda');
+        expect(text).toContain('Olga Indicadora');
+        if (route.endsWith(':id')) expect(text).toContain('"linked":');
         expect(SUPER_ADMIN_TRACE.test(text)).toBe(false);
       }
     }

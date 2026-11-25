@@ -40,6 +40,12 @@ const CHECK_MESSAGES: Record<string, string> = {
   referral_links_notes_check: REFERRAL_NOTES_TOO_LONG_MESSAGE,
   referral_links_not_self_check: 'O contato não pode estar na própria cadeia de indicação.',
 };
+const REFERRER_FK_CONSTRAINTS = new Set([
+  'referral_links_referrer_user_id_users_id_fk',
+  'referral_links_referrer_contact_id_contacts_id_fk',
+]);
+const REFERRER_GONE_MESSAGE =
+  'Um dos indicadores da cadeia de indicação foi excluído por outra pessoa. Recarregue e tente de novo.';
 const CHECK_FALLBACK_MESSAGE = 'A cadeia de indicação não respeita as regras do cadastro.';
 const UNIQUE_MESSAGE =
   'A cadeia de indicação tem indicador ou posição repetidos, ou foi alterada por outra pessoa ao mesmo tempo. Recarregue e tente de novo.';
@@ -55,8 +61,9 @@ const chainInvalid = (message: string, position?: number) =>
   }) as const;
 
 /**
- * A recusa da cadeia: a regra do serviço ou o CHECK/UNIQUE de `referral_links`
- * (inclusive a posição adiada, que estoura no `COMMIT`) viram 400 no campo.
+ * A recusa da cadeia: a regra do serviço, o CHECK/UNIQUE de `referral_links`
+ * (inclusive a posição adiada, que estoura no `COMMIT`) e a FK do indicador
+ * excluído entre a checagem e o INSERT viram 400 no campo.
  * Outro erro, e outras tabelas, nada.
  */
 export function referralRefusal(c: Context<TenantEnv>, error: unknown) {
@@ -66,5 +73,7 @@ export function referralRefusal(c: Context<TenantEnv>, error: unknown) {
   if (code === SQLSTATE.checkViolation)
     return c.json(chainInvalid(CHECK_MESSAGES[constraint ?? ''] ?? CHECK_FALLBACK_MESSAGE), 400);
   if (code === SQLSTATE.uniqueViolation) return c.json(chainInvalid(UNIQUE_MESSAGE), 400);
+  if (code === SQLSTATE.foreignKeyViolation && REFERRER_FK_CONSTRAINTS.has(constraint ?? ''))
+    return c.json(chainInvalid(REFERRER_GONE_MESSAGE), 400);
   return null;
 }

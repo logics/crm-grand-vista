@@ -366,13 +366,13 @@ export async function farmVisible(tx: Transaction, access: EffectiveAccess, id: 
 }
 
 /** A fazenda com a cadeia de indicação, como `GET /:id`, `POST` e `PATCH` a devolvem. */
-async function withChain(tx: Transaction, tenantId: string, farm: Farm): Promise<FarmDetail> {
+async function withReferralChain(tx: Transaction, tenantId: string, farm: Farm): Promise<FarmDetail> {
   return { ...farm, referralChain: await readReferralChain(tx, tenantId, { kind: 'farm', id: farm.id }) };
 }
 
 export async function getFarm(tx: Transaction, tenantId: string, access: EffectiveAccess, id: string): Promise<FarmDetail | null> {
   const row = await findRow(tx, access, id);
-  return row ? withChain(tx, tenantId, (await serialize(tx, [row]))[0]!) : null;
+  return row ? withReferralChain(tx, tenantId, (await serialize(tx, [row]))[0]!) : null;
 }
 
 /** Com escopo `own`, o corretor responsável só pode ser o próprio usuário. */
@@ -586,7 +586,7 @@ export async function createFarm(
   await applyCrops(writes, actor.tenantId, row.id, none, cropIds);
   // Lançada, não devolvida: só o rollback desfaz a fazenda já gravada.
   if (referralChain) await replaceReferralChain(tx, writes, actor, { kind: 'farm', id: row.id, name: row.name }, referralChain);
-  return withChain(tx, actor.tenantId, (await serialize(tx, [row]))[0]!);
+  return withReferralChain(tx, actor.tenantId, (await serialize(tx, [row]))[0]!);
 }
 
 /** Altera a fazenda. Nulo se não existe ou está fora do escopo (404). */
@@ -648,7 +648,7 @@ export async function updateFarm(
   if (referralChain !== undefined) {
     await replaceReferralChain(tx, writes, actor, { kind: 'farm', id, name: updated.name }, referralChain);
   }
-  return withChain(tx, actor.tenantId, (await serialize(tx, [updated]))[0]!);
+  return withReferralChain(tx, actor.tenantId, (await serialize(tx, [updated]))[0]!);
 }
 
 /** A fazenda não está desativada: a exclusão é recusada (409). */

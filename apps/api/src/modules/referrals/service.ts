@@ -20,9 +20,14 @@ import { ensureContactRole } from '../../contact-roles/ensure.js';
 /** Quem é indicado: o tipo (contato ou fazenda) e o id. */
 export type ReferralSubjectRef = Pick<ReferralSubject, 'kind' | 'id'>;
 
+/** Por tipo de sujeito: a tabela, o id dela, a coluna do elo que a referencia e o nome dessa coluna no insert. */
+const SUBJECTS = {
+  contact: { table: contacts, id: contacts.id, link: referralLinks.subjectContactId, linkKey: 'subjectContactId' },
+  farm: { table: farms, id: farms.id, link: referralLinks.subjectFarmId, linkKey: 'subjectFarmId' },
+} as const;
+
 /** A coluna de `referral_links` que guarda o sujeito, conforme o tipo. */
-const subjectColumn = (subject: ReferralSubjectRef) =>
-  subject.kind === 'contact' ? referralLinks.subjectContactId : referralLinks.subjectFarmId;
+const subjectColumn = (subject: ReferralSubjectRef) => SUBJECTS[subject.kind].link;
 
 /**
  * Recusa de regra da cadeia (400 no item). É **lançada**, e não devolvida: o
@@ -163,9 +168,8 @@ export async function replaceReferralChain(
 ): Promise<void> {
   const tenantId = actor.tenantId!;
   // Serializa dois saves do mesmo sujeito: o segundo lê a cadeia que o primeiro deixou.
-  await (subject.kind === 'contact'
-    ? tx.execute(sql`select ${contacts.id} from ${contacts} where ${contacts.id} = ${subject.id} for update`)
-    : tx.execute(sql`select ${farms.id} from ${farms} where ${farms.id} = ${subject.id} for update`));
+  const own = SUBJECTS[subject.kind];
+  await tx.execute(sql`select ${own.id} from ${own.table} where ${own.id} = ${subject.id} for update`);
   const current = await tx.select().from(referralLinks).where(eq(subjectColumn(subject), subject.id));
   const currentByKey = new Map(
     current.map((row) => [
@@ -209,8 +213,7 @@ export async function replaceReferralChain(
     } else {
       await writes.insert(referralLinks, {
         tenantId,
-        subjectContactId: subject.kind === 'contact' ? subject.id : null,
-        subjectFarmId: subject.kind === 'farm' ? subject.id : null,
+        [own.linkKey]: subject.id,
         referrerUserId: link.referrer.kind === 'user' ? link.referrer.id : null,
         referrerContactId: link.referrer.kind === 'contact' ? link.referrer.id : null,
         position: link.position,

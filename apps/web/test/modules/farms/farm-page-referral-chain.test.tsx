@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '../../support/dom.js';
+import type { PermissionCode } from '@crm/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -12,10 +13,10 @@ const chain = [
   { id: 'l2', position: 2, referrer: { kind: 'contact', id: 'c9', name: 'Antônio Prado' }, notes: null },
 ];
 
-function open(record: unknown, permissions: string[] = ['fazendas.ver', 'fazendas.editar']) {
+function open(record: unknown, permissions: PermissionCode[] = ['fazendas.ver', 'fazendas.editar']) {
   stubFakeApi({
     session: session(),
-    permissions: permissions as never,
+    permissions,
     dataScopes: { fazendas: 'all' },
     records: { '/e/grand-vista/farms/f1': record, '/e/grand-vista/farms/f1/history': { entries: [] } },
   });

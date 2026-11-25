@@ -2,7 +2,7 @@
 
 Fazendas da empresa ativa: o imóvel captado. Cadastro mínimo (#145) e ficha técnica e comercial (#147): níveis, distâncias, situação documental, textos, coordenadas, aptidões e culturas.
 
-- **Spec:** `docs/specs/fase-1-fazendas.md`; issue #145
+- **Spec:** `docs/specs/fase-1-fazendas.md`; cadeia de indicação (#187): `docs/specs/fase-1-cadeia-de-indicacao.md`; issue #145
 - **Tabelas que possui:** `farms` (migration `0021_farms.sql`), com todas as colunas do modelo (precificação e `custom_fields` ainda sem rota), `commercial_statuses` aceita o significado `inactive` (migration `0024_farm_inactive_status.sql`, que também semeia "Desativada" nas empresas existentes), e as junções `farm_aptitudes` e `farm_crops` (migration `0022_farm_aptitudes_crops.sql`).
 - **Depende de:** `@crm/db`, `@crm/shared`, `src/authorization`, `src/history`, `src/listing`, `src/contact-roles`, `modules/settings` (só `defaultEntries`), `modules/referrals` (cadeia de indicação)
 

@@ -15,4 +15,4 @@ Cadeia de indicação (`referral_links`): "o Pedro veio pelo João, que soube pe
 - Todo contato da cadeia ganha o papel Corretor externo (`ensureContactRole`, idempotente); esvaziar a cadeia não o retira.
 - `readReferralChain` nunca seleciona `is_super_admin`.
 - `contactReferralHistoryChild` e `farmReferralHistoryChild` declaram o elo como filho do histórico do contato e da fazenda; quem importa `routes.ts` (contatos e fazendas) carrega também a declaração de uso do papel; o `qualifier` (em `src/history`) põe "(posição N)" só no cadastro.
-- `referralRefusal` (em `routes.ts`) traduz a recusa da regra e o CHECK/UNIQUE de `referral_links` em 400 no campo `referralChain`; só dessa tabela.
+- `referralRefusal` (em `routes.ts`) traduz a recusa da regra e o CHECK/UNIQUE/FK do indicador de `referral_links` em 400 no campo `referralChain`; só dessa tabela.

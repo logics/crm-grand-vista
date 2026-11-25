@@ -21,6 +21,7 @@ const env = loadApiEnv();
 const CHECK_MARKER = 'forca-check';
 const UNIQUE_MARKER = 'forca-indicador-repetido';
 const POSITION_MARKER = 'forca-posicao-repetida';
+const GONE_MARKER = 'forca-indicador-excluido';
 
 const TRIGGER_FUNCTION = `
   create or replace function referral_links_force_violation_for_test() returns trigger language plpgsql as $$
@@ -34,6 +35,8 @@ const TRIGGER_FUNCTION = `
           and referrer_contact_id is not null limit 1;
     elsif new.notes = '${POSITION_MARKER}' then
       new.position := 1;
+    elsif new.notes = '${GONE_MARKER}' then
+      new.referrer_contact_id := gen_random_uuid();
     end if;
     return new;
   end $$`;
@@ -146,6 +149,22 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
     expect(listed.items).toHaveLength(0);
   });
 
+  it('FK do indicador excluído entre a checagem e o INSERT é 400 com mensagem clara e não grava o contato', async () => {
+    const joao = await create('João');
+    const name = `Pedro ${(counter += 1)}`;
+    const response = await post({
+      personType: 'pf',
+      name,
+      roles: ['buyer'],
+      referralChain: [asContact(joao.id, GONE_MARKER)],
+    });
+    expect(await expectChainRefusal(response)).toContain('foi excluído');
+    const listed = (await (await app.request(`${url()}?q=${encodeURIComponent(name)}`, { headers: { cookie } })).json()) as {
+      items: unknown[];
+    };
+    expect(listed.items).toHaveLength(0);
+  });
+
   describe('fazenda', () => {
     const postFarm = (name: string, referralChain: unknown) =>
       app.request(
@@ -172,6 +191,14 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
       const sebastiao = await create('Sebastião');
       const response = await postFarm(`Fazenda ${(counter += 1)}`, [asContact(joao.id), asContact(sebastiao.id, UNIQUE_MARKER)]);
       await expectChainRefusal(response);
+    });
+
+    it('FK do indicador excluído entre a checagem e o INSERT é 400 com mensagem clara e não grava a fazenda', async () => {
+      const joao = await create('João');
+      const name = `Fazenda ${(counter += 1)}`;
+      const response = await postFarm(name, [asContact(joao.id, GONE_MARKER)]);
+      expect(await expectChainRefusal(response)).toContain('foi excluído');
+      expect(await farmExists(name)).toBe(false);
     });
 
     it('UNIQUE de posição adiada, que estoura no COMMIT, é 400 e não grava a fazenda', async () => {
