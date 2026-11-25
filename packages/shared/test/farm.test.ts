@@ -274,3 +274,29 @@ describe('ficha técnica e comercial', () => {
     expect(createFarmSchema.safeParse({ ...base, cropIds: ['x'] }).success).toBe(false);
   });
 });
+
+describe('referralChain nos schemas de fazenda', () => {
+  const base = { name: 'Boa Vista', municipalityIbgeCode: '5218805', totalAreaHa: '1000' };
+  const referrer = (n: number) => ({ kind: 'contact', id: `0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e${String(n).padStart(2, '0')}` }) as const;
+
+  it('PATCH sem a chave não a produz (ausente não toca a cadeia)', () => {
+    const parsed = updateFarmSchema.parse({ name: 'x' });
+    expect('referralChain' in parsed).toBe(false);
+  });
+
+  it('PATCH com lista vazia mantém [] (apaga a cadeia)', () => {
+    expect(updateFarmSchema.parse({ referralChain: [] }).referralChain).toEqual([]);
+  });
+
+  it('POST aceita a cadeia e também sem ela', () => {
+    expect(createFarmSchema.parse(base).referralChain).toBeUndefined();
+    expect(createFarmSchema.parse({ ...base, referralChain: [{ referrer: referrer(1) }] }).referralChain).toEqual([
+      { referrer: referrer(1), notes: null },
+    ]);
+  });
+
+  it('POST com 11 elos é recusado', () => {
+    const referralChain = Array.from({ length: 11 }, (_, n) => ({ referrer: referrer(n) }));
+    expect(createFarmSchema.safeParse({ ...base, referralChain }).success).toBe(false);
+  });
+});

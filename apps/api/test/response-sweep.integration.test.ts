@@ -400,4 +400,64 @@ describe('varredura das respostas da API', () => {
     expect(history.status).toBe(200);
     expect(SUPER_ADMIN_TRACE.test(history.text)).toBe(false);
   });
+
+  it('fazenda de cadeia mista: Gestor e Corretor leem a cadeia com nomes e linked, sem traço da flag', async () => {
+    const gestor = await createUserWithPassword(db, 'Mel Leitora Gestora');
+    const corretor = await createUserWithPassword(db, 'Nando Leitor Corretor');
+    const indicador = await createUserWithPassword(db, 'Olga Indicadora');
+    await createMembership(db, indicador.id, tenantId);
+    const farmId = await db.withTenant(tenantId, async (tx) => {
+      const profiles = await tx.select({ id: accessProfiles.id, name: accessProfiles.name }).from(accessProfiles);
+      const profileOf = (name: string) => profiles.find((profile) => profile.name === name)!.id;
+      for (const [user, name] of [
+        [gestor, 'Gestor'],
+        [corretor, 'Corretor'],
+      ] as const) {
+        await createMembership(db, user.id, tenantId, { isDefault: true });
+        await tx.insert(userProfiles).values({ tenantId, userId: user.id, profileId: profileOf(name) });
+      }
+      const [farm] = await tx
+        .insert(farms)
+        .values({
+          tenantId,
+          name: 'Fazenda de cadeia mista',
+          municipalityIbgeCode: '5218805',
+          responsibleUserId: corretor.id,
+          commercialStatusId: sweepFarm.status,
+          totalAreaHa: '100',
+        })
+        .returning({ id: farms.id });
+      const [brokerContact] = await tx
+        .insert(contacts)
+        .values({ tenantId, personType: 'pf', name: 'Indicador externo da fazenda' })
+        .returning({ id: contacts.id });
+      await tx.insert(contactRoles).values({ tenantId, contactId: brokerContact!.id, role: 'external_broker' });
+      await tx.insert(referralLinks).values([
+        { tenantId, subjectFarmId: farm!.id, referrerUserId: gestor.id, position: 1 },
+        { tenantId, subjectFarmId: farm!.id, referrerContactId: brokerContact!.id, position: 2 },
+        { tenantId, subjectFarmId: farm!.id, referrerUserId: indicador.id, position: 3 },
+      ]);
+      return farm!.id;
+    });
+    // O indicador vira super admin **depois** de gravado: nenhuma resposta pode trazer a flag dele.
+    await db.semTenant({ reason: 'cli' }, (tx) => tx.update(users).set({ isSuperAdmin: true }).where(eq(users.id, indicador.id)));
+
+    for (const user of [gestor, corretor]) {
+      const reader = { label: user.name, credentials: user };
+      for (const [route, path] of [
+        ['GET /e/:tenant/farms/:id', `/e/${tenantSlug}/farms/${farmId}`],
+        ['GET /e/:tenant/farms/:id/history', `/e/${tenantSlug}/farms/${farmId}/history`],
+      ] as const) {
+        const { status, text } = await call(route, { path }, reader);
+        expect(status, `${route} como ${user.name}`).toBe(200);
+        // A cadeia foi semeada direto no banco, sem auditoria: o histórico vem vazio, e o detalhe traz os nomes.
+        if (route.endsWith(':id')) {
+          expect(text).toContain('Indicador externo da fazenda');
+          expect(text).toContain('Olga Indicadora');
+          expect(text).toContain('"linked":');
+        }
+        expect(SUPER_ADMIN_TRACE.test(text)).toBe(false);
+      }
+    }
+  });
 });

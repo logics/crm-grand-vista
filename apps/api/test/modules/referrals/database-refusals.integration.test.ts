@@ -6,7 +6,7 @@
 // O caminho do banco é forçado por um gatilho de teste, criado e removido aqui
 // pelo papel dono: a nota do elo escolhe a violação. A validação do serviço fica
 // intacta, e o código de produção não ganha nada só para o teste.
-import { auditedWrites, createDatabase, createPool, userProfiles } from '@crm/db';
+import { auditedWrites, commercialStatuses, createDatabase, createPool, userProfiles } from '@crm/db';
 import { loadApiEnv, loadMigrationEnv } from '@crm/shared/env';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -29,7 +29,9 @@ const TRIGGER_FUNCTION = `
       new.position := 11;
     elsif new.notes = '${UNIQUE_MARKER}' then
       select referrer_contact_id into new.referrer_contact_id
-        from referral_links where subject_contact_id = new.subject_contact_id and referrer_contact_id is not null limit 1;
+        from referral_links
+        where (subject_contact_id = new.subject_contact_id or subject_farm_id = new.subject_farm_id)
+          and referrer_contact_id is not null limit 1;
     elsif new.notes = '${POSITION_MARKER}' then
       new.position := 1;
     end if;
@@ -74,6 +76,9 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
       const ids = await seedAccessProfiles(tx, auditedWrites(tx, { tenantId: tenant.id, userId: null }), tenant.id);
       await tx.insert(userProfiles).values({ tenantId: tenant.id, userId: manager.id, profileId: ids.get('Admin')! });
     });
+    await db.withTenant(tenant.id, (tx) =>
+      tx.insert(commercialStatuses).values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 }),
+    );
     cookie = await loginAs(app, manager);
 
     const client = owner();
@@ -139,5 +144,43 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
       items: unknown[];
     };
     expect(listed.items).toHaveLength(0);
+  });
+
+  describe('fazenda', () => {
+    const postFarm = (name: string, referralChain: unknown) =>
+      app.request(
+        `/e/${tenant.slug}/farms`,
+        jsonRequest('POST', { name, municipalityIbgeCode: '5218805', totalAreaHa: '1000', referralChain }, cookie),
+      );
+    const farmExists = async (name: string) => {
+      const listed = (await (
+        await app.request(`/e/${tenant.slug}/farms?q=${encodeURIComponent(name)}`, { headers: { cookie } })
+      ).json()) as { items: unknown[] };
+      return listed.items.length > 0;
+    };
+
+    it('CHECK de posição violado no INSERT é 400 com a mensagem do limite e não grava a fazenda', async () => {
+      const joao = await create('João');
+      const name = `Fazenda ${(counter += 1)}`;
+      const response = await postFarm(name, [asContact(joao.id, CHECK_MARKER)]);
+      expect(await expectChainRefusal(response)).toContain('até 10 indicadores');
+      expect(await farmExists(name)).toBe(false);
+    });
+
+    it('UNIQUE de indicador violado no INSERT é 400', async () => {
+      const joao = await create('João');
+      const sebastiao = await create('Sebastião');
+      const response = await postFarm(`Fazenda ${(counter += 1)}`, [asContact(joao.id), asContact(sebastiao.id, UNIQUE_MARKER)]);
+      await expectChainRefusal(response);
+    });
+
+    it('UNIQUE de posição adiada, que estoura no COMMIT, é 400 e não grava a fazenda', async () => {
+      const joao = await create('João');
+      const sebastiao = await create('Sebastião');
+      const name = `Fazenda ${(counter += 1)}`;
+      const response = await postFarm(name, [asContact(joao.id), asContact(sebastiao.id, POSITION_MARKER)]);
+      await expectChainRefusal(response);
+      expect(await farmExists(name)).toBe(false);
+    });
   });
 });

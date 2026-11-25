@@ -1,8 +1,8 @@
-// Cadeia de indicação (`referral_links`) de um contato: leitura, substituição
-// pela diferença e exclusão. Sem rota própria: quem a grava é o módulo do
-// sujeito (hoje contatos), dentro da transação e do `change_id` do save dele.
+// Cadeia de indicação (`referral_links`) de um sujeito (contato ou fazenda):
+// leitura, substituição pela diferença e exclusão. Sem rota própria: quem a
+// grava é o módulo do sujeito, dentro da transação e do `change_id` do save dele.
 // A regra de validade (duplicado, ciclo) é a de `@crm/shared`, a mesma do front.
-import { referralLinks, contacts, memberships, users, type AuditActor, type AuditedWrites, type Transaction } from '@crm/db';
+import { referralLinks, contacts, farms, memberships, users, type AuditActor, type AuditedWrites, type Transaction } from '@crm/db';
 import {
   REFERRAL_CONTACT_UNKNOWN_MESSAGE,
   REFERRAL_USER_NOT_IN_TEAM_MESSAGE,
@@ -17,12 +17,16 @@ import {
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { ensureContactRole } from '../../contact-roles/ensure.js';
 
-/** Sujeito da cadeia: por ora o contato (a fazenda usa a tabela na #187). */
-export type ContactSubject = ReferralSubject & { kind: 'contact' };
+/** Quem é indicado: o tipo (contato ou fazenda) e o id. */
+export type ReferralSubjectRef = Pick<ReferralSubject, 'kind' | 'id'>;
+
+/** A coluna de `referral_links` que guarda o sujeito, conforme o tipo. */
+const subjectColumn = (subject: ReferralSubjectRef) =>
+  subject.kind === 'contact' ? referralLinks.subjectContactId : referralLinks.subjectFarmId;
 
 /**
  * Recusa de regra da cadeia (400 no item). É **lançada**, e não devolvida: o
- * `PATCH` já gravou os campos do contato antes da cadeia, e só o rollback da
+ * `PATCH` já gravou os campos do sujeito antes da cadeia, e só o rollback da
  * transação desfaz isso.
  */
 export class ReferralChainRejection extends Error {
@@ -39,7 +43,7 @@ export class ReferralChainRejection extends Error {
 export async function readReferralChain(
   tx: Transaction,
   tenantId: string,
-  subject: Pick<ContactSubject, 'id'>,
+  subject: ReferralSubjectRef,
 ): Promise<ReferralChainOutput> {
   const rows = await tx
     .select({
@@ -55,7 +59,7 @@ export async function readReferralChain(
     .from(referralLinks)
     .leftJoin(users, eq(users.id, referralLinks.referrerUserId))
     .leftJoin(contacts, eq(contacts.id, referralLinks.referrerContactId))
-    .where(eq(referralLinks.subjectContactId, subject.id))
+    .where(eq(subjectColumn(subject), subject.id))
     .orderBy(asc(referralLinks.position));
   return rows.map((row) => ({
     id: row.id,
@@ -144,7 +148,7 @@ async function namesOf(tx: Transaction, input: ReferralChainInput): Promise<Map<
 }
 
 /**
- * Substitui a cadeia do contato pela lista (a ordem é a posição), gravando só a
+ * Substitui a cadeia do sujeito pela lista (a ordem é a posição), gravando só a
  * diferença, pela identidade do indicador: quem saiu é excluído, quem ficou muda
  * de posição ou nota **mantendo o `id`**, quem entrou é inserido. Inverter dois
  * elos vira duas alterações de posição — a restrição de posição é adiável, então
@@ -154,13 +158,15 @@ export async function replaceReferralChain(
   tx: Transaction,
   writes: AuditedWrites,
   actor: AuditActor,
-  subject: ContactSubject,
+  subject: ReferralSubject,
   input: ReferralChainInput,
 ): Promise<void> {
   const tenantId = actor.tenantId!;
-  // Serializa dois saves do mesmo contato: o segundo lê a cadeia que o primeiro deixou.
-  await tx.execute(sql`select ${contacts.id} from ${contacts} where ${contacts.id} = ${subject.id} for update`);
-  const current = await tx.select().from(referralLinks).where(eq(referralLinks.subjectContactId, subject.id));
+  // Serializa dois saves do mesmo sujeito: o segundo lê a cadeia que o primeiro deixou.
+  await (subject.kind === 'contact'
+    ? tx.execute(sql`select ${contacts.id} from ${contacts} where ${contacts.id} = ${subject.id} for update`)
+    : tx.execute(sql`select ${farms.id} from ${farms} where ${farms.id} = ${subject.id} for update`));
+  const current = await tx.select().from(referralLinks).where(eq(subjectColumn(subject), subject.id));
   const currentByKey = new Map(
     current.map((row) => [
       referrerKey(
@@ -203,7 +209,8 @@ export async function replaceReferralChain(
     } else {
       await writes.insert(referralLinks, {
         tenantId,
-        subjectContactId: subject.id,
+        subjectContactId: subject.kind === 'contact' ? subject.id : null,
+        subjectFarmId: subject.kind === 'farm' ? subject.id : null,
         referrerUserId: link.referrer.kind === 'user' ? link.referrer.id : null,
         referrerContactId: link.referrer.kind === 'contact' ? link.referrer.id : null,
         position: link.position,
@@ -221,7 +228,7 @@ export async function replaceReferralChain(
 const keyOf = (row: typeof referralLinks.$inferSelect) =>
   referrerKey(row.referrerUserId ? { kind: 'user', id: row.referrerUserId } : { kind: 'contact', id: row.referrerContactId! });
 
-/** Apaga a cadeia do contato, auditada: o `CASCADE` do banco não audita, então vem antes da exclusão do sujeito. */
-export async function deleteReferralChain(writes: AuditedWrites, subject: Pick<ContactSubject, 'id'>): Promise<void> {
-  await writes.delete(referralLinks, eq(referralLinks.subjectContactId, subject.id));
+/** Apaga a cadeia do sujeito, auditada: o `CASCADE` do banco não audita, então vem antes da exclusão do sujeito. */
+export async function deleteReferralChain(writes: AuditedWrites, subject: ReferralSubjectRef): Promise<void> {
+  await writes.delete(referralLinks, eq(subjectColumn(subject), subject.id));
 }

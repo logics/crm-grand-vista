@@ -43,6 +43,7 @@ import {
   type CreateFarmInput,
   type FarmOwnerInput,
   type Farm,
+  type FarmDetail,
   type FarmDuplicate,
   type FarmDuplicatesQuery,
   type FarmListQuery,
@@ -51,11 +52,12 @@ import {
 } from '@crm/shared';
 import { and, asc, eq, exists, inArray, isNull, ne, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { ensureContactRole } from '../../contact-roles/ensure.js';
 import { defaultEntries } from '../settings/service.js';
+import { deleteReferralChain, readReferralChain, replaceReferralChain } from '../referrals/service.js';
+import { farmScopeOf } from './scope.js';
 
 type FarmRow = typeof farms.$inferSelect;
 
@@ -104,9 +106,6 @@ export const isRejection = (result: unknown): result is FarmRejection =>
 
 export const isForbidden = (result: unknown): result is FarmForbidden =>
   typeof result === 'object' && result !== null && 'forbidden' in result;
-
-/** O predicado de escopo de dados do módulo, o mesmo em lista, total, detalhe, histórico e escrita. */
-const scopeOf = (access: EffectiveAccess): SQL => dataScopeClause(access, 'fazendas', farms.responsibleUserId);
 
 /** Referências com o nome de hoje, ativas ou não: o inativo já gravado continua exibido. */
 async function serialize(tx: Transaction, rows: readonly FarmRow[]): Promise<Farm[]> {
@@ -310,7 +309,7 @@ function farmFilters(tx: Transaction, access: EffectiveAccess, query: FarmListQu
 
 export async function listFarms(tx: Transaction, access: EffectiveAccess, query: FarmListQuery): Promise<ListPage<Farm>> {
   const page = await paginatedQuery(tx, farmList, query, {
-    scope: scopeOf(access),
+    scope: farmScopeOf(access),
     filters: farmFilters(tx, access, query),
     searchAlso: farmSearchAlso(tx, query.q),
   });
@@ -318,7 +317,7 @@ export async function listFarms(tx: Transaction, access: EffectiveAccess, query:
 }
 
 async function findRow(tx: Transaction, access: EffectiveAccess, id: string, lock = false): Promise<FarmRow | null> {
-  const query = tx.select().from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+  const query = tx.select().from(farms).where(and(eq(farms.id, id), farmScopeOf(access)));
   const [row] = await (lock ? query.for('update') : query);
   return row ?? null;
 }
@@ -341,7 +340,7 @@ export async function findFarmDuplicates(tx: Transaction, access: EffectiveAcces
       and(
         sql`${normalizedText(farms.name)} = ${normalizedText(name)}`,
         eq(farms.municipalityIbgeCode, municipalityIbgeCode),
-        scopeOf(access),
+        farmScopeOf(access),
         excludeId ? ne(farms.id, excludeId) : undefined,
       ),
     )
@@ -362,13 +361,18 @@ export async function findFarmDuplicates(tx: Transaction, access: EffectiveAcces
 }
 
 export async function farmVisible(tx: Transaction, access: EffectiveAccess, id: string): Promise<boolean> {
-  const [row] = await tx.select({ id: farms.id }).from(farms).where(and(eq(farms.id, id), scopeOf(access)));
+  const [row] = await tx.select({ id: farms.id }).from(farms).where(and(eq(farms.id, id), farmScopeOf(access)));
   return row !== undefined;
 }
 
-export async function getFarm(tx: Transaction, access: EffectiveAccess, id: string): Promise<Farm | null> {
+/** A fazenda com a cadeia de indicação, como `GET /:id`, `POST` e `PATCH` a devolvem. */
+async function withChain(tx: Transaction, tenantId: string, farm: Farm): Promise<FarmDetail> {
+  return { ...farm, referralChain: await readReferralChain(tx, tenantId, { kind: 'farm', id: farm.id }) };
+}
+
+export async function getFarm(tx: Transaction, tenantId: string, access: EffectiveAccess, id: string): Promise<FarmDetail | null> {
   const row = await findRow(tx, access, id);
-  return row ? (await serialize(tx, [row]))[0]! : null;
+  return row ? withChain(tx, tenantId, (await serialize(tx, [row]))[0]!) : null;
 }
 
 /** Com escopo `own`, o corretor responsável só pode ser o próprio usuário. */
@@ -544,7 +548,8 @@ export async function createFarm(
   actor: AuditActor & { tenantId: string },
   access: EffectiveAccess,
   input: CreateFarmInput,
-): Promise<Farm | FarmRejection | FarmForbidden> {
+): Promise<FarmDetail | FarmRejection | FarmForbidden> {
+  const { referralChain } = input;
   const responsibleUserId = input.responsibleUserId ?? actor.userId!;
   if (!mayAssign(access, responsibleUserId)) return { forbidden: FARM_RESPONSIBLE_FORBIDDEN_MESSAGE };
 
@@ -579,7 +584,9 @@ export async function createFarm(
   await applyOwners(tx, writes, actor, row.id, input.owners ?? []);
   await applyAptitudes(writes, actor.tenantId, row.id, none, aptitudeIds);
   await applyCrops(writes, actor.tenantId, row.id, none, cropIds);
-  return (await serialize(tx, [row]))[0]!;
+  // Lançada, não devolvida: só o rollback desfaz a fazenda já gravada.
+  if (referralChain) await replaceReferralChain(tx, writes, actor, { kind: 'farm', id: row.id, name: row.name }, referralChain);
+  return withChain(tx, actor.tenantId, (await serialize(tx, [row]))[0]!);
 }
 
 /** Altera a fazenda. Nulo se não existe ou está fora do escopo (404). */
@@ -589,7 +596,7 @@ export async function updateFarm(
   access: EffectiveAccess,
   id: string,
   input: UpdateFarmInput,
-): Promise<Farm | FarmRejection | FarmForbidden | null> {
+): Promise<FarmDetail | FarmRejection | FarmForbidden | null> {
   // Trava a fazenda no início do save: saves concorrentes são serializados, e os
   // proprietários lidos depois do lock já refletem o save que terminou antes.
   const current = await findRow(tx, access, id, true);
@@ -604,7 +611,7 @@ export async function updateFarm(
   if (usableExceedsTotal(totalAreaHa, usableAreaHa)) {
     return { rejected: FARM_USABLE_AREA_EXCEEDS_TOTAL_MESSAGE, field: 'usableAreaHa' };
   }
-  const { aptitudeIds, cropIds, owners, ...fields } = input;
+  const { aptitudeIds, cropIds, owners, referralChain, ...fields } = input;
   const refused = (await referenceRejection(tx, actor.tenantId, fields, current)) ?? coordinatesRejection(fields, current);
   if (refused) return refused;
 
@@ -637,7 +644,11 @@ export async function updateFarm(
   if (aptitudeIds) await applyAptitudes(writes, actor.tenantId, id, currentJunctions.aptitudeIds, aptitudeIds);
   if (cropIds) await applyCrops(writes, actor.tenantId, id, currentJunctions.cropIds, cropIds);
   if (owners !== undefined) await applyOwners(tx, writes, actor, id, owners);
-  return (await serialize(tx, [updated]))[0]!;
+  // Lançada, não devolvida: só o rollback desfaz os campos já gravados.
+  if (referralChain !== undefined) {
+    await replaceReferralChain(tx, writes, actor, { kind: 'farm', id, name: updated.name }, referralChain);
+  }
+  return withChain(tx, actor.tenantId, (await serialize(tx, [updated]))[0]!);
 }
 
 /** A fazenda não está desativada: a exclusão é recusada (409). */
@@ -664,7 +675,7 @@ export async function deleteFarm(
     .select({ id: farms.id, systemMeaning: commercialStatuses.systemMeaning })
     .from(farms)
     .innerJoin(commercialStatuses, eq(commercialStatuses.id, farms.commercialStatusId))
-    .where(and(eq(farms.id, id), scopeOf(access)))
+    .where(and(eq(farms.id, id), farmScopeOf(access)))
     .for('update', { of: farms });
   if (!row) return null;
   if (row.systemMeaning !== 'inactive') return { conflict: FARM_DELETE_NOT_INACTIVE_MESSAGE };
@@ -676,6 +687,7 @@ export async function deleteFarm(
   await writes.delete(farmOwners, eq(farmOwners.farmId, id));
   await writes.delete(farmCrops, eq(farmCrops.farmId, id));
   await writes.delete(farmAptitudes, eq(farmAptitudes.farmId, id));
+  await deleteReferralChain(writes, { kind: 'farm', id });
   await writes.delete(farms, eq(farms.id, id));
   return 'deleted';
 }
@@ -755,7 +767,7 @@ export async function listFarmsOfOwner(
       .from(farmOwners)
       .where(and(eq(farmOwners.farmId, farms.id), eq(farmOwners.contactId, contactId))),
   );
-  const page = await paginatedQuery(tx, farmList, query, { scope: scopeOf(access), filters: [owned] });
+  const page = await paginatedQuery(tx, farmList, query, { scope: farmScopeOf(access), filters: [owned] });
   const items = (await serialize(tx, page.items)).map((farm) => ({
     id: farm.id,
     name: farm.name,

@@ -376,7 +376,7 @@ describe('cadeia de indicação do contato', () => {
       const crossTenant = await app.request(`/e/${other.slug}/contacts/${pedro.id}`, { headers: { cookie: otherCookie } });
       expect(crossTenant.status).toBe(404);
 
-      const leaked = await db.withTenant(other.id, (tx) => readReferralChain(tx, other.id, { id: pedro.id }));
+      const leaked = await db.withTenant(other.id, (tx) => readReferralChain(tx, other.id, { kind: 'contact', id: pedro.id }));
       expect(leaked).toEqual([]);
       const rows = await db.withTenant(other.id, (tx) =>
         tx

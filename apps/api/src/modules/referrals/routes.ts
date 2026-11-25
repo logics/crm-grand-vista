@@ -1,6 +1,7 @@
 // Declarações do módulo `referrals`, que não tem rota própria: a cadeia viaja
-// aninhada no contato. Quem importa este arquivo (o `contacts/routes.ts`) é
-// quem carrega a declaração de uso do papel — sem o import, retirar o papel
+// aninhada no contato e na fazenda. Quem importa este arquivo (o
+// `contacts/routes.ts` e o `farms/routes.ts`) carrega a declaração de uso do
+// papel — o módulo é avaliado uma vez, e sem o import, retirar o papel
 // Corretor externo em uso deixaria de ser 409. Também traduz as recusas da
 // cadeia (regra e banco) para a resposta HTTP.
 import { REFERRAL_CHAIN_TOO_LONG_MESSAGE, REFERRAL_NOTES_TOO_LONG_MESSAGE } from '@crm/shared';
@@ -24,6 +25,12 @@ export const contactReferralHistoryChild: HistoryChildDeclaration<'referral_link
   parentColumn: 'subject_contact_id',
   nameColumn: ['referrer_contact_id', 'referrer_user_id'],
   qualifier: { column: 'position', kinds: ['created'], format: (value) => `posição ${value}` },
+};
+
+/** O elo como filho do histórico da fazenda: o mesmo, preso à coluna do sujeito fazenda. */
+export const farmReferralHistoryChild: HistoryChildDeclaration<'referral_links'> = {
+  ...contactReferralHistoryChild,
+  parentColumn: 'subject_farm_id',
 };
 
 const REFERRAL_LINKS_TABLE = 'referral_links';
