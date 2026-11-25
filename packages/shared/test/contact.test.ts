@@ -213,3 +213,25 @@ describe('contactListQuerySchema', () => {
     }
   });
 });
+
+describe('referralChain nos schemas de contato', () => {
+  const base = { personType: 'pf', name: 'Pedro', roles: ['buyer'] } as const;
+  const referrer = { kind: 'contact', id: '0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e6f' } as const;
+
+  it('PATCH sem a chave não a produz (ausente não toca a cadeia)', () => {
+    const parsed = updateContactSchema.parse({ name: 'x' });
+    expect('referralChain' in parsed).toBe(false);
+    expect(parsed.referralChain).toBeUndefined();
+  });
+
+  it('PATCH com lista vazia mantém [] (apaga a cadeia)', () => {
+    expect(updateContactSchema.parse({ referralChain: [] }).referralChain).toEqual([]);
+  });
+
+  it('POST aceita a cadeia e também sem ela', () => {
+    expect(createContactSchema.parse(base).referralChain).toBeUndefined();
+    expect(createContactSchema.parse({ ...base, referralChain: [{ referrer }] }).referralChain).toEqual([
+      { referrer, notes: null },
+    ]);
+  });
+});

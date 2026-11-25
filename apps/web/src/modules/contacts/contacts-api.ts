@@ -1,6 +1,7 @@
 import {
   contactOptionsPageSchema,
   type Contact,
+  type ContactDetail,
   type ContactDuplicate,
   type ContactDuplicatesQuery,
   type ContactListQuery,
@@ -69,24 +70,24 @@ export async function fetchContacts(slug: string, query: ContactListQuery): Prom
   return (await response.json()) as ListPage<Contact>;
 }
 
-export async function fetchContact(slug: string, id: string): Promise<Contact> {
+export async function fetchContact(slug: string, id: string): Promise<ContactDetail> {
   const response = await api.e[':tenant'].contacts[':id'].$get({ param: { tenant: slug, id } });
   const status: number = response.status;
   if (status === 404) throw new ResourceNotFoundError();
   if (!response.ok) throw new Error(`Falha ao carregar o contato: HTTP ${response.status}.`);
-  return (await response.json()) as Contact;
+  return (await response.json()) as ContactDetail;
 }
 
-export async function createContact(slug: string, json: CreateContactInput): Promise<Contact> {
+export async function createContact(slug: string, json: CreateContactInput): Promise<ContactDetail> {
   const response = await api.e[':tenant'].contacts.$post({ param: { tenant: slug }, json });
   if (response.status !== 201) throw await failure(response);
-  return (await response.json()) as Contact;
+  return (await response.json()) as ContactDetail;
 }
 
-export async function updateContact(slug: string, id: string, json: UpdateContactInput): Promise<Contact> {
+export async function updateContact(slug: string, id: string, json: UpdateContactInput): Promise<ContactDetail> {
   const response = await api.e[':tenant'].contacts[':id'].$patch({ param: { tenant: slug, id }, json });
   if (response.status !== 200) throw await failure(response);
-  return (await response.json()) as Contact;
+  return (await response.json()) as ContactDetail;
 }
 
 export async function deleteContact(slug: string, id: string): Promise<void> {

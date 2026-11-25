@@ -211,6 +211,28 @@ export const FIELD_REGISTRY = {
       },
     },
   },
+  referral_links: {
+    label: 'Indicador',
+    gender: 'm',
+    fields: {
+      ...RECORD_COLUMNS,
+      tenant_id: HIDDEN,
+      subject_contact_id: HIDDEN,
+      subject_farm_id: HIDDEN,
+      referrer_user_id: {
+        type: 'reference',
+        label: 'Corretor interno',
+        references: { table: 'users', nameColumn: 'name' },
+      },
+      referrer_contact_id: {
+        type: 'reference',
+        label: 'Corretor externo',
+        references: { table: 'contacts', nameColumn: 'name' },
+      },
+      position: { type: 'number', label: 'Posição', gender: 'f' },
+      notes: { type: 'text', label: 'Nota', gender: 'f' },
+    },
+  },
   farm_aptitudes: {
     label: 'Aptidão',
     gender: 'f',

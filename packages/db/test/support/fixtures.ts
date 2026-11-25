@@ -24,6 +24,7 @@ import {
   leadSources,
   paymentMethods,
   purchaseProfiles,
+  referralLinks,
   profileDataScopes,
   profilePermissions,
   tenantSettings,
@@ -116,6 +117,12 @@ export async function createTenantWithBusinessData(db: Database, name: string): 
     await tx.insert(tradingPostMunicipalities).values({ tenantId, tradingPostId: post!.id, municipalityIbgeCode: '5218805' });
     const [contact] = await tx.insert(contacts).values({ tenantId, personType: 'pf', name: 'Exemplo' }).returning();
     await tx.insert(contactRoles).values({ tenantId, contactId: contact!.id, role: 'buyer' });
+    // Contato A indicado pelo contato B, posição 1: dá ao `referral_links` uma linha por empresa.
+    const [referrer] = await tx.insert(contacts).values({ tenantId, personType: 'pf', name: 'Indicador' }).returning();
+    await tx.insert(contactRoles).values({ tenantId, contactId: referrer!.id, role: 'external_broker' });
+    await tx
+      .insert(referralLinks)
+      .values({ tenantId, subjectContactId: contact!.id, referrerContactId: referrer!.id, position: 1 });
     const [farm] = await tx
       .insert(farms)
       .values({

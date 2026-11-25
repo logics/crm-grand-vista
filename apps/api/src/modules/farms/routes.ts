@@ -18,7 +18,7 @@ import { requirePermission } from '../../authorization/route-access.js';
 import { listFarmOptions } from './options.js';
 import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
-import { declareRoleUsage } from '../contacts/role-usage.js';
+import { declareRoleUsage } from '../../contact-roles/usage.js';
 import {
   createFarm,
   deleteFarm,

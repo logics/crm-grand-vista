@@ -20,6 +20,7 @@ const contact = (roles: string[]) => ({
   classificationId: null,
   leadSourceId: null,
   roles,
+  referralChain: [],
   createdAt: '2026-01-02T10:00:00.000Z',
 });
 

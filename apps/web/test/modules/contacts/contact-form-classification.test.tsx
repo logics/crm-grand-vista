@@ -23,6 +23,7 @@ const contact = (overrides = {}) => ({
   classificationId: classA.id,
   leadSourceId: referral.id,
   roles: ['buyer', 'owner'],
+  referralChain: [],
   createdAt: '2026-01-02T10:00:00.000Z',
   ...overrides,
 });

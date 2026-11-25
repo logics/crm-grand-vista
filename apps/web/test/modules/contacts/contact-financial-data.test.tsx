@@ -27,6 +27,7 @@ const contact = (buyerProfile: Record<string, unknown>) => ({
   leadSourceId: null,
   roles: ['buyer'],
   buyerProfile,
+  referralChain: [],
   createdAt: '2026-01-02T10:00:00.000Z',
 });
 

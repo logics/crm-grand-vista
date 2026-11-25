@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_REFERRAL_CHAIN_LENGTH,
+  REFERRAL_CHAIN_TOO_LONG_MESSAGE,
+  REFERRAL_NOTES_MAX_LENGTH,
+  referralChainInputOf,
+  referralChainInputSchema,
   type ReferralLink,
   type ReferralSubject,
   type Referrer,
@@ -163,5 +168,61 @@ describe('edição da cadeia', () => {
     const next = reorderReferralChain([...chain, link(carlos, 3)], [3]);
 
     expect(names(next)).toEqual(['1:Carlos Menezes', '2:João Batista', '3:Sebastião Ferreira']);
+  });
+});
+
+const uuidOf = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const contactItem = (n: number) => ({ referrer: { kind: 'contact' as const, id: uuidOf(n) } });
+
+describe('referralChainInputSchema', () => {
+  it('aceita 10 indicadores e recusa 11 com a mensagem do limite', () => {
+    expect(MAX_REFERRAL_CHAIN_LENGTH).toBe(10);
+    const ten = Array.from({ length: 10 }, (_, i) => contactItem(i + 1));
+    expect(referralChainInputSchema.safeParse(ten).success).toBe(true);
+    const eleven = referralChainInputSchema.safeParse([...ten, contactItem(11)]);
+    expect(eleven.success).toBe(false);
+    expect(eleven.error?.issues[0]?.message).toBe(REFERRAL_CHAIN_TOO_LONG_MESSAGE);
+    expect(REFERRAL_CHAIN_TOO_LONG_MESSAGE).toBe('A cadeia de indicação aceita até 10 indicadores.');
+  });
+
+  it('aceita nota de 500 caracteres e recusa 501', () => {
+    expect(REFERRAL_NOTES_MAX_LENGTH).toBe(500);
+    const withNotes = (notes: string) => [{ ...contactItem(1), notes }];
+    expect(referralChainInputSchema.safeParse(withNotes('a'.repeat(500))).success).toBe(true);
+    expect(referralChainInputSchema.safeParse(withNotes('a'.repeat(501))).success).toBe(false);
+  });
+
+  it('nota vazia ou ausente vira null', () => {
+    const [blank, none, kept] = referralChainInputSchema.parse([
+      { ...contactItem(1), notes: '   ' },
+      contactItem(2),
+      { ...contactItem(3), notes: ' via fulano ' },
+    ]);
+    expect(blank?.notes).toBeNull();
+    expect(none?.notes).toBeNull();
+    expect(kept?.notes).toBe('via fulano');
+  });
+
+  it('descarta a posição enviada e chaves desconhecidas', () => {
+    const [item] = referralChainInputSchema.parse([{ ...contactItem(1), position: 9, name: 'x' }]);
+    expect(item).toEqual({ referrer: { kind: 'contact', id: uuidOf(1) }, notes: null });
+  });
+
+  it('recusa indicador de tipo ou id inválido', () => {
+    expect(referralChainInputSchema.safeParse([{ referrer: { kind: 'farm', id: uuidOf(1) } }]).success).toBe(false);
+    expect(referralChainInputSchema.safeParse([{ referrer: { kind: 'user', id: 'não-uuid' } }]).success).toBe(false);
+  });
+});
+
+describe('referralChainInputOf', () => {
+  it('sai na ordem da posição, sem position nem name', () => {
+    const links: ReferralLink[] = [
+      { referrer: sebastiao, position: 2, notes: null },
+      { referrer: joao, position: 1, notes: 'trouxe direto' },
+    ];
+    expect(referralChainInputOf(links)).toEqual([
+      { referrer: { kind: 'contact', id: 'c-joao' }, notes: 'trouxe direto' },
+      { referrer: { kind: 'contact', id: 'c-sebastiao' }, notes: null },
+    ]);
   });
 });

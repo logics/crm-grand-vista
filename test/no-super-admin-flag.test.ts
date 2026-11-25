@@ -16,6 +16,8 @@ const ALLOWED: readonly string[] = [
   'apps/api/src/tenant-context.ts',
   // Resolução da permissão efetiva: o único curto-circuito de permissão e escopo.
   'apps/api/src/authorization/service.ts',
+  // Cadeia de indicação: recusa o super admin como indicador entrante (lê a flag só para barrá-lo; não devolve usuário).
+  'apps/api/src/modules/referrals/service.ts',
   // Os únicos caminhos que gravam a flag: os CLIs de super admin (marcar e criar).
   'apps/api/src/provisioning/super-admin.ts',
   'apps/api/src/provisioning/user.ts',
@@ -32,8 +34,7 @@ function listCodeFiles(dir: string): string[] {
 }
 
 /** Comentário pode citar a flag — é onde a regra está escrita. Código, não. */
-const withoutComments = (source: string): string =>
-  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const withoutComments = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 describe('flag de super admin', () => {
   const files = SCANNED_DIRS.flatMap((dir) => listCodeFiles(join(rootDir, dir))).map((path) => relative(rootDir, path));

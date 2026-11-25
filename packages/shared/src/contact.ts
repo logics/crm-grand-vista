@@ -8,6 +8,7 @@ import {
   buyerProfileSchema,
 } from './buyer-profile.js';
 import { LEVELS, commaListSchema, regionFilterSchema } from './farm.js';
+import { referralChainInputSchema, referralChainOutputSchema } from './referral-chain.js';
 import { optionalText } from './text.js';
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { INVALID_PHONE_MESSAGE, isBlankPhone, normalizePhone } from './phone.js';
@@ -167,6 +168,7 @@ export const createContactSchema = z
     classificationId: contactEditableShape.classificationId.optional(),
     leadSourceId: contactEditableShape.leadSourceId.optional(),
     buyerProfile: buyerProfileSchema.nullable().optional(),
+    referralChain: referralChainInputSchema.optional(),
   })
   .superRefine(checkTaxId)
   .refine((contact) => !contact.classificationId || hasClassification(contact.roles), {
@@ -184,7 +186,7 @@ export type CreateContactInput = z.output<typeof createContactSchema>;
  * pessoa no mesmo corpo só pode ser conferido contra o do cadastro (serviço).
  */
 export const updateContactSchema = z
-  .object({ ...contactEditableShape, buyerProfile: buyerProfileSchema.nullable() })
+  .object({ ...contactEditableShape, buyerProfile: buyerProfileSchema.nullable(), referralChain: referralChainInputSchema })
   .partial()
   .superRefine(checkTaxId);
 export type UpdateContactInput = z.output<typeof updateContactSchema>;
@@ -209,6 +211,10 @@ export const contactSchema = z.object({
   createdAt: z.string(),
 });
 export type Contact = z.infer<typeof contactSchema>;
+
+/** Contato com a cadeia de indicação hidratada: `GET /:id`, `POST` e `PATCH`. A lista não a carrega. */
+export const contactDetailSchema = contactSchema.extend({ referralChain: referralChainOutputSchema });
+export type ContactDetail = z.infer<typeof contactDetailSchema>;
 
 export const CONTACT_SORT_FIELDS = ['name', 'createdAt'] as const;
 

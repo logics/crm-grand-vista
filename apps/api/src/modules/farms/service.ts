@@ -54,7 +54,7 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { dataScopeClause } from '../../authorization/data-scope.js';
 import { dataScopeOf, type EffectiveAccess } from '../../authorization/effective-access.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
-import { ensureContactRole } from '../contacts/service.js';
+import { ensureContactRole } from '../../contact-roles/ensure.js';
 import { defaultEntries } from '../settings/service.js';
 
 type FarmRow = typeof farms.$inferSelect;

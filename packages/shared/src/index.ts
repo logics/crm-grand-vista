@@ -54,6 +54,12 @@ export {
 } from './decimal.js';
 export type { AlqueireType, DecimalFormat, ParsedDecimal } from './decimal.js';
 export {
+  MAX_REFERRAL_CHAIN_LENGTH,
+  REFERRAL_CHAIN_TOO_LONG_MESSAGE,
+  REFERRAL_CONTACT_UNKNOWN_MESSAGE,
+  REFERRAL_NOTES_MAX_LENGTH,
+  REFERRAL_NOTES_TOO_LONG_MESSAGE,
+  REFERRAL_USER_NOT_IN_TEAM_MESSAGE,
   REFERRER_KINDS,
   REFERRER_KIND_LABELS,
   appendReferralLink,
@@ -62,10 +68,21 @@ export {
   isEligibleReferrer,
   referrerKey,
   removeReferralLink,
+  referralChainInputOf,
+  referralChainInputSchema,
+  referralChainOutputSchema,
   reorderReferralChain,
   validateReferralChain,
 } from './referral-chain.js';
-export type { ReferralChainIssue, ReferralLink, ReferralSubject, Referrer, ReferrerKind } from './referral-chain.js';
+export type {
+  ReferralChainInput,
+  ReferralChainIssue,
+  ReferralChainOutput,
+  ReferralLink,
+  ReferralSubject,
+  Referrer,
+  ReferrerKind,
+} from './referral-chain.js';
 export {
   UFS,
   UF_NAMES,
@@ -111,12 +128,14 @@ export {
   CONTACT_OPTIONS_MAX_PAGE_SIZE,
   CONTACT_OPTIONS_PAGE_SIZE,
   contactPageSchema,
+  contactDetailSchema,
   contactSchema,
   createContactSchema,
   updateContactSchema,
 } from './contact.js';
 export type {
   Contact,
+  ContactDetail,
   ContactDuplicate,
   ContactDuplicatesQuery,
   DuplicateReason,

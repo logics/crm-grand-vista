@@ -1,7 +1,6 @@
 // Contatos da empresa ativa. Contato, papéis e auditoria vão numa transação só
 // (a que a rota abre por `withTenant`), num `change_id` por save.
 import {
-  auditLog,
   auditedWrites,
   buyerCrops,
   buyerProfiles,
@@ -10,9 +9,7 @@ import {
   contactRoles,
   contacts,
   normalizedText,
-  diffRecords,
   leadSources,
-  uuidv7,
   type AuditActor,
   type Transaction,
 } from '@crm/db';
@@ -27,6 +24,7 @@ import {
   FIELD_REGISTRY,
   type BuyerProfile,
   type Contact,
+  type ContactDetail,
   type ContactDuplicate,
   type ContactDuplicatesQuery,
   type ContactListQuery,
@@ -43,7 +41,7 @@ import {
   type UpdateContactInput,
 } from '@crm/shared';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { and, eq, getTableColumns, getTableName, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import {
   buyerProfilesByContact,
   currentBuyerProfile,
@@ -52,7 +50,8 @@ import {
   NO_CURRENT_BUYER_PROFILE,
   replaceBuyerProfile,
 } from './buyer-profile.js';
-import { countRoleUsage, pluralLabelOfTable, usageOfTable } from './role-usage.js';
+import { deleteReferralChain, readReferralChain, replaceReferralChain } from '../referrals/service.js';
+import { countRoleUsage, pluralLabelOfTable, usageOfTable } from '../../contact-roles/usage.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
 
@@ -172,11 +171,23 @@ export async function listContacts(tx: Transaction, query: ContactListQuery, fin
   return { ...page, items: page.items.map((item) => serialize(item, roles.get(item.id) ?? [], profiles.get(item.id) ?? null)) };
 }
 
-export async function getContact(tx: Transaction, id: string, financial = false): Promise<Contact | null> {
+/** O contato sem a cadeia: o estado atual que o `PATCH` compara. */
+async function findContact(tx: Transaction, id: string, financial = false): Promise<Contact | null> {
   const [row] = await tx.select().from(contacts).where(eq(contacts.id, id));
   if (!row) return null;
   const profile = (await buyerProfilesByContact(tx, [id], financial)).get(id) ?? null;
   return serialize(row, (await rolesByContact(tx, [id])).get(id) ?? [], profile);
+}
+
+/** O contato com a cadeia de indicação hidratada (sempre presente, `[]` sem cadeia). */
+export async function getContact(
+  tx: Transaction,
+  tenantId: string,
+  id: string,
+  financial = false,
+): Promise<ContactDetail | null> {
+  const contact = await findContact(tx, id, financial);
+  return contact ? { ...contact, referralChain: await readReferralChain(tx, tenantId, { id }) } : null;
 }
 
 /** Retirar papel em uso: a mensagem já diz onde, para o front exibi-la. */
@@ -269,7 +280,7 @@ export async function createContact(
   actor: AuditActor,
   input: CreateContactInput,
   financial = false,
-): Promise<Contact | ContactRejection> {
+): Promise<ContactDetail | ContactRejection> {
   const missing = await referencesMissing(tx, input);
   if (missing) return { rejected: missing };
   if (input.buyerProfile) {
@@ -278,7 +289,7 @@ export async function createContact(
   }
   await assertTaxIdFree(tx, input.taxId);
   const writes = auditedWrites(tx, actor);
-  const { roles, buyerProfile, ...fields } = input;
+  const { roles, buyerProfile, referralChain, ...fields } = input;
   const row = await writes.insert(contacts, {
     ...fields,
     tenantId: actor.tenantId!,
@@ -288,7 +299,12 @@ export async function createContact(
   if (buyerProfile) {
     await replaceBuyerProfile(writes, actor.tenantId!, row.id, buyerProfile, NO_CURRENT_BUYER_PROFILE, financial);
   }
-  return serialize(row, roles, (await buyerProfilesByContact(tx, [row.id], financial)).get(row.id) ?? null);
+  // A cadeia vai no `change_id` do contato; a recusa é lançada e desfaz o cadastro inteiro.
+  if (referralChain) {
+    await replaceReferralChain(tx, writes, actor, { kind: 'contact', id: row.id, name: row.name }, referralChain);
+  }
+  const contact = serialize(row, roles, (await buyerProfilesByContact(tx, [row.id], financial)).get(row.id) ?? null);
+  return { ...contact, referralChain: await readReferralChain(tx, actor.tenantId!, { id: row.id }) };
 }
 
 /**
@@ -302,8 +318,8 @@ export async function updateContact(
   id: string,
   input: UpdateContactInput,
   financial = false,
-): Promise<Contact | ContactRejection | null> {
-  const current = await getContact(tx, id);
+): Promise<ContactDetail | ContactRejection | null> {
+  const current = await findContact(tx, id);
   if (!current) return null;
 
   const isBuyer = hasClassification(input.roles ?? current.roles);
@@ -317,7 +333,7 @@ export async function updateContact(
     if (refused) return { rejected: refused };
   }
 
-  const { roles, buyerProfile, ...fields } = input;
+  const { roles, buyerProfile, referralChain, ...fields } = input;
   const personType = fields.personType ?? current.personType;
   // O schema só confere o par que veio junto; aqui o documento é conferido contra o cadastro.
   const mismatch = taxIdIssue(personType, fields.taxId === undefined ? current.taxId : fields.taxId);
@@ -357,7 +373,14 @@ export async function updateContact(
   if ((hasClassification(current.roles) && !isBuyer) || buyerProfile === null) await deleteBuyerProfile(writes, id);
   else if (buyerProfile) await replaceBuyerProfile(writes, actor.tenantId!, id, buyerProfile, currentProfile, financial);
 
-  return serialize(row, finalRoles, (await buyerProfilesByContact(tx, [id], financial)).get(id) ?? null);
+  // Depois dos papéis: o `ensureContactRole` da cadeia não colide com a checagem de papel em uso.
+  // Ausente não toca; `[]` apaga; lista substitui. A recusa é lançada e desfaz o save inteiro.
+  if (referralChain !== undefined) {
+    await replaceReferralChain(tx, writes, actor, { kind: 'contact', id, name: row.name }, referralChain);
+  }
+
+  const contact = serialize(row, finalRoles, (await buyerProfilesByContact(tx, [id], financial)).get(id) ?? null);
+  return { ...contact, referralChain: await readReferralChain(tx, actor.tenantId!, { id }) };
 }
 
 /**
@@ -436,46 +459,8 @@ export async function deleteContact(tx: Transaction, actor: AuditActor, id: stri
   if (!(await contactExists(tx, id))) return false;
   const writes = auditedWrites(tx, actor);
   await deleteBuyerProfile(writes, id);
+  await deleteReferralChain(writes, { id });
   await writes.delete(contactRoles, eq(contactRoles.contactId, id));
   await writes.delete(contacts, eq(contacts.id, id));
-  return true;
-}
-
-/** Garantir papel: acrescenta se faltar, na transação de quem chama. Verdadeiro se acrescentou. */
-export async function ensureContactRole(
-  tx: Transaction,
-  actor: AuditActor,
-  contactId: string,
-  role: ContactRole,
-): Promise<boolean> {
-  // `ON CONFLICT DO NOTHING` no unique (contact_id, role): chamadas simultâneas não
-  // estouram 23505; quem perde a corrida não recebe linha e devolve falso.
-  const [row] = await tx
-    .insert(contactRoles)
-    .values({ tenantId: actor.tenantId!, contactId, role })
-    .onConflictDoNothing({ target: [contactRoles.contactId, contactRoles.role] })
-    .returning();
-  if (!row) return false;
-
-  // Mesma auditoria de `auditedWrites.insert` (um campo por linha, valor anterior nulo,
-  // um `change_id` por chamada); o insert acima não passa pelo wrapper por causa do ON CONFLICT.
-  const after: Record<string, unknown> = {};
-  for (const [key, column] of Object.entries(getTableColumns(contactRoles))) {
-    after[column.name] = row[key as keyof typeof row];
-  }
-  const changeId = uuidv7();
-  const changes = diffRecords(null, after);
-  await tx.insert(auditLog).values(
-    changes.map((change) => ({
-      tenantId: actor.tenantId,
-      entity: getTableName(contactRoles),
-      entityId: row.id,
-      changeId,
-      field: change.field,
-      oldValue: change.oldValue,
-      newValue: change.newValue,
-      userId: actor.userId,
-    })),
-  );
   return true;
 }

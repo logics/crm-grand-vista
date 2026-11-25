@@ -4,6 +4,8 @@
 // Contatos e Fazendas nascerem, na validação da API — a mesma regra nos dois
 // lados. A posição nunca é escolhida: sai da ordem (1 = quem trouxe direto).
 
+import { z } from 'zod';
+
 /** Indicador: corretor interno (usuário) ou externo (contato). */
 export const REFERRER_KINDS = ['user', 'contact'] as const;
 export type ReferrerKind = (typeof REFERRER_KINDS)[number];
@@ -98,4 +100,62 @@ export function reorderReferralChain(links: readonly ReferralLink[], positions: 
     return index === -1 ? positions.length + link.position : index;
   };
   return renumber(assembleReferralChain(links).sort((a, b) => rank(a) - rank(b)));
+}
+
+/** Tamanho máximo da cadeia: o `CHECK` de posição (1..10) do banco. */
+export const MAX_REFERRAL_CHAIN_LENGTH = 10;
+export const REFERRAL_NOTES_MAX_LENGTH = 500;
+
+export const REFERRAL_CHAIN_TOO_LONG_MESSAGE = `A cadeia de indicação aceita até ${MAX_REFERRAL_CHAIN_LENGTH} indicadores.`;
+export const REFERRAL_NOTES_TOO_LONG_MESSAGE = `A nota aceita até ${REFERRAL_NOTES_MAX_LENGTH} caracteres.`;
+export const REFERRAL_USER_NOT_IN_TEAM_MESSAGE = 'Usuário não faz parte da equipe.';
+export const REFERRAL_CONTACT_UNKNOWN_MESSAGE = 'Contato não encontrado nesta empresa.';
+
+const referrerInputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('user'), id: z.uuid() }),
+  z.object({ kind: z.literal('contact'), id: z.uuid() }),
+]);
+
+/**
+ * Cadeia como o `POST`/`PATCH` a recebe: a ordem da lista é a posição (1 = quem
+ * trouxe direto), que nunca é enviada — chave desconhecida é descartada. Sem
+ * `.default()`: ausente tem de continuar ausente (não toca a cadeia), e `[]`
+ * apaga. Nota vazia vira `null`.
+ */
+export const referralChainInputSchema = z
+  .array(
+    z.object({
+      referrer: referrerInputSchema,
+      notes: z
+        .string()
+        .trim()
+        .max(REFERRAL_NOTES_MAX_LENGTH, REFERRAL_NOTES_TOO_LONG_MESSAGE)
+        .nullable()
+        .optional()
+        .transform((value) => value || null),
+    }),
+  )
+  .max(MAX_REFERRAL_CHAIN_LENGTH, REFERRAL_CHAIN_TOO_LONG_MESSAGE);
+export type ReferralChainInput = z.output<typeof referralChainInputSchema>;
+
+/** Elo como o `GET` o devolve: o nome vem hidratado e o usuário carrega `linked` (ainda tem vínculo com a empresa). */
+export const referralChainOutputSchema = z.array(
+  z.object({
+    id: z.uuid(),
+    position: z.number().int(),
+    referrer: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('user'), id: z.uuid(), name: z.string(), linked: z.boolean() }),
+      z.object({ kind: z.literal('contact'), id: z.uuid(), name: z.string() }),
+    ]),
+    notes: z.string().nullable(),
+  }),
+);
+export type ReferralChainOutput = z.infer<typeof referralChainOutputSchema>;
+
+/** Lista do editor → corpo da API: na ordem das posições, só `{ referrer: { kind, id }, notes }`. */
+export function referralChainInputOf(links: readonly ReferralLink[]): ReferralChainInput {
+  return assembleReferralChain(links).map(({ referrer, notes }) => ({
+    referrer: { kind: referrer.kind, id: referrer.id },
+    notes,
+  }));
 }
