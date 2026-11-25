@@ -328,12 +328,12 @@ describe('ReferralChainEditor — limite de indicadores', () => {
 
   it('com a cadeia cheia, a lista é nomeada pelo rótulo do Field e pelo sujeito, e descrita pela dica', () => {
     render(
-      <Field label="Quem trouxe" hint="Quem trouxe o contato.">
+      <Field label="Indicadores" hint="Quem trouxe o contato.">
         <ReferralChainEditor subject={pedro} value={fullChain()} onChange={vi.fn()} />
       </Field>,
     );
 
-    const list = screen.getByRole('list', { name: 'Quem trouxe de Pedro Almeida' });
+    const list = screen.getByRole('list', { name: 'Indicadores de Pedro Almeida' });
     // `<label for>` não rotula `<ol>`: a lista não leva o id do controle
     expect(list).not.toHaveAttribute('id');
     const described = (list.getAttribute('aria-describedby') ?? '').split(' ');
@@ -531,27 +531,30 @@ describe('ReferralChainEditor — contato criado pelo cadastro rápido', () => {
     const onLinks = vi.fn();
     const unhandled = vi.fn();
     process.on('unhandledRejection', unhandled);
-    const user = userEvent.setup();
-    const pending = deferred();
-    render(
-      <>
-        <button type="button">Outro foco</button>
-        <Harness
-          initial={twoLevels}
-          onLinks={onLinks}
-          onCreateContact={() => pending.promise.then(() => Promise.reject(new Error('falhou')))}
-          searchContacts={filtered}
-        />
-      </>,
-    );
+    try {
+      const user = userEvent.setup();
+      const pending = deferred();
+      render(
+        <>
+          <button type="button">Outro foco</button>
+          <Harness
+            initial={twoLevels}
+            onLinks={onLinks}
+            onCreateContact={() => pending.promise.then(() => Promise.reject(new Error('falhou')))}
+            searchContacts={filtered}
+          />
+        </>,
+      );
 
-    await openCreateAway(user);
-    pending.resolve(null);
+      await openCreateAway(user);
+      pending.resolve(null);
 
-    await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
-    await new Promise((done) => setTimeout(done, 20));
-    process.off('unhandledRejection', unhandled);
-    expect(unhandled).not.toHaveBeenCalled();
-    expect(onLinks).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+      await new Promise((done) => setTimeout(done, 20));
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(onLinks).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
   });
 });

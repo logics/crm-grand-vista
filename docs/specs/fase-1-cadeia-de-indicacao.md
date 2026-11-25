@@ -187,7 +187,7 @@ referralChain: {
 
 - **Limite:** com `MAX_REFERRAL_CHAIN_LENGTH` elos, o `PartyPicker` some e o editor mostra "Limite de 10 indicadores atingido."
 - **Indicador sem acesso:** `Referrer` ganha `linked?: boolean` no shared. Com `linked === false`, o elo mostra a marca "Sem acesso" ao lado de "Interno". O nome vem do `value`, sem busca, então nada depende do `UserPicker` achar o usuário.
-- **Cadastro rápido:** `PartySearches` ganha `onCreateContact?: (term) => Promise<Referrer | null>`: o `PartyPicker` o repassa ao `ContactPicker` como `onCreate` e inclui por `onPick` (o `add` do editor) o contato devolvido; `null` é cadastro cancelado e o foco volta ao seletor. Assim o editor oferece "Cadastrar contato" quando o app o fornece.
+- **Cadastro rápido:** `PartySearches` ganha `onCreateContact?: (term) => Promise<Referrer | null>`: o `PartyPicker` o repassa ao `ContactPicker` como `onCreate` e inclui por `onPick` (o `add` do editor) o contato devolvido; `null` é cadastro cancelado e o foco volta ao seletor; rejeitar a promessa vale como `null`. Assim o editor oferece "Cadastrar contato" quando o app o fornece.
 - Stories novas: limite atingido e indicador sem acesso. Nenhuma aparência fora das receitas de `styles.ts`.
 
 **`apps/web`** (`modules/referrals`):

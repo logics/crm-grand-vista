@@ -37,7 +37,12 @@ import { IconButton } from './icon-button.js';
 // Com `MAX_REFERRAL_CHAIN_LENGTH` elos o seletor dá lugar ao aviso de limite; o
 // elo de usuário sem vínculo ganha "Sem acesso"; `onCreateContact` liga o
 // cadastro rápido de contato ao seletor: devolve o contato criado, que entra
-// pelo mesmo `add` de quem foi escolhido (anúncio, limite e foco), ou `null`.
+// pelo mesmo `add` de quem foi escolhido (anúncio, limite e foco), ou `null`
+// (rejeitar vale como `null`).
+//
+// Dentro de um `Field`, o rótulo nomeia a lista seguido de "de <sujeito>"
+// ("Indicadores de Pedro Almeida"): use um substantivo ("Indicadores"), não uma
+// frase ("Quem trouxe").
 
 export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'children' | 'defaultValue'> &
   PartySearches & {

@@ -291,6 +291,32 @@ describe('cadeia de indicação no formulário do contato', () => {
     expect(screen.queryByText(/entrou na cadeia/)).not.toBeInTheDocument();
   });
 
+  it('cadastro rápido fechado com clique fora: nada entra na cadeia e o foco volta ao seletor', async () => {
+    stub();
+    renderApp('/e/grand-vista/contacts/new');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText(/^Nome/), 'Pedro Almeida');
+    await user.click(screen.getByRole('checkbox', { name: 'Comprador' }));
+    await user.click(screen.getByRole('combobox', { name: pickerName }));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastião Novo');
+    await screen.findByText(/Nenhum resultado para/);
+    const create = screen.getAllByRole('button', { name: 'Cadastrar contato' }).find((button) => !button.closest('form'));
+    expect(create).toBeDefined();
+    if (create) await user.click(create);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Cadastrar contato' });
+    // o clique cai no fundo que o Radix põe atrás do diálogo (fora do painel)
+    const backdrop = dialog.previousElementSibling;
+    expect(backdrop).not.toBeNull();
+    if (backdrop) await user.click(backdrop);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('combobox', { name: pickerName })).toHaveFocus());
+    expect(screen.queryByRole('list', { name: /^Indicadores de / })).not.toBeInTheDocument();
+    expect(screen.queryByText(/entrou na cadeia/)).not.toBeInTheDocument();
+  });
+
   it('sem contatos.criar, o seletor não oferece "Cadastrar contato"', async () => {
     stub(contact(), ['contatos.ver', 'contatos.editar']);
     renderApp('/e/grand-vista/contacts/c1/edit');
