@@ -1,5 +1,8 @@
 import {
+  MAX_REFERRAL_CHAIN_LENGTH,
+  REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE,
   REFERRER_KIND_LABELS,
+  REFERRER_UNLINKED_LABEL,
   type ReferralChainIssue,
   type ReferralLink,
   type ReferralSubject,
@@ -31,6 +34,9 @@ import { IconButton } from './icon-button.js';
 // trouxe direto). Montagem e validação são as de `@crm/shared`, as mesmas da
 // API. Não fala com a API: as buscas de usuário e de contato chegam por prop, e
 // o seletor só oferece quem pode entrar (não o sujeito, não quem já está).
+// Com `MAX_REFERRAL_CHAIN_LENGTH` elos o seletor dá lugar ao aviso de limite; o
+// elo de usuário sem vínculo ganha "Sem acesso"; `onCreateContact` liga o
+// cadastro rápido de contato ao seletor.
 
 export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'children' | 'defaultValue'> &
   PartySearches & {
@@ -69,6 +75,7 @@ export function ReferralChainEditor({
   onChange,
   searchUsers,
   searchContacts,
+  onCreateContact,
   readOnly = false,
   disabled = false,
   id,
@@ -110,10 +117,18 @@ export function ReferralChainEditor({
     else removeButtons.current.get(target.row)?.focus();
   });
 
+  const full = chain.length >= MAX_REFERRAL_CHAIN_LENGTH;
+
   const add = (referrer: Referrer) => {
     if (!onChange) return;
+    const position = chain.length + 1;
+    const entered = `${referrer.name} entrou na cadeia, na posição ${position}.`;
     onChange(appendReferralLink(chain, referrer));
-    setAnnouncement(`${referrer.name} entrou na cadeia, na posição ${chain.length + 1}.`);
+    if (position >= MAX_REFERRAL_CHAIN_LENGTH) {
+      // o seletor focado desaparece com o 10º elo: o foco vai para o remover dele
+      pendingFocus.current = { row: referrerKey(referrer) };
+      setAnnouncement(`${entered} ${REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE}`);
+    } else setAnnouncement(entered);
   };
 
   const remove = (row: Row, index: number) => {
@@ -186,6 +201,11 @@ export function ReferralChainEditor({
                       <Badge size="sm" tone={referrer.kind === 'user' ? 'brand' : 'neutral'}>
                         {REFERRER_KIND_LABELS[referrer.kind]}
                       </Badge>
+                      {referrer.kind === 'user' && referrer.linked === false && (
+                        <Badge size="sm" tone="warning">
+                          {REFERRER_UNLINKED_LABEL}
+                        </Badge>
+                      )}
                       {editable && (
                         <IconButton
                           ref={(element) => {
@@ -225,10 +245,13 @@ export function ReferralChainEditor({
           </>
         )}
 
-        {editable && (
+        {editable && full && <p className="m-0 text-sm text-text-muted">{REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE}</p>}
+
+        {editable && !full && (
           <PartyPicker
             searchUsers={searchUsers}
             searchContacts={searchContacts}
+            onCreateContact={onCreateContact}
             isEligible={(referrer) => isEligibleReferrer(subject, chain, referrer)}
             onPick={add}
             placeholder={next}

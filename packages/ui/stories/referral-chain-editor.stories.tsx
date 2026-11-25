@@ -1,4 +1,11 @@
-import type { ContactOption, ReferralLink, ReferralSubject, Referrer, UserOption } from '@crm/shared';
+import {
+  type ContactOption,
+  type ReferralLink,
+  type ReferralSubject,
+  type Referrer,
+  type UserOption,
+  appendReferralLink,
+} from '@crm/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { type AsyncComboboxPage, Field, ReferralChainEditor } from '../src/index.js';
@@ -44,9 +51,9 @@ const link = (referrer: Referrer, position: number, notes: string | null = null)
   notes,
 });
 
-type Args = { initial?: ReferralLink[]; readOnly?: boolean; disabled?: boolean; hint?: string };
+type Args = { initial?: ReferralLink[]; readOnly?: boolean; disabled?: boolean; hint?: string; createContact?: boolean };
 
-function ChainField({ initial = [], readOnly, disabled, hint = 'Do mais próximo ao mais distante' }: Args) {
+function ChainField({ initial = [], readOnly, disabled, createContact, hint = 'Do mais próximo ao mais distante' }: Args) {
   const [value, setValue] = useState(initial);
   return (
     <Field label="Cadeia de indicação" hint={hint}>
@@ -56,6 +63,15 @@ function ChainField({ initial = [], readOnly, disabled, hint = 'Do mais próximo
         onChange={setValue}
         searchContacts={simulated(contacts)}
         searchUsers={simulated(users)}
+        // simula o app: o contato cadastrado entra como último elo, sem chamada de rede
+        onCreateContact={
+          createContact
+            ? (term) =>
+                setValue((links) =>
+                  appendReferralLink(links, { kind: 'contact', id: `c-novo-${links.length}`, name: term || 'Contato novo' }),
+                )
+            : undefined
+        }
         readOnly={readOnly}
         disabled={disabled}
       />
@@ -110,3 +126,31 @@ export const ComErroDeValidacao: Story = {
 };
 
 export const Desabilitada: Story = { args: { disabled: true, initial: [link(joao, 1, 'Vizinho de cerca'), link(carlos, 2)] } };
+
+export const LimiteAtingido: Story = {
+  name: 'Limite atingido',
+  args: {
+    initial: [
+      link(joao, 1),
+      link(sebastiao, 2),
+      link(carlos, 3),
+      link({ kind: 'contact', id: 'c-antonio', name: 'Antônio Ribeiro' }, 4),
+      link({ kind: 'user', id: 'u-marina', name: 'Marina Duarte' }, 5),
+      link({ kind: 'contact', id: 'c-agro', name: 'Agropecuária Vale Verde' }, 6),
+      link({ kind: 'contact', id: 'c-helena', name: 'Helena Prado' }, 7),
+      link({ kind: 'contact', id: 'c-otavio', name: 'Otávio Lacerda' }, 8),
+      link({ kind: 'contact', id: 'c-lucia', name: 'Lúcia Fontes' }, 9),
+      link({ kind: 'contact', id: 'c-renato', name: 'Renato Siqueira' }, 10),
+    ],
+  },
+};
+
+export const IndicadorSemAcesso: Story = {
+  name: 'Indicador sem acesso',
+  args: { initial: [link(joao, 1), link({ ...carlos, linked: false }, 2)] },
+};
+
+export const ComCadastroRapido: Story = {
+  name: 'Com cadastro rápido',
+  args: { createContact: true, initial: [link(joao, 1)] },
+};
