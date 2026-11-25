@@ -231,3 +231,98 @@ describe('lista de fazendas no mobile', () => {
     expect(card.queryByText('por hectare')).not.toBeInTheDocument();
   });
 });
+
+describe('lista de fazendas: filtro "Indicado por" (critério 20)', () => {
+  const antonio = {
+    id: '0197c000-0000-7000-8000-0000000000f1',
+    name: 'Antônio Lima',
+    personType: 'pf',
+    taxId: null,
+    roles: ['external_broker'],
+  };
+  const joao = {
+    id: '0197c000-0000-7000-8000-0000000000f2',
+    name: 'João Reis',
+    personType: 'pf',
+    taxId: null,
+    roles: ['external_broker'],
+  };
+  const carlos = {
+    id: '0197c000-0000-7000-8000-0000000000f3',
+    name: 'Carlos Menezes',
+    email: 'carlos@example.com',
+    profiles: [],
+  };
+
+  const openWithReferrers = (search = '', permissions: PermissionCode[] = ['fazendas.ver', 'contatos.ver']) => {
+    const api = stubFakeApi({
+      session: session(),
+      permissions,
+      dataScopes: { fazendas: 'own' },
+      records: {
+        '/e/grand-vista/farms': page([farm()]),
+        '/e/grand-vista/municipalities': { items: [{ ibgeCode: '5218805', name: 'Rio Verde', uf: 'GO', active: true }] },
+        '/e/grand-vista/settings/vocabularies/aptitudes/options': { items: [pecuaria, agricultura] },
+        '/e/grand-vista/settings/vocabularies/commercial-statuses/options': { items: [] },
+        '/e/grand-vista/contacts/options': { items: [antonio, joao] },
+        '/e/grand-vista/users': { users: [carlos] },
+      },
+    });
+    return { api, ...renderApp(`/e/grand-vista/farms${search}`) };
+  };
+  const openMore = async (user: ReturnType<typeof userEvent.setup>) => {
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: /Mais filtros/ }));
+  };
+
+  it('o link reabre a lista: a API recebe os dois parâmetros e os controles mostram os nomes', async () => {
+    const { api } = openWithReferrers(`?referrerContactId=${antonio.id},${joao.id}&referrerUserId=${carlos.id}`);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(lastListParams(api)?.get('referrerContactId')).toBe(`${antonio.id},${joao.id}`));
+    expect(lastListParams(api)?.get('referrerUserId')).toBe(carlos.id);
+    await openMore(user);
+    expect(await screen.findByRole('combobox', { name: 'Indicado por (contato)' })).toHaveTextContent(/Antônio Lima.*João Reis/s);
+    expect(await screen.findByRole('combobox', { name: 'Indicado por (interno)' })).toHaveTextContent('Carlos Menezes');
+  });
+
+  it('escolher um contato e um usuário escreve na URL, envia à API e volta à primeira página', async () => {
+    const { api, router } = openWithReferrers('?page=2');
+    const user = userEvent.setup();
+    await openMore(user);
+
+    await user.click(await screen.findByRole('combobox', { name: 'Indicado por (contato)' }));
+    await user.click(await screen.findByRole('option', { name: /Antônio Lima/ }));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('combobox', { name: 'Indicado por (interno)' }));
+    await user.click(await screen.findByRole('option', { name: /Carlos Menezes/ }));
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      const search = new URLSearchParams(router.state.location.search);
+      expect(search.get('referrerContactId')).toBe(antonio.id);
+      expect(search.get('referrerUserId')).toBe(carlos.id);
+      expect(search.has('page')).toBe(false);
+    });
+    await waitFor(() => expect(lastListParams(api)?.get('referrerUserId')).toBe(carlos.id));
+    expect(lastListParams(api)?.get('referrerContactId')).toBe(antonio.id);
+    expect(lastListParams(api)?.get('page')).toBe('1');
+  });
+
+  it('o contador de "Mais filtros" soma os dois filtros', async () => {
+    openWithReferrers(`?referrerContactId=${antonio.id}&referrerUserId=${carlos.id}`);
+    await screen.findByRole('table');
+
+    expect(screen.getByRole('button', { name: /Mais filtros/ })).toHaveTextContent('2');
+  });
+
+  it('sem contatos.ver, o campo de contato não aparece e o de interno aparece', async () => {
+    openWithReferrers('', ['fazendas.ver']);
+    const user = userEvent.setup();
+    await openMore(user);
+
+    expect(await screen.findByRole('combobox', { name: 'Indicado por (interno)' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Indicado por (contato)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Indicado por (contato)' })).not.toBeInTheDocument();
+  });
+});

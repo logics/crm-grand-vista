@@ -370,7 +370,7 @@ describe('lista de contatos: grupos, contagem e limpar', () => {
     for (const field of group.querySelectorAll('[data-slot="field"]')) {
       expect(field).toHaveClass('max-mobile:w-full', 'max-mobile:min-w-0');
     }
-    expect(group.querySelectorAll('[data-slot="field"]')).toHaveLength(5);
+    expect(group.querySelectorAll('[data-slot="field"]')).toHaveLength(7);
   });
 
   it('no mobile, o grupo do perfil começa fechado e abre pelo botão', async () => {
@@ -414,5 +414,90 @@ describe('lista de contatos: grupos, contagem e limpar', () => {
     await act(() => router.navigate('/e/grand-vista/contacts'));
     await waitFor(() => expect(screen.queryByRole('button', { name: /Limpar busca e filtros/ })).toBeNull());
     expect(screen.getByRole('button', { name: /Perfil de compra/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+describe('lista de contatos: filtro "Indicado por" (critério 20)', () => {
+  const antonio = {
+    id: '0197c000-0000-7000-8000-0000000000f1',
+    name: 'Antônio Lima',
+    personType: 'pf',
+    taxId: null,
+    roles: ['external_broker'],
+  };
+  const joao = {
+    id: '0197c000-0000-7000-8000-0000000000f2',
+    name: 'João Reis',
+    personType: 'pf',
+    taxId: null,
+    roles: ['external_broker'],
+  };
+  const carlos = {
+    id: '0197c000-0000-7000-8000-0000000000f3',
+    name: 'Carlos Menezes',
+    email: 'carlos@example.com',
+    profiles: [],
+  };
+
+  const openWithReferrers = (search = '') => {
+    const api = stubFakeApi({
+      session: session(),
+      permissions: ['contatos.ver'],
+      records: {
+        '/e/grand-vista/contacts': page([contact()]),
+        '/e/grand-vista/contacts/options': { items: [antonio, joao] },
+        '/e/grand-vista/users': { users: [carlos] },
+        '/e/grand-vista/settings/vocabularies/contact-classifications/options': { items: [classA] },
+        '/e/grand-vista/settings/vocabularies/lead-sources/options': { items: [referral] },
+      },
+    });
+    return { api, ...renderApp(`/e/grand-vista/contacts${search}`) };
+  };
+
+  it('o link reabre a lista: a API recebe os dois parâmetros e os controles mostram os nomes', async () => {
+    const { api } = openWithReferrers(`?referrerContactId=${antonio.id},${joao.id}&referrerUserId=${carlos.id}`);
+
+    await screen.findByRole('table');
+    await waitFor(() => expect(lastListParams(api)?.get('referrerContactId')).toBe(`${antonio.id},${joao.id}`));
+    expect(lastListParams(api)?.get('referrerUserId')).toBe(carlos.id);
+    expect(await screen.findByRole('combobox', { name: 'Indicado por (contato)' })).toHaveTextContent(/Antônio Lima.*João Reis/s);
+    expect(await screen.findByRole('combobox', { name: 'Indicado por (interno)' })).toHaveTextContent('Carlos Menezes');
+  });
+
+  it('escolher um contato e um usuário escreve na URL, envia à API e volta à primeira página', async () => {
+    const { api, router } = openWithReferrers('?page=2');
+    const user = userEvent.setup();
+    await screen.findByRole('table');
+
+    await user.click(screen.getByRole('combobox', { name: 'Indicado por (contato)' }));
+    await user.click(await screen.findByRole('option', { name: /Antônio Lima/ }));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('combobox', { name: 'Indicado por (interno)' }));
+    await user.click(await screen.findByRole('option', { name: /Carlos Menezes/ }));
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      const search = new URLSearchParams(router.state.location.search);
+      expect(search.get('referrerContactId')).toBe(antonio.id);
+      expect(search.get('referrerUserId')).toBe(carlos.id);
+      expect(search.has('page')).toBe(false);
+    });
+    await waitFor(() => expect(lastListParams(api)?.get('referrerUserId')).toBe(carlos.id));
+    expect(lastListParams(api)?.get('referrerContactId')).toBe(antonio.id);
+    expect(lastListParams(api)?.get('page')).toBe('1');
+  });
+
+  it('o contador de "Limpar busca e filtros" soma os dois filtros e limpar zera os dois', async () => {
+    const { api, router } = openWithReferrers(`?referrerContactId=${antonio.id}&referrerUserId=${carlos.id}`);
+    const user = userEvent.setup();
+    await screen.findByRole('table');
+
+    const clear = await screen.findByRole('button', { name: /Limpar busca e filtros/ });
+    expect(clear).toHaveTextContent('2');
+    await user.click(clear);
+
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    await waitFor(() => expect(lastListParams(api)?.has('referrerContactId')).toBe(false));
+    expect(lastListParams(api)?.has('referrerUserId')).toBe(false);
   });
 });

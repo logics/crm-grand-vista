@@ -42,3 +42,5 @@ Fazendas da empresa ativa: o imóvel captado. Cadastro mínimo (#145) e ficha t�
 - A recusa da cadeia (`ReferralChainRejection`) é **lançada**, nunca devolvida como `FarmRejection`: só o rollback desfaz os campos já gravados. `POST` e `PATCH` a traduzem com `referralRefusal` (400 no campo `referralChain`, inclusive a `UNIQUE` adiada que estoura no `COMMIT`).
 - Fazenda fora do escopo é 404 antes de qualquer escrita, inclusive no `PATCH` só com a cadeia. Gravar exige `fazendas.criar`/`fazendas.editar`.
 - `referral_links` é filho declarado no histórico (`farmReferralHistoryChild`). A exclusão apaga a cadeia por `deleteReferralChain` antes da fazenda; o `CASCADE` fica como rede.
+
+- **Filtro "Indicado por"** (#189): `referrerContactId` e `referrerUserId` (listas de uuid separadas por vírgula; item malformado é 400 "Indicador inválido.") entram em `farmFilters` pelo `referredBy` do módulo `referrals`, com o sujeito `'farm'`. Sem condição de escopo própria: vale o `farmScopeOf` do `listFarms`, então o `total` é o do leitor. As desativadas só entram com `commercialStatusId` explícito, como em qualquer filtro.

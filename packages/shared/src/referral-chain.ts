@@ -15,6 +15,10 @@ export const REFERRER_KIND_LABELS = { user: 'Interno', contact: 'Externo' } as c
 
 export const REFERRER_UNLINKED_LABEL = 'Sem acesso';
 
+/** Rótulos dos filtros "Indicado por" das listas de contatos e de fazendas. */
+export const REFERRED_BY_CONTACT_LABEL = 'Indicado por (contato)';
+export const REFERRED_BY_USER_LABEL = 'Indicado por (interno)';
+
 /** Mensagem do 400 quando `referrerContactId`/`referrerUserId` de uma lista traz id malformado. */
 export const REFERRER_FILTER_INVALID_MESSAGE = 'Indicador inválido.';
 

@@ -16,3 +16,9 @@ Cadeia de indicação (`referral_links`): "o Pedro veio pelo João, que soube pe
 - `readReferralChain` nunca seleciona `is_super_admin`.
 - `contactReferralHistoryChild` e `farmReferralHistoryChild` declaram o elo como filho do histórico do contato e da fazenda; quem importa `routes.ts` (contatos e fazendas) carrega também a declaração de uso do papel; o `qualifier` (em `src/history`) põe "(posição N)" só no cadastro.
 - `referralRefusal` (em `routes.ts`) traduz a recusa da regra e o CHECK/UNIQUE/FK do indicador de `referral_links` em 400 no campo `referralChain`; só dessa tabela.
+
+## Filtro "Indicado por" (#189)
+
+- `referredBy` (`referred-by.ts`) é a única condição do filtro `referrerContactId`/`referrerUserId` das listas de contatos e de fazendas. É sempre um `EXISTS` sobre `referral_links`, nunca `JOIN`: o registro que casa por dois elos ou dois indicadores entra uma vez e o `total` conta registros. Casa o indicador em qualquer posição; contatos e usuários escolhidos são OU entre si, e o filtro soma por E com os demais.
+- O chamador passa o **tipo do sujeito** (`'contact'` ou `'farm'`), não a coluna: o par coluna do elo/id da lista fica no módulo, sem como errar. Não importa `modules/contacts` nem `modules/farms`. Spec: `docs/specs/fase-1-cadeia-de-indicacao.md`, issue #189.
+- Não tem escopo próprio: o `farmScopeOf` (fazendas) e o `withoutDataScope` (contatos) são os da lista que a chama, então o Corretor `own` só conta as fazendas dele. Os índices `(tenant_id, referrer_contact_id)` e `(tenant_id, referrer_user_id)` da `0028` atendem o filtro.
