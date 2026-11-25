@@ -252,9 +252,13 @@ describe('filtro "Indicado por" nas listas', () => {
       const asBroker = await listBody('farms', `referrerContactId=${referrer.id}`, brokerCookie);
       expect(asBroker.items.map((item) => item.id)).toEqual([mine.id]);
       expect(asBroker.total).toBe(1);
-      // O total do filtro é o mesmo da lista comum do Corretor restrita às fazendas que ele vê.
-      const plain = await listBody('farms', `q=${encodeURIComponent(mine.name)}`, brokerCookie);
-      expect(plain.total).toBe(asBroker.total);
+      // O total do filtro é o número de fazendas que o Corretor realmente enxerga: abre as três pela ficha e conta as 200.
+      const statuses = await Promise.all(
+        [mine, second, third].map(
+          async (farm) => (await app.request(`/e/${tenant.slug}/farms/${farm.id}`, { headers: { cookie: brokerCookie } })).status,
+        ),
+      );
+      expect(statuses.filter((status) => status === 200)).toHaveLength(asBroker.total);
 
       const asManager = await listBody('farms', `referrerContactId=${referrer.id}`);
       expect(asManager.items.map((item) => item.id).sort()).toEqual([mine.id, second.id, third.id].sort());

@@ -1,6 +1,8 @@
 import {
+  CONTACT_ROLES_LABEL,
   CONTACT_ROLE_LABELS,
   contactListQuerySchema,
+  FIELD_REGISTRY,
   farmListQuerySchema,
   formatPhone,
   municipalityLabel,
@@ -27,6 +29,9 @@ import { searchVocabularyOptions } from '../settings/vocabulary-source.js';
 // de seções. Sem `fazendas.ver`, o bloco de fazendas nem é montado.
 
 const PAGE_SIZE = 25;
+
+const contactFields = FIELD_REGISTRY.contacts.fields;
+const farmFields = FIELD_REGISTRY.farms.fields;
 
 const countLabel = (total: number | undefined, singular: string, plural: string) =>
   total === undefined ? '—' : total === 1 ? `1 ${singular}` : `${total} ${plural}`;
@@ -116,11 +121,22 @@ function ContactsBlock({ record }: { record: ContactDetail }) {
     ),
   );
   const columns: DataTableColumn<Contact>[] = [
-    { key: 'name', label: 'Nome', strong: true, render: (contact) => contact.name },
-    { key: 'roles', label: 'Papéis', render: (contact) => contact.roles.map((role) => CONTACT_ROLE_LABELS[role]).join(', ') },
+    { key: 'name', label: contactFields.name.label, strong: true, render: (contact) => contact.name },
+    {
+      key: 'roles',
+      label: CONTACT_ROLES_LABEL,
+      render: (contact) => contact.roles.map((role) => CONTACT_ROLE_LABELS[role]).join(', '),
+    },
     ...(mobile
       ? []
-      : [{ key: 'phone', label: 'Telefone', muted: true, render: (contact: Contact) => formatPhone(contact.phone) ?? '—' }]),
+      : [
+          {
+            key: 'phone',
+            label: contactFields.phone.label,
+            muted: true,
+            render: (contact: Contact) => formatPhone(contact.phone) ?? '—',
+          },
+        ]),
   ];
   return (
     <Block
@@ -178,12 +194,27 @@ function FarmsList({ record, statusIds }: { record: ContactDetail; statusIds: st
     ),
   );
   const columns: DataTableColumn<Farm>[] = [
-    { key: 'name', label: 'Nome', strong: true, render: (farm) => farm.name },
-    { key: 'municipality', label: 'Município', render: (farm) => municipalityLabel(farm.municipality) },
-    { key: 'status', label: 'Status', render: (farm) => <Badge size="sm">{farm.commercialStatus.name}</Badge> },
+    { key: 'name', label: farmFields.name.label, strong: true, render: (farm) => farm.name },
+    {
+      key: 'municipality',
+      label: farmFields.municipality_ibge_code.label,
+      render: (farm) => municipalityLabel(farm.municipality),
+    },
+    {
+      key: 'status',
+      label: farmFields.commercial_status_id.label,
+      render: (farm) => <Badge size="sm">{farm.commercialStatus.name}</Badge>,
+    },
     ...(mobile
       ? []
-      : [{ key: 'responsible', label: 'Corretor responsável', muted: true, render: (farm: Farm) => farm.responsible.name }]),
+      : [
+          {
+            key: 'responsible',
+            label: farmFields.responsible_user_id.label,
+            muted: true,
+            render: (farm: Farm) => farm.responsible.name,
+          },
+        ]),
   ];
   return (
     <Block
