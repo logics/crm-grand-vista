@@ -22,6 +22,7 @@ const CHECK_MARKER = 'forca-check';
 const UNIQUE_MARKER = 'forca-indicador-repetido';
 const POSITION_MARKER = 'forca-posicao-repetida';
 const GONE_MARKER = 'forca-indicador-excluido';
+const GONE_USER_MARKER = 'forca-usuario-excluido';
 
 const TRIGGER_FUNCTION = `
   create or replace function referral_links_force_violation_for_test() returns trigger language plpgsql as $$
@@ -37,6 +38,9 @@ const TRIGGER_FUNCTION = `
       new.position := 1;
     elsif new.notes = '${GONE_MARKER}' then
       new.referrer_contact_id := gen_random_uuid();
+    elsif new.notes = '${GONE_USER_MARKER}' then
+      new.referrer_contact_id := null;
+      new.referrer_user_id := gen_random_uuid();
     end if;
     return new;
   end $$`;
@@ -52,6 +56,7 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
   const owner = () => new pg.Client({ connectionString: loadMigrationEnv().MIGRATION_DATABASE_URL });
 
   let tenant: Awaited<ReturnType<typeof createTenant>>;
+  let managerId: string;
   let cookie: string;
   let counter = 0;
 
@@ -63,6 +68,7 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
     return (await response.json()) as { id: string };
   };
   const asContact = (id: string, notes?: string) => ({ referrer: { kind: 'contact', id }, ...(notes ? { notes } : {}) });
+  const asUser = (id: string, notes?: string) => ({ referrer: { kind: 'user', id }, ...(notes ? { notes } : {}) });
   const expectChainRefusal = async (response: Response) => {
     expect(response.status).toBe(400);
     const { error } = (await response.json()) as ErrorBody;
@@ -74,6 +80,7 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
   beforeAll(async () => {
     tenant = await createTenant(db, 'indicacao-erros-banco');
     const manager = await createUserWithPassword(db, 'Gestora');
+    managerId = manager.id;
     await createMembership(db, manager.id, tenant.id, { isDefault: true });
     await db.withTenant(tenant.id, async (tx) => {
       const ids = await seedAccessProfiles(tx, auditedWrites(tx, { tenantId: tenant.id, userId: null }), tenant.id);
@@ -165,6 +172,21 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
     expect(listed.items).toHaveLength(0);
   });
 
+  it('FK do indicador usuário excluído entre a checagem e o INSERT é 400 com mensagem clara e não grava o contato', async () => {
+    const name = `Pedro ${(counter += 1)}`;
+    const response = await post({
+      personType: 'pf',
+      name,
+      roles: ['buyer'],
+      referralChain: [asUser(managerId, GONE_USER_MARKER)],
+    });
+    expect(await expectChainRefusal(response)).toContain('foi excluído');
+    const listed = (await (await app.request(`${url()}?q=${encodeURIComponent(name)}`, { headers: { cookie } })).json()) as {
+      items: unknown[];
+    };
+    expect(listed.items).toHaveLength(0);
+  });
+
   describe('fazenda', () => {
     const postFarm = (name: string, referralChain: unknown) =>
       app.request(
@@ -197,6 +219,13 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
       const joao = await create('João');
       const name = `Fazenda ${(counter += 1)}`;
       const response = await postFarm(name, [asContact(joao.id, GONE_MARKER)]);
+      expect(await expectChainRefusal(response)).toContain('foi excluído');
+      expect(await farmExists(name)).toBe(false);
+    });
+
+    it('FK do indicador usuário excluído entre a checagem e o INSERT é 400 com mensagem clara e não grava a fazenda', async () => {
+      const name = `Fazenda ${(counter += 1)}`;
+      const response = await postFarm(name, [asUser(managerId, GONE_USER_MARKER)]);
       expect(await expectChainRefusal(response)).toContain('foi excluído');
       expect(await farmExists(name)).toBe(false);
     });
