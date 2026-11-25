@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '../../support/dom.js';
+import type { PermissionCode } from '@crm/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -57,10 +58,10 @@ const SEBASTIAO_NOVO = {
 };
 
 /** API falsa que guarda o corpo do `POST`/`PATCH` de contato. */
-function stub(record: unknown | null = null, permissions: string[] = ['contatos.ver', 'contatos.editar', 'contatos.criar']) {
+function stub(record: unknown | null = null, permissions: PermissionCode[] = ['contatos.ver', 'contatos.editar', 'contatos.criar']) {
   stubFakeApi({
     session: session(),
-    permissions: permissions as never,
+    permissions,
     records: {
       ...(record ? { '/e/grand-vista/contacts/c1': record } : {}),
       '/e/grand-vista/users': { users: [MARINA] },
@@ -222,7 +223,8 @@ describe('cadeia de indicação no formulário do contato', () => {
     await screen.findByText(/Nenhum resultado para/);
     // o botão de enviar do formulário tem o mesmo nome: o do seletor é o que está fora do `form`
     const create = screen.getAllByRole('button', { name: 'Cadastrar contato' }).find((button) => !button.closest('form'));
-    await user.click(create!);
+    expect(create).toBeDefined();
+    if (create) await user.click(create);
 
     const dialog = await screen.findByRole('dialog', { name: 'Cadastrar contato' });
     expect(within(dialog).getByLabelText(/^Nome/)).toHaveValue('Sebastião Novo');
@@ -231,6 +233,9 @@ describe('cadeia de indicação no formulário do contato', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(names()).toEqual(['1. João Batista', '2. Sebastião Novo']);
+    // o contato criado entra pelo `add` do editor: anúncio da região viva e foco de volta no seletor
+    expect(screen.getByText('Sebastião Novo entrou na cadeia, na posição 2.')).toHaveAttribute('role', 'status');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: pickerName })).toHaveFocus());
     expect(sent.find((request) => request.body['name'] === SEBASTIAO_NOVO.name)?.body['roles']).toEqual(['external_broker']);
 
     await user.click(screen.getByRole('button', { name: 'Cadastrar contato' }));
@@ -239,6 +244,28 @@ describe('cadeia de indicação no formulário do contato', () => {
       { referrer: { kind: 'contact', id: JOAO.id }, notes: null },
       { referrer: { kind: 'contact', id: SEBASTIAO_NOVO.id }, notes: null },
     ]);
+  });
+
+  it('cadastro rápido cancelado: nada entra na cadeia e o foco volta ao seletor', async () => {
+    stub();
+    renderApp('/e/grand-vista/contacts/new');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText(/^Nome/), 'Pedro Almeida');
+    await user.click(screen.getByRole('checkbox', { name: 'Comprador' }));
+    await user.click(screen.getByRole('combobox', { name: pickerName }));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastião Novo');
+    await screen.findByText(/Nenhum resultado para/);
+    const create = screen.getAllByRole('button', { name: 'Cadastrar contato' }).find((button) => !button.closest('form'));
+    expect(create).toBeDefined();
+    if (create) await user.click(create);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Cadastrar contato' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('combobox', { name: pickerName })).toHaveFocus());
+    expect(screen.queryByRole('list', { name: /Cadeia de indicação de/ })).not.toBeInTheDocument();
   });
 
   it('sem contatos.criar, o seletor não oferece "Cadastrar contato"', async () => {
@@ -254,7 +281,7 @@ describe('cadeia de indicação no formulário do contato', () => {
     expect(screen.queryByRole('button', { name: 'Cadastrar contato' })).not.toBeInTheDocument();
   });
 
-  it('edição: usuário sem vínculo aparece com Sem acesso; sem tocar na seção o payload não leva referralChain; tocando outro elo, o usuário vai no payload sem linked', async () => {
+  it('edição: usuário sem vínculo aparece com Sem acesso e, sem tocar na seção, o payload não leva referralChain', async () => {
     const unlinked = [chain[0], { ...chain[1], referrer: { ...MARINA, kind: 'user', linked: false } }];
     const sent = stub(contact(unlinked));
     renderApp('/e/grand-vista/contacts/c1/edit');

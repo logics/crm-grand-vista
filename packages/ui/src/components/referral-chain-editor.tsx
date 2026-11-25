@@ -36,7 +36,8 @@ import { IconButton } from './icon-button.js';
 // o seletor só oferece quem pode entrar (não o sujeito, não quem já está).
 // Com `MAX_REFERRAL_CHAIN_LENGTH` elos o seletor dá lugar ao aviso de limite; o
 // elo de usuário sem vínculo ganha "Sem acesso"; `onCreateContact` liga o
-// cadastro rápido de contato ao seletor.
+// cadastro rápido de contato ao seletor: devolve o contato criado, que entra
+// pelo mesmo `add` de quem foi escolhido (anúncio, limite e foco), ou `null`.
 
 export type ReferralChainEditorProps = Omit<ComponentProps<'div'>, 'onChange' | 'children' | 'defaultValue'> &
   PartySearches & {
@@ -118,9 +119,11 @@ export function ReferralChainEditor({
   });
 
   const full = chain.length >= MAX_REFERRAL_CHAIN_LENGTH;
+  // sem o seletor (cadeia cheia ou só leitura), o rótulo e a descrição do `Field` apontam para a lista
+  const pickerShown = editable && !full;
 
   const add = (referrer: Referrer) => {
-    if (!onChange) return;
+    if (!onChange || full || !isEligibleReferrer(subject, chain, referrer)) return;
     const position = chain.length + 1;
     const entered = `${referrer.name} entrou na cadeia, na posição ${position}.`;
     onChange(appendReferralLink(chain, referrer));
@@ -128,8 +131,21 @@ export function ReferralChainEditor({
       // o seletor focado desaparece com o 10º elo: o foco vai para o remover dele
       pendingFocus.current = { row: referrerKey(referrer) };
       setAnnouncement(`${entered} ${REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE}`);
-    } else setAnnouncement(entered);
+    } else {
+      // quem vem de um diálogo deixa o foco fora do seletor: ele volta para lá
+      pendingFocus.current = 'picker';
+      setAnnouncement(entered);
+    }
   };
+
+  // o cadastro rápido termina em outro lugar (o diálogo): o foco volta ao seletor mesmo sem elo novo
+  const create = onCreateContact
+    ? async (term: string) => {
+        const created = await onCreateContact(term);
+        if (created === null) root.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+        return created;
+      }
+    : undefined;
 
   const remove = (row: Row, index: number) => {
     if (!onChange) return;
@@ -170,6 +186,7 @@ export function ReferralChainEditor({
             </p>
             <ol
               aria-label={`Cadeia de indicação de ${subject.name}`}
+              {...(pickerShown ? {} : { id: control.id, 'aria-describedby': control['aria-describedby'] })}
               className="m-0 flex list-none flex-col p-0"
               {...reorder.listProps}
             >
@@ -247,11 +264,11 @@ export function ReferralChainEditor({
 
         {editable && full && <p className="m-0 text-sm text-text-muted">{REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE}</p>}
 
-        {editable && !full && (
+        {pickerShown && (
           <PartyPicker
             searchUsers={searchUsers}
             searchContacts={searchContacts}
-            onCreateContact={onCreateContact}
+            onCreateContact={create}
             isEligible={(referrer) => isEligibleReferrer(subject, chain, referrer)}
             onPick={add}
             placeholder={next}

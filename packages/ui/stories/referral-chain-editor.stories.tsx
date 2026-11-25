@@ -4,10 +4,9 @@ import {
   type ReferralSubject,
   type Referrer,
   type UserOption,
-  appendReferralLink,
 } from '@crm/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { type AsyncComboboxPage, Field, ReferralChainEditor } from '../src/index.js';
 import { constrained } from './support/layout.js';
 
@@ -55,6 +54,7 @@ type Args = { initial?: ReferralLink[]; readOnly?: boolean; disabled?: boolean; 
 
 function ChainField({ initial = [], readOnly, disabled, createContact, hint = 'Do mais próximo ao mais distante' }: Args) {
   const [value, setValue] = useState(initial);
+  const created = useRef(0);
   return (
     <Field label="Cadeia de indicação" hint={hint}>
       <ReferralChainEditor
@@ -63,13 +63,13 @@ function ChainField({ initial = [], readOnly, disabled, createContact, hint = 'D
         onChange={setValue}
         searchContacts={simulated(contacts)}
         searchUsers={simulated(users)}
-        // simula o app: o contato cadastrado entra como último elo, sem chamada de rede
+        // simula o app: o contato cadastrado volta para o editor, que o inclui como último elo
         onCreateContact={
           createContact
-            ? (term) =>
-                setValue((links) =>
-                  appendReferralLink(links, { kind: 'contact', id: `c-novo-${links.length}`, name: term || 'Contato novo' }),
-                )
+            ? async (term) => {
+                created.current += 1;
+                return { kind: 'contact', id: `c-novo-${created.current}`, name: term || 'Contato novo' };
+              }
             : undefined
         }
         readOnly={readOnly}

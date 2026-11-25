@@ -1,14 +1,6 @@
-import {
-  MAX_REFERRAL_CHAIN_LENGTH,
-  type ReferralChainOutput,
-  type ReferralLink,
-  type ReferralSubject,
-  type Referrer,
-  appendReferralLink,
-  isEligibleReferrer,
-} from '@crm/shared';
+import type { ReferralChainOutput, ReferralLink, ReferralSubject, Referrer } from '@crm/shared';
 import { ReferralChainEditor, type ReferralChainEditorProps } from '@crm/ui';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useCan } from '../../shell/tenant-access.js';
 import { useTenantSlug } from '../../shell/tenant-query.js';
 import { searchContactOptions } from '../contacts/contacts-api.js';
@@ -21,7 +13,8 @@ import { searchTeamUsers } from '../users/user-field.js';
 // API; este campo é o que o formulário do contato e, depois, o da fazenda usam.
 // Com `contatos.criar`, o seletor de contato oferece "Cadastrar contato" (diálogo
 // de cadastro rápido, com Corretor externo marcado) e o contato criado entra no
-// fim da cadeia. `linked` (usuário que saiu da empresa) segue até o editor, que
+// fim da cadeia, pelo `add` do editor (limite, elegibilidade, anúncio e foco).
+// `linked` (usuário que saiu da empresa) segue até o editor, que
 // mostra "Sem acesso".
 
 export type ReferralChainFieldProps = Omit<ReferralChainEditorProps, 'searchUsers' | 'searchContacts' | 'onCreateContact'>;
@@ -49,13 +42,14 @@ export function ReferralChainField(props: ReferralChainFieldProps) {
   }, [slug]);
   const canCreate = useCan('contatos.criar') && canSearchContacts;
   const [creating, setCreating] = useState<string | null>(null);
+  // o editor espera o contato criado (ou `null`): a promessa só se resolve com o diálogo já fechado
+  const pending = useRef<{ resolve: (referrer: Referrer | null) => void; created: Referrer | null } | null>(null);
 
-  const add = (contact: { id: string; name: string }) => {
-    const referrer: Referrer = { kind: 'contact', id: contact.id, name: contact.name };
-    if (!props.onChange || props.value.length >= MAX_REFERRAL_CHAIN_LENGTH) return;
-    if (!isEligibleReferrer(props.subject, props.value, referrer)) return;
-    props.onChange(appendReferralLink(props.value, referrer));
-  };
+  const create = (term: string) =>
+    new Promise<Referrer | null>((resolve) => {
+      pending.current = { resolve, created: null };
+      setCreating(term);
+    });
 
   return (
     <>
@@ -63,7 +57,7 @@ export function ReferralChainField(props: ReferralChainFieldProps) {
         {...props}
         searchUsers={searchUsers}
         searchContacts={canSearchContacts ? searchContacts : undefined}
-        onCreateContact={canCreate ? setCreating : undefined}
+        onCreateContact={canCreate ? create : undefined}
       />
       {canCreate && (
         <QuickContactDialog
@@ -72,8 +66,15 @@ export function ReferralChainField(props: ReferralChainFieldProps) {
           initialName={creating ?? ''}
           role="external_broker"
           onCreated={(contact) => {
+            if (pending.current) pending.current.created = { kind: 'contact', id: contact.id, name: contact.name };
             setCreating(null);
-            add(contact);
+          }}
+          onCloseAutoFocus={(event) => {
+            // o foco volta pelo editor, que sabe para onde: o seletor ou o remover do 10º elo
+            event.preventDefault();
+            const settled = pending.current;
+            pending.current = null;
+            settled?.resolve(settled.created);
           }}
         />
       )}
