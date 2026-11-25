@@ -66,7 +66,7 @@ function stub(record: unknown | null = null) {
 afterEach(() => vi.unstubAllGlobals());
 
 const pickerName = 'Indicadores';
-const chainList = () => screen.getByRole('list', { name: /Cadeia de indicação de/ });
+const chainList = () => screen.getByRole('list', { name: /^Indicadores de / });
 const names = () =>
   within(chainList())
     .getAllByRole('listitem')
