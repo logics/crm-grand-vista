@@ -43,6 +43,21 @@ describe('cadeia de indicação na ficha da fazenda', () => {
     expect(headings.indexOf('Cadeia de indicação')).toBe(headings.indexOf('Técnico') + 1);
   });
 
+  it('elo de usuário com linked: false mostra Interno e Sem acesso; o com vínculo não', async () => {
+    open(
+      farmDetail([
+        { id: 'l1', position: 1, referrer: { kind: 'user', id: 'u1', name: 'Carlos Menezes', linked: true }, notes: null },
+        { id: 'l2', position: 2, referrer: { kind: 'user', id: 'u2', name: 'Ex-Corretor Fictício', linked: false }, notes: null },
+      ]),
+    );
+
+    const list = await screen.findByRole('list', { name: 'Cadeia de indicação de Fazenda Boa Vista' });
+    const [first, second] = within(list).getAllByRole('listitem');
+    expect(second).toHaveTextContent('Interno');
+    expect(second).toHaveTextContent('Sem acesso');
+    expect(first).not.toHaveTextContent('Sem acesso');
+  });
+
   it('vazia: mostra "Sem cadeia de indicação" e o atalho leva ao formulário', async () => {
     const { pathname } = open(farmDetail([]));
     const user = userEvent.setup();

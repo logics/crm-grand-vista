@@ -22,8 +22,18 @@ export type ReferralSubjectRef = Pick<ReferralSubject, 'kind' | 'id'>;
 
 /** Por tipo de sujeito: a tabela, o id dela, a coluna do elo que a referencia e o trecho do insert que a preenche. */
 const SUBJECTS = {
-  contact: { table: contacts, id: contacts.id, link: referralLinks.subjectContactId, insertKey: (id: string) => ({ subjectContactId: id }) },
-  farm: { table: farms, id: farms.id, link: referralLinks.subjectFarmId, insertKey: (id: string) => ({ subjectFarmId: id }) },
+  contact: {
+    table: contacts,
+    id: contacts.id,
+    link: referralLinks.subjectContactId,
+    subjectValues: (id: string) => ({ subjectContactId: id }),
+  },
+  farm: {
+    table: farms,
+    id: farms.id,
+    link: referralLinks.subjectFarmId,
+    subjectValues: (id: string) => ({ subjectFarmId: id }),
+  },
 } as const;
 
 /** A coluna de `referral_links` que guarda o sujeito, conforme o tipo. */
@@ -213,7 +223,7 @@ export async function replaceReferralChain(
     } else {
       await writes.insert(referralLinks, {
         tenantId,
-        ...own.insertKey(subject.id),
+        ...own.subjectValues(subject.id),
         referrerUserId: link.referrer.kind === 'user' ? link.referrer.id : null,
         referrerContactId: link.referrer.kind === 'contact' ? link.referrer.id : null,
         position: link.position,
