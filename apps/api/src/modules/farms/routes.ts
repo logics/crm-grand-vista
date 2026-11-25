@@ -20,6 +20,7 @@ import { farmReferralHistoryChild, referralRefusal } from '../referrals/routes.j
 import { createHistoryRoutes } from '../../history/routes.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import { declareRoleUsage } from '../../contact-roles/usage.js';
+import { visibleFarmsOwnedBy } from './owner-usage.js';
 import {
   createFarm,
   deleteFarm,
@@ -40,6 +41,7 @@ declareRoleUsage('owner', {
   column: 'contact_id',
   label: { singular: 'fazenda', plural: 'fazendas', gender: 'f' },
   inUsePhrase: 'é proprietário de fazenda',
+  visibleCount: visibleFarmsOwnedBy,
 });
 
 

@@ -1,12 +1,15 @@
 // Registro de uso declarado dos papéis: o ponto de extensão das regras de "em
 // uso". Cada spec consumidora declara, por papel, a tabela e a coluna que
 // apontam para o contato, e os rótulos da entidade. O serviço conta essas
-// linhas antes de retirar o papel. Nasce vazio: as declarações moram nos
-// módulos que criam as tabelas (fazendas, cadeia de indicação, oportunidades,
-// comissão), no momento em que as criam.
+// linhas antes de retirar o papel (o bloqueio é global) e, se a declaração
+// traz `visibleCount`, também as do escopo de quem pede: só a mensagem usa essa
+// contagem, para não dizer um número que revele registros fora do acesso. As
+// declarações moram nos módulos que criam as tabelas (fazendas, cadeia de
+// indicação, oportunidades, comissão), no momento em que as criam.
 import type { Transaction } from '@crm/db';
 import type { ContactRole } from '@crm/shared';
 import { sql } from 'drizzle-orm';
+import type { EffectiveAccess } from '../authorization/effective-access.js';
 
 export interface RoleUsage {
   /** Nome da tabela no banco (`farms`). */
@@ -17,6 +20,10 @@ export interface RoleUsage {
   label: { singular: string; plural: string; gender?: 'f' | 'm' };
   /** Frase da exclusão barrada pela FK: "é proprietário de fazenda". Sem ela, a mensagem cita o rótulo da entidade. */
   inUsePhrase?: string;
+  /** Contagem filtrada pelo escopo de quem pede; só para a mensagem, nunca para o bloqueio. */
+  visibleCount?: (tx: Transaction, access: EffectiveAccess, contactId: string) => Promise<number>;
+  /** Como a mensagem cita o uso sem número; sem ela, `de <plural>`. */
+  uncountedPhrase?: string;
 }
 
 const declarations: { role: ContactRole; usage: RoleUsage }[] = [];
@@ -45,17 +52,26 @@ export const usageOfTable = (table: string): RoleUsage | undefined =>
 export interface RoleUsageCount {
   usage: RoleUsage;
   count: number;
+  /** Linhas dentro do escopo de quem pede; ausente se a declaração não tem `visibleCount`. */
+  visible?: number;
 }
 
 /** Linhas que usam o contato no papel, por declaração; só as declarações com uso. */
-export async function countRoleUsage(tx: Transaction, role: ContactRole, contactId: string): Promise<RoleUsageCount[]> {
+export async function countRoleUsage(
+  tx: Transaction,
+  access: EffectiveAccess,
+  role: ContactRole,
+  contactId: string,
+): Promise<RoleUsageCount[]> {
   const counts: RoleUsageCount[] = [];
   for (const usage of roleUsagesOf(role)) {
     const result = await tx.execute<{ total: number }>(
       sql`select count(*)::int as total from ${sql.identifier(usage.table)} where ${sql.identifier(usage.column)} = ${contactId}`,
     );
     const count = Number(result.rows[0]?.total ?? 0);
-    if (count > 0) counts.push({ usage, count });
+    if (count === 0) continue;
+    const visible = usage.visibleCount ? await usage.visibleCount(tx, access, contactId) : undefined;
+    counts.push({ usage, count, visible });
   }
   return counts;
 }

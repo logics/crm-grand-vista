@@ -153,7 +153,9 @@ export function createContactsRoutes() {
       if (!financial && sendsFinancialKeys(input.buyerProfile)) return c.json(forbidden, 403);
       try {
         const result = await withTaxIdRefusals(c, input.taxId, () =>
-          withTenant((tx) => updateContact(tx, { tenantId: tenant.id, userId }, c.req.param('id'), input, financial)),
+          withTenant((tx) =>
+            updateContact(tx, { tenantId: tenant.id, userId }, c.var.access, c.req.param('id'), input, financial),
+          ),
         );
         if (!result.ok) return result.response;
         if (isRejection(result.value)) return c.json(invalid(result.value.rejected), 400);

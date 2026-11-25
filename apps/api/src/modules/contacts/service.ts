@@ -54,6 +54,8 @@ import { deleteReferralChain, readReferralChain, replaceReferralChain } from '..
 import { countRoleUsage, pluralLabelOfTable, usageOfTable } from '../../contact-roles/usage.js';
 import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { withoutDataScope } from '../../authorization/data-scope.js';
+import type { EffectiveAccess } from '../../authorization/effective-access.js';
+import { roleInUseMessage } from './role-in-use-message.js';
 
 type ContactRow = typeof contacts.$inferSelect;
 
@@ -193,17 +195,19 @@ export async function getContact(
 /** Retirar papel em uso: a mensagem já diz onde, para o front exibi-la. */
 export class RoleInUseError extends Error {}
 
-const countedLabel = (count: number, label: { singular: string; plural: string }) =>
-  `${count} ${count === 1 ? label.singular : label.plural}`;
-
 /** Recusa a retirada de papel que alguma declaração de uso ainda referencia. */
-async function assertRolesNotInUse(tx: Transaction, contact: Contact, removed: readonly ContactRole[]) {
+async function assertRolesNotInUse(tx: Transaction, access: EffectiveAccess, contact: Contact, removed: readonly ContactRole[]) {
   for (const role of removed) {
-    const uses = await countRoleUsage(tx, role, contact.id);
+    const uses = await countRoleUsage(tx, access, role, contact.id);
     if (uses.length === 0) continue;
     const roleLabel = CONTACT_ROLE_LABELS[role].toLowerCase();
-    const where = uses.map(({ usage, count }) => countedLabel(count, usage.label)).join(' e ');
-    throw new RoleInUseError(`${contact.name} é ${roleLabel} de ${where}; troque o ${roleLabel} antes de retirar o papel.`);
+    const tallies = uses.map(({ usage, count, visible }) => ({
+      label: usage.label,
+      uncountedPhrase: usage.uncountedPhrase,
+      total: count,
+      visible,
+    }));
+    throw new RoleInUseError(roleInUseMessage(contact.name, roleLabel, tallies));
   }
 }
 
@@ -315,6 +319,7 @@ export async function createContact(
 export async function updateContact(
   tx: Transaction,
   actor: AuditActor,
+  access: EffectiveAccess,
   id: string,
   input: UpdateContactInput,
   financial = false,
@@ -342,6 +347,7 @@ export async function updateContact(
   if (roles)
     await assertRolesNotInUse(
       tx,
+      access,
       current,
       current.roles.filter((role) => !roles.includes(role)),
     );
