@@ -22,6 +22,7 @@ const farm = (overrides = {}) => ({
   valuationCrop: null,
   priceDerivatives: { pricePerHectare: null, pricePerUsableHectare: null, bagsPerHectare: null },
   owners: [],
+  referralChain: [],
   salesPotential: null,
   priority: null,
   waterAvailability: null,

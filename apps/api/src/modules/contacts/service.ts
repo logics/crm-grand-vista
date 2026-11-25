@@ -187,7 +187,7 @@ export async function getContact(
   financial = false,
 ): Promise<ContactDetail | null> {
   const contact = await findContact(tx, id, financial);
-  return contact ? { ...contact, referralChain: await readReferralChain(tx, tenantId, { id }) } : null;
+  return contact ? { ...contact, referralChain: await readReferralChain(tx, tenantId, { kind: 'contact', id }) } : null;
 }
 
 /** Retirar papel em uso: a mensagem já diz onde, para o front exibi-la. */
@@ -304,7 +304,7 @@ export async function createContact(
     await replaceReferralChain(tx, writes, actor, { kind: 'contact', id: row.id, name: row.name }, referralChain);
   }
   const contact = serialize(row, roles, (await buyerProfilesByContact(tx, [row.id], financial)).get(row.id) ?? null);
-  return { ...contact, referralChain: await readReferralChain(tx, actor.tenantId!, { id: row.id }) };
+  return { ...contact, referralChain: await readReferralChain(tx, actor.tenantId!, { kind: 'contact', id: row.id }) };
 }
 
 /**
@@ -380,7 +380,7 @@ export async function updateContact(
   }
 
   const contact = serialize(row, finalRoles, (await buyerProfilesByContact(tx, [id], financial)).get(id) ?? null);
-  return { ...contact, referralChain: await readReferralChain(tx, actor.tenantId!, { id }) };
+  return { ...contact, referralChain: await readReferralChain(tx, actor.tenantId!, { kind: 'contact', id }) };
 }
 
 /**
@@ -459,7 +459,7 @@ export async function deleteContact(tx: Transaction, actor: AuditActor, id: stri
   if (!(await contactExists(tx, id))) return false;
   const writes = auditedWrites(tx, actor);
   await deleteBuyerProfile(writes, id);
-  await deleteReferralChain(writes, { id });
+  await deleteReferralChain(writes, { kind: 'contact', id });
   await writes.delete(contactRoles, eq(contactRoles.contactId, id));
   await writes.delete(contacts, eq(contacts.id, id));
   return true;

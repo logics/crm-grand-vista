@@ -4,7 +4,7 @@ import { commercialStatuses, farms, municipalities, normalizedText, type Transac
 import type { FarmOption, FarmOptionsPage, FarmOptionsQuery } from '@crm/shared';
 import { and, asc, eq, exists, inArray, notInArray, or, sql } from 'drizzle-orm';
 import type { EffectiveAccess } from '../../authorization/effective-access.js';
-import { dataScopeClause } from '../../authorization/data-scope.js';
+import { farmScopeOf } from './scope.js';
 import { escapeLike } from '../../listing/query.js';
 
 const byName = sql`${farms.name} collate "pt-BR-x-icu"`;
@@ -32,7 +32,7 @@ async function toOptions(tx: Transaction, rows: { id: string; name: string; muni
  * ordem é total (termina em `id`), então nada repete nem se perde.
  */
 export async function listFarmOptions(tx: Transaction, access: EffectiveAccess, query: FarmOptionsQuery): Promise<FarmOptionsPage> {
-  const scope = dataScopeClause(access, 'fazendas', farms.responsibleUserId);
+  const scope = farmScopeOf(access);
   const columns = { id: farms.id, name: farms.name, municipalityIbgeCode: farms.municipalityIbgeCode, totalAreaHa: farms.totalAreaHa };
 
   if (query.ids.length > 0) {
