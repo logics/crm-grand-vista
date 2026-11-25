@@ -326,16 +326,16 @@ describe('ReferralChainEditor — limite de indicadores', () => {
     expect(warning.closest('[role="status"], [aria-live]')).toBeNull();
   });
 
-  it('com a cadeia cheia, o rótulo e a descrição do Field apontam para a lista, que existe', () => {
+  it('com a cadeia cheia, a lista é nomeada pelo rótulo do Field e pelo sujeito, e descrita pela dica', () => {
     render(
-      <Field label="Cadeia de indicação" hint="Quem trouxe o contato.">
+      <Field label="Quem trouxe" hint="Quem trouxe o contato.">
         <ReferralChainEditor subject={pedro} value={fullChain()} onChange={vi.fn()} />
       </Field>,
     );
 
-    const label = screen.getByText('Cadeia de indicação', { selector: 'label' });
-    const list = screen.getByRole('list', { name: /Cadeia de indicação de/ });
-    expect(document.getElementById(label.getAttribute('for') ?? '')).toBe(list);
+    const list = screen.getByRole('list', { name: 'Quem trouxe de Pedro Almeida' });
+    // `<label for>` não rotula `<ol>`: a lista não leva o id do controle
+    expect(list).not.toHaveAttribute('id');
     const described = (list.getAttribute('aria-describedby') ?? '').split(' ');
     expect(described.length).toBeGreaterThan(0);
     for (const id of described) expect(document.getElementById(id)).not.toBeNull();
@@ -474,12 +474,34 @@ describe('ReferralChainEditor — contato criado pelo cadastro rápido', () => {
     expect(screen.getByRole('button', { name: 'Remover Sebastiana Nova' })).toHaveFocus();
   });
 
+  // a promessa só resolve depois de o foco sair do seletor (como no diálogo): o foco de volta é obra do editor
+  function deferred() {
+    let resolve: (value: Referrer | null) => void = () => undefined;
+    const promise = new Promise<Referrer | null>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  }
+
+  async function openCreateAway(user: ReturnType<typeof userEvent.setup>) {
+    await openCreate(user);
+    await user.click(screen.getByRole('button', { name: 'Outro foco' }));
+    expect(screen.getByRole('combobox')).not.toHaveFocus();
+  }
+
   it('quando devolve null (cancelado), nada muda e o foco volta ao seletor', async () => {
     const onLinks = vi.fn();
     const user = userEvent.setup();
-    render(<Harness initial={twoLevels} onLinks={onLinks} onCreateContact={async () => null} searchContacts={filtered} />);
+    const pending = deferred();
+    render(
+      <>
+        <button type="button">Outro foco</button>
+        <Harness initial={twoLevels} onLinks={onLinks} onCreateContact={() => pending.promise} searchContacts={filtered} />
+      </>,
+    );
 
-    await openCreate(user);
+    await openCreateAway(user);
+    pending.resolve(null);
 
     await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
     expect(onLinks).not.toHaveBeenCalled();
@@ -487,14 +509,49 @@ describe('ReferralChainEditor — contato criado pelo cadastro rápido', () => {
     expect(items()).toHaveLength(2);
   });
 
-  it('contato devolvido que já está na cadeia não entra de novo', async () => {
+  it('contato devolvido que já está na cadeia não entra de novo, e o foco volta ao seletor', async () => {
     const onLinks = vi.fn();
     const user = userEvent.setup();
-    render(<Harness initial={twoLevels} onLinks={onLinks} onCreateContact={async () => joao} searchContacts={filtered} />);
+    const pending = deferred();
+    render(
+      <>
+        <button type="button">Outro foco</button>
+        <Harness initial={twoLevels} onLinks={onLinks} onCreateContact={() => pending.promise} searchContacts={filtered} />
+      </>,
+    );
 
-    await openCreate(user);
+    await openCreateAway(user);
+    pending.resolve(joao);
 
     await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+    expect(onLinks).not.toHaveBeenCalled();
+  });
+
+  it('se o cadastro rápido rejeita, vale como cancelado: sem erro solto, nada muda e o foco volta ao seletor', async () => {
+    const onLinks = vi.fn();
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    const user = userEvent.setup();
+    const pending = deferred();
+    render(
+      <>
+        <button type="button">Outro foco</button>
+        <Harness
+          initial={twoLevels}
+          onLinks={onLinks}
+          onCreateContact={() => pending.promise.then(() => Promise.reject(new Error('falhou')))}
+          searchContacts={filtered}
+        />
+      </>,
+    );
+
+    await openCreateAway(user);
+    pending.resolve(null);
+
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+    await new Promise((done) => setTimeout(done, 20));
+    process.off('unhandledRejection', unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
     expect(onLinks).not.toHaveBeenCalled();
   });
 });

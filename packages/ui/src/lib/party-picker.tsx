@@ -20,7 +20,7 @@ export type PartySearches = {
   searchContacts?: ContactPickerSearch;
   /**
    * Cadastro rápido de contato com o termo buscado; sem ele, o seletor de contato não oferece "Cadastrar contato".
-   * Devolve o contato criado, que entra por `onPick`, ou `null` se o cadastro foi cancelado.
+   * Devolve o contato criado, que entra por `onPick`, ou `null` se o cadastro foi cancelado. Rejeitar vale como `null`.
    */
   onCreateContact?: (term: string) => Promise<Referrer | null>;
 };
@@ -69,7 +69,7 @@ export function PartyPicker({
 
   const create = onCreateContact
     ? async (term: string) => {
-        const created = await onCreateContact(term);
+        const created = await onCreateContact(term).catch(() => null);
         if (created) onPick(created);
       }
     : undefined;

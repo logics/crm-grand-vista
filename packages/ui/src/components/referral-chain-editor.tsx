@@ -16,10 +16,10 @@ import {
   reorderReferralChain,
   validateReferralChain,
 } from '@crm/shared';
-import { type ComponentProps, useLayoutEffect, useRef, useState } from 'react';
+import { type ComponentProps, useId, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
 import { reorderableRow } from '../lib/styles.js';
-import { FieldControlContext, type FieldControlProps, useFieldControl } from '../lib/field-control.js';
+import { FieldControlContext, type FieldControlProps, useFieldControl, useFieldLabelId } from '../lib/field-control.js';
 import { PartyPicker, type PartySearches } from '../lib/party-picker.js';
 import { useReorder } from '../lib/reorder.js';
 import { ReorderStatus } from '../lib/reorder-status.js';
@@ -92,6 +92,8 @@ export function ReferralChainEditor({
     'aria-invalid': ariaInvalid,
     'aria-required': ariaRequired,
   });
+  const labelId = useFieldLabelId();
+  const subjectNameId = useId();
   const [announcement, setAnnouncement] = useState('');
   const root = useRef<HTMLDivElement>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -110,20 +112,27 @@ export function ReferralChainEditor({
     disabled,
   });
 
+  const focusPicker = () => root.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+
   useLayoutEffect(() => {
     const target = pendingFocus.current;
     if (target === null) return;
     pendingFocus.current = null;
-    if (target === 'picker') root.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+    if (target === 'picker') focusPicker();
     else removeButtons.current.get(target.row)?.focus();
   });
 
   const full = chain.length >= MAX_REFERRAL_CHAIN_LENGTH;
-  // sem o seletor (cadeia cheia ou só leitura), o rótulo e a descrição do `Field` apontam para a lista
+  // sem o seletor (cadeia cheia ou só leitura), a descrição do `Field` vai para a lista, que o rótulo nomeia por `aria-labelledby`
   const pickerShown = editable && !full;
 
   const add = (referrer: Referrer) => {
-    if (!onChange || full || !isEligibleReferrer(subject, chain, referrer)) return;
+    if (!onChange) return;
+    if (full || !isEligibleReferrer(subject, chain, referrer)) {
+      // quem vem de um diálogo deixa o foco fora do seletor, mesmo sem elo novo
+      focusPicker();
+      return;
+    }
     const position = chain.length + 1;
     const entered = `${referrer.name} entrou na cadeia, na posição ${position}.`;
     onChange(appendReferralLink(chain, referrer));
@@ -138,11 +147,11 @@ export function ReferralChainEditor({
     }
   };
 
-  // o cadastro rápido termina em outro lugar (o diálogo): o foco volta ao seletor mesmo sem elo novo
+  // o cadastro rápido termina em outro lugar (o diálogo): sem elo novo, o foco volta ao seletor. A rejeição vale como cancelado
   const create = onCreateContact
     ? async (term: string) => {
-        const created = await onCreateContact(term);
-        if (created === null) root.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+        const created = await onCreateContact(term).catch(() => null);
+        if (created === null) focusPicker();
         return created;
       }
     : undefined;
@@ -184,9 +193,14 @@ export function ReferralChainEditor({
                 </span>
               ))}
             </p>
+            <span id={subjectNameId} hidden>
+              de {subject.name}
+            </span>
             <ol
-              aria-label={`Cadeia de indicação de ${subject.name}`}
-              {...(pickerShown ? {} : { id: control.id, 'aria-describedby': control['aria-describedby'] })}
+              {...(labelId
+                ? { 'aria-labelledby': `${labelId} ${subjectNameId}` }
+                : { 'aria-label': `Cadeia de indicação de ${subject.name}` })}
+              {...(pickerShown ? {} : { 'aria-describedby': control['aria-describedby'] })}
               className="m-0 flex list-none flex-col p-0"
               {...reorder.listProps}
             >
