@@ -1,14 +1,6 @@
 // Cadeia de indicação da fazenda pelo HTTP real, contra o Postgres (spec
 // fase-1-cadeia-de-indicacao, critérios 1 a 3, 5, 7, 9 e 13 do lado da fazenda).
-import {
-  auditLog,
-  auditedWrites,
-  commercialStatuses,
-  createDatabase,
-  createPool,
-  referralLinks,
-  userProfiles,
-} from '@crm/db';
+import { auditLog, auditedWrites, commercialStatuses, createDatabase, createPool, referralLinks, userProfiles } from '@crm/db';
 import { loadApiEnv } from '@crm/shared/env';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -107,7 +99,9 @@ describe('cadeia de indicação da fazenda', () => {
     tenant = await createTenant(db, 'indicacao-fazenda');
     other = await createTenant(db, 'indicacao-fazenda-b');
     const [m, b, c, v, o, s] = await Promise.all(
-      ['Gestora', 'Corretora', 'Carlos', 'Leitor', 'Gestora B', 'Corretor de Fora'].map((name) => createUserWithPassword(db, name)),
+      ['Gestora', 'Corretora', 'Carlos', 'Leitor', 'Gestora B', 'Corretor de Fora'].map((name) =>
+        createUserWithPassword(db, name),
+      ),
     );
     for (const user of [m!, b!, c!, v!]) await createMembership(db, user.id, tenant.id, { isDefault: true });
     await createMembership(db, o!.id, other.id, { isDefault: true });
@@ -122,7 +116,9 @@ describe('cadeia de indicação da fazenda', () => {
         { tenantId: tenant.id, userId: m!.id, profileId: ids.get('Gestor')! },
         { tenantId: tenant.id, userId: b!.id, profileId: ids.get('Corretor')! },
       ]);
-      await tx.insert(commercialStatuses).values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 });
+      await tx
+        .insert(commercialStatuses)
+        .values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 });
       const [status] = await tx
         .insert(commercialStatuses)
         .values({ tenantId: tenant.id, name: 'Desativada', systemMeaning: 'inactive', displayOrder: 1 })
@@ -271,7 +267,9 @@ describe('cadeia de indicação da fazenda', () => {
         position: 2,
         message: `${joao.name} já está na cadeia, na posição 1.`,
       });
-      const list = (await (await app.request(farmsUrl(`?q=${encodeURIComponent(name)}`), { headers: { cookie: managerCookie } })).json()) as {
+      const list = (await (
+        await app.request(farmsUrl(`?q=${encodeURIComponent(name)}`), { headers: { cookie: managerCookie } })
+      ).json()) as {
         items: unknown[];
       };
       expect(list.items).toEqual([]);
@@ -281,14 +279,21 @@ describe('cadeia de indicação da fazenda', () => {
       const farm = await create();
       const response = await patch(farm.id, { name: 'Nome que não pode gravar', referralChain: [asUser(outsider.id)] });
       expect(response.status).toBe(400);
-      expect((await body(response)).error).toMatchObject({ field: 'referralChain', position: 1, message: 'Usuário não faz parte da equipe.' });
+      expect((await body(response)).error).toMatchObject({
+        field: 'referralChain',
+        position: 1,
+        message: 'Usuário não faz parte da equipe.',
+      });
       expect((await body(await get(farm.id))).name).toBe(farm.name);
     });
 
     it('contato de outra empresa é 400 no item', async () => {
       const foreign = await db.withTenant(other.id, async (tx) => {
         const { contacts } = await import('@crm/db');
-        const [row] = await tx.insert(contacts).values({ tenantId: other.id, personType: 'pf', name: 'De outra empresa' }).returning();
+        const [row] = await tx
+          .insert(contacts)
+          .values({ tenantId: other.id, personType: 'pf', name: 'De outra empresa' })
+          .returning();
         return row!.id;
       });
       const farm = await create();

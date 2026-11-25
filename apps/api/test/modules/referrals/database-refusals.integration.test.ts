@@ -87,7 +87,9 @@ describe('cadeia de indicação: erros do banco viram 400', () => {
       await tx.insert(userProfiles).values({ tenantId: tenant.id, userId: manager.id, profileId: ids.get('Admin')! });
     });
     await db.withTenant(tenant.id, (tx) =>
-      tx.insert(commercialStatuses).values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 }),
+      tx
+        .insert(commercialStatuses)
+        .values({ tenantId: tenant.id, name: 'Disponível', systemMeaning: 'available', displayOrder: 0 }),
     );
     cookie = await loginAs(app, manager);
 

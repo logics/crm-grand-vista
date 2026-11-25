@@ -277,7 +277,8 @@ describe('ficha técnica e comercial', () => {
 
 describe('referralChain nos schemas de fazenda', () => {
   const base = { name: 'Boa Vista', municipalityIbgeCode: '5218805', totalAreaHa: '1000' };
-  const referrer = (n: number) => ({ kind: 'contact', id: `0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e${String(n).padStart(2, '0')}` }) as const;
+  const referrer = (n: number) =>
+    ({ kind: 'contact', id: `0199c1d2-7a4b-7c3e-9f10-1a2b3c4d5e${String(n).padStart(2, '0')}` }) as const;
 
   it('PATCH sem a chave não a produz (ausente não toca a cadeia)', () => {
     const parsed = updateFarmSchema.parse({ name: 'x' });

@@ -24,9 +24,7 @@ export function FarmReferralSection({ record }: { record: FarmDetail }) {
         description="Quem trouxe esta fazenda ainda não foi registrado."
         action={
           canEdit ? (
-            <Button onClick={() => navigate(tenantPath(slug, `farms/${record.id}/edit#indicacao`))}>
-              Registrar indicação
-            </Button>
+            <Button onClick={() => navigate(tenantPath(slug, `farms/${record.id}/edit#indicacao`))}>Registrar indicação</Button>
           ) : undefined
         }
       />

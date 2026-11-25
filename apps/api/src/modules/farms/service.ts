@@ -370,7 +370,12 @@ async function withReferralChain(tx: Transaction, tenantId: string, farm: Farm):
   return { ...farm, referralChain: await readReferralChain(tx, tenantId, { kind: 'farm', id: farm.id }) };
 }
 
-export async function getFarm(tx: Transaction, tenantId: string, access: EffectiveAccess, id: string): Promise<FarmDetail | null> {
+export async function getFarm(
+  tx: Transaction,
+  tenantId: string,
+  access: EffectiveAccess,
+  id: string,
+): Promise<FarmDetail | null> {
   const row = await findRow(tx, access, id);
   return row ? withReferralChain(tx, tenantId, (await serialize(tx, [row]))[0]!) : null;
 }
