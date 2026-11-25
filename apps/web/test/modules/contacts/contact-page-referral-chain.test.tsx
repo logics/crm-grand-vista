@@ -58,6 +58,18 @@ describe('cadeia de indicação na ficha do contato', () => {
     expect(headings.indexOf('Cadeia de indicação')).toBe(headings.indexOf('Dados') + 1);
   });
 
+  it('ficha: usuário com linked: false mostra Interno e Sem acesso', async () => {
+    const unlinked = [chain[0], { ...chain[1], referrer: { kind: 'user', id: 'u2', name: 'Marina Duarte', linked: false } }];
+    open(contact(unlinked));
+
+    const list = await screen.findByRole('list', { name: 'Cadeia de indicação de Pedro Almeida' });
+    const [first, second] = within(list).getAllByRole('listitem');
+    expect(second).toHaveAccessibleName('2. Marina Duarte');
+    expect(second).toHaveTextContent('Interno');
+    expect(second).toHaveTextContent('Sem acesso');
+    expect(first).not.toHaveTextContent('Sem acesso');
+  });
+
   it('vazia: mostra "Sem cadeia de indicação" e o atalho leva ao formulário', async () => {
     const { pathname } = open(contact([]));
     const user = userEvent.setup();
