@@ -2,7 +2,16 @@
 // leitura, substituição pela diferença e exclusão. Sem rota própria: quem a
 // grava é o módulo do sujeito, dentro da transação e do `change_id` do save dele.
 // A regra de validade (duplicado, ciclo) é a de `@crm/shared`, a mesma do front.
-import { referralLinks, contacts, farms, memberships, users, type AuditActor, type AuditedWrites, type Transaction } from '@crm/db';
+import {
+  referralLinks,
+  contacts,
+  farms,
+  memberships,
+  users,
+  type AuditActor,
+  type AuditedWrites,
+  type Transaction,
+} from '@crm/db';
 import {
   REFERRAL_CONTACT_UNKNOWN_MESSAGE,
   REFERRAL_USER_NOT_IN_TEAM_MESSAGE,
@@ -180,7 +189,10 @@ export async function replaceReferralChain(
   // Serializa dois saves do mesmo sujeito: o segundo lê a cadeia que o primeiro deixou.
   const own = SUBJECTS[subject.kind];
   await tx.execute(sql`select ${own.id} from ${own.table} where ${own.id} = ${subject.id} for update`);
-  const current = await tx.select().from(referralLinks).where(eq(subjectColumn(subject), subject.id));
+  const current = await tx
+    .select()
+    .from(referralLinks)
+    .where(eq(subjectColumn(subject), subject.id));
   const currentByKey = new Map(
     current.map((row) => [
       referrerKey(
