@@ -56,6 +56,11 @@ export interface QuickContactDialogProps {
   role?: ContactRole;
   /** O contato recém-criado, para o seletor devolvê-lo selecionado. */
   onCreated: (contact: Contact) => void;
+  /**
+   * Quando o diálogo termina de fechar. `preventDefault` impede o Radix de devolver o foco ao
+   * gatilho: quem o abriu, e vai focar outro controle, o decide.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -63,10 +68,17 @@ export interface QuickContactDialogProps {
  * o mesmo em todo seletor. Passa pelo aviso de duplicata e pelo 409 do documento
  * como o formulário completo. Quem o abre decide o que fazer com o contato criado.
  */
-export function QuickContactDialog({ open, onOpenChange, initialName, role, onCreated }: QuickContactDialogProps) {
+export function QuickContactDialog({
+  open,
+  onOpenChange,
+  initialName,
+  role,
+  onCreated,
+  onCloseAutoFocus,
+}: QuickContactDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         {/* montado só aberto: cada abertura começa do zero, com o termo e o papel de agora */}
         <QuickContactForm initialName={initialName} role={role} onCreated={onCreated} onCancel={() => onOpenChange(false)} />
       </DialogContent>
