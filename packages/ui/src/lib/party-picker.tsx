@@ -18,8 +18,11 @@ export type PartySearches = {
   searchUsers?: AsyncComboboxSearch<UserOption>;
   /** Busca de contato (corretor externo), a do `ContactPicker`. Sem ela, só entra usuário. */
   searchContacts?: ContactPickerSearch;
-  /** Cadastro rápido de contato com o termo buscado; sem ele, o seletor de contato não oferece "Cadastrar contato". */
-  onCreateContact?: (term: string) => void;
+  /**
+   * Cadastro rápido de contato com o termo buscado; sem ele, o seletor de contato não oferece "Cadastrar contato".
+   * Devolve o contato criado, que entra por `onPick`, ou `null` se o cadastro foi cancelado. Rejeitar vale como `null`.
+   */
+  onCreateContact?: (term: string) => Promise<Referrer | null>;
 };
 
 export type PartyPickerProps = FieldControlProps &
@@ -64,6 +67,13 @@ export function PartyPicker({
       return { ...page, items: page.items.filter(({ id, name }) => isEligible({ kind: partyKind, id, name })) };
     };
 
+  const create = onCreateContact
+    ? async (term: string) => {
+        const created = await onCreateContact(term).catch(() => null);
+        if (created) onPick(created);
+      }
+    : undefined;
+
   const picker = {
     value: null,
     onChange: (option: PartyOption | null) => option && onPick({ kind, id: option.id, name: option.name }),
@@ -97,7 +107,7 @@ export function PartyPicker({
         {kind === 'user' && searchUsers ? (
           <UserPicker {...picker} search={eligible(searchUsers, 'user')} />
         ) : (
-          searchContacts && <ContactPicker {...picker} search={eligible(searchContacts, 'contact')} onCreate={onCreateContact} />
+          searchContacts && <ContactPicker {...picker} search={eligible(searchContacts, 'contact')} onCreate={create} />
         )}
       </div>
     </div>

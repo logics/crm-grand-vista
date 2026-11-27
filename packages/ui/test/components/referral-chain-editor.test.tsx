@@ -8,7 +8,7 @@ import {
   type Referrer,
   type UserOption,
 } from '@crm/shared';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -317,6 +317,30 @@ describe('ReferralChainEditor — limite de indicadores', () => {
     expect(screen.queryByText(/Limite de/)).not.toBeInTheDocument();
   });
 
+  it('o aviso de limite é texto comum: sem role nem aria-live, para não duplicar o anúncio', () => {
+    render(<Harness initial={fullChain()} />);
+
+    const warning = screen.getByText(REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE);
+    expect(warning).not.toHaveAttribute('role');
+    expect(warning).not.toHaveAttribute('aria-live');
+    expect(warning.closest('[role="status"], [aria-live]')).toBeNull();
+  });
+
+  it('com a cadeia cheia, a lista é nomeada pelo rótulo do Field e pelo sujeito, e descrita pela dica', () => {
+    render(
+      <Field label="Indicadores" hint="Quem trouxe o contato.">
+        <ReferralChainEditor subject={pedro} value={fullChain()} onChange={vi.fn()} />
+      </Field>,
+    );
+
+    const list = screen.getByRole('list', { name: 'Indicadores de Pedro Almeida' });
+    // `<label for>` não rotula `<ol>`: a lista não leva o id do controle
+    expect(list).not.toHaveAttribute('id');
+    const described = (list.getAttribute('aria-describedby') ?? '').split(' ');
+    expect(described.length).toBeGreaterThan(0);
+    for (const id of described) expect(document.getElementById(id)).not.toBeNull();
+  });
+
   it('removido um elo com a cadeia cheia, o seletor volta', async () => {
     const user = userEvent.setup();
     render(<Harness initial={fullChain()} />);
@@ -372,7 +396,7 @@ describe('ReferralChainEditor — cadastro rápido de contato', () => {
   });
 
   it('com onCreateContact, o seletor de contato oferece "Cadastrar contato" com o termo buscado', async () => {
-    const onCreateContact = vi.fn();
+    const onCreateContact = vi.fn(async () => null);
     const user = userEvent.setup();
     const build = await compileStyles();
     render(<Harness onCreateContact={onCreateContact} searchContacts={filtered} />);
@@ -405,5 +429,132 @@ describe('ReferralChainEditor — cadastro rápido de contato', () => {
     await user.type(screen.getByPlaceholderText('Buscar usuário'), 'Sebastiana');
     await screen.findByText(/Nenhum resultado para/);
     expect(screen.queryByRole('button', { name: 'Cadastrar contato' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ReferralChainEditor — contato criado pelo cadastro rápido', () => {
+  const filtered = async (term: string) => ({
+    items: contacts.filter((option) => option.name.toLowerCase().includes(term.toLowerCase())),
+  });
+  const novo: Referrer = { kind: 'contact', id: 'c-novo', name: 'Sebastiana Nova' };
+
+  async function openCreate(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('combobox'));
+    await user.type(screen.getByPlaceholderText('Buscar contato'), 'Sebastiana');
+    await user.click(await screen.findByRole('button', { name: 'Cadastrar contato' }));
+  }
+
+  it('quando devolve o contato, ele entra no fim, o status anuncia e o foco fica no seletor', async () => {
+    const onLinks = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness initial={twoLevels} onLinks={onLinks} onCreateContact={async () => novo} searchContacts={filtered} />);
+
+    await openCreate(user);
+
+    await waitFor(() => expect(onLinks).toHaveBeenCalledTimes(1));
+    expect(onLinks.mock.lastCall?.[0].map((item: ReferralLink) => item.referrer.name)).toEqual([
+      'João Batista',
+      'Sebastião Ferreira',
+      'Sebastiana Nova',
+    ]);
+    expect(screen.getByText('Sebastiana Nova entrou na cadeia, na posição 3.')).toHaveAttribute('role', 'status');
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+  });
+
+  it('com 9 elos, o 10º pelo cadastro rápido anuncia o limite e leva o foco ao remover dele', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={fullChain(9)} onCreateContact={async () => novo} searchContacts={filtered} />);
+
+    await openCreate(user);
+
+    await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeInTheDocument());
+    expect(
+      screen.getByText(`Sebastiana Nova entrou na cadeia, na posição 10. ${REFERRAL_CHAIN_LIMIT_REACHED_MESSAGE}`),
+    ).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: 'Remover Sebastiana Nova' })).toHaveFocus();
+  });
+
+  // a promessa só resolve depois de o foco sair do seletor (como no diálogo): o foco de volta é obra do editor
+  function deferred() {
+    let resolve: (value: Referrer | null) => void = () => undefined;
+    const promise = new Promise<Referrer | null>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  }
+
+  async function openCreateAway(user: ReturnType<typeof userEvent.setup>) {
+    await openCreate(user);
+    await user.click(screen.getByRole('button', { name: 'Outro foco' }));
+    expect(screen.getByRole('combobox')).not.toHaveFocus();
+  }
+
+  it('quando devolve null (cancelado), nada muda e o foco volta ao seletor', async () => {
+    const onLinks = vi.fn();
+    const user = userEvent.setup();
+    const pending = deferred();
+    render(
+      <>
+        <button type="button">Outro foco</button>
+        <Harness initial={twoLevels} onLinks={onLinks} onCreateContact={() => pending.promise} searchContacts={filtered} />
+      </>,
+    );
+
+    await openCreateAway(user);
+    pending.resolve(null);
+
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+    expect(onLinks).not.toHaveBeenCalled();
+    expect(screen.queryByText(/entrou na cadeia/)).not.toBeInTheDocument();
+    expect(items()).toHaveLength(2);
+  });
+
+  it('contato devolvido que já está na cadeia não entra de novo, e o foco volta ao seletor', async () => {
+    const onLinks = vi.fn();
+    const user = userEvent.setup();
+    const pending = deferred();
+    render(
+      <>
+        <button type="button">Outro foco</button>
+        <Harness initial={twoLevels} onLinks={onLinks} onCreateContact={() => pending.promise} searchContacts={filtered} />
+      </>,
+    );
+
+    await openCreateAway(user);
+    pending.resolve(joao);
+
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+    expect(onLinks).not.toHaveBeenCalled();
+  });
+
+  it('se o cadastro rápido rejeita, vale como cancelado: sem erro solto, nada muda e o foco volta ao seletor', async () => {
+    const onLinks = vi.fn();
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const user = userEvent.setup();
+      const pending = deferred();
+      render(
+        <>
+          <button type="button">Outro foco</button>
+          <Harness
+            initial={twoLevels}
+            onLinks={onLinks}
+            onCreateContact={() => pending.promise.then(() => Promise.reject(new Error('falhou')))}
+            searchContacts={filtered}
+          />
+        </>,
+      );
+
+      await openCreateAway(user);
+      pending.resolve(null);
+
+      await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+      await new Promise((done) => setTimeout(done, 20));
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(onLinks).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
   });
 });
