@@ -62,6 +62,8 @@ export async function fetchContacts(slug: string, query: ContactListQuery): Prom
       ...(query.urgency ? { urgency: query.urgency.join(',') } : {}),
       ...(query.cropId ? { cropId: query.cropId.join(',') } : {}),
       ...(query.region ? { region: query.region.join(',') } : {}),
+      ...(query.referrerContactId ? { referrerContactId: query.referrerContactId.join(',') } : {}),
+      ...(query.referrerUserId ? { referrerUserId: query.referrerUserId.join(',') } : {}),
       ...(query.createdFrom ? { createdFrom: query.createdFrom } : {}),
       ...(query.createdTo ? { createdTo: query.createdTo } : {}),
     },

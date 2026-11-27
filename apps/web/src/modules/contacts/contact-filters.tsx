@@ -1,4 +1,6 @@
 import {
+  REFERRED_BY_CONTACT_LABEL,
+  REFERRED_BY_USER_LABEL,
   CONTACT_ROLES_LABEL,
   CONTACT_ROLE_LABELS,
   CONTACT_ROLES,
@@ -33,6 +35,8 @@ import type { ListQueryState } from '../../listing/list-query.js';
 import { useTenantSlug } from '../../shell/tenant-query.js';
 import { resolveMunicipalities, searchMunicipalities } from '../municipalities/municipality-source.js';
 import { VocabularyField } from '../settings/vocabulary-field.js';
+import { UserField } from '../users/user-field.js';
+import { ContactField } from './contact-field.js';
 
 // Filtros da lista de contatos, abaixo da busca, em dois grupos rotulados: os do
 // contato e os do perfil de compra. Leem e escrevem a lista da URL
@@ -112,7 +116,14 @@ function profileFilterCount(query: ContactQuery) {
 
 function activeFilterCount(query: ContactQuery) {
   const period = present(query.createdFrom) || present(query.createdTo);
-  const contact = [query.role, query.personType, query.classificationId, query.leadSourceId].filter(present).length;
+  const contact = [
+    query.role,
+    query.personType,
+    query.classificationId,
+    query.leadSourceId,
+    query.referrerContactId,
+    query.referrerUserId,
+  ].filter(present).length;
   return contact + (period ? 1 : 0) + profileFilterCount(query);
 }
 
@@ -196,6 +207,25 @@ export function ContactFilters({ query, update, filtered, clearFilters }: ListQu
             size="sm"
             value={query.leadSourceId ?? null}
             onChange={(entry) => update({ leadSourceId: entry?.id })}
+          />
+        </Field>
+        <Field label={REFERRED_BY_CONTACT_LABEL} className={width.wide}>
+          <ContactField
+            multiple
+            size="sm"
+            role="external_broker"
+            aria-label={REFERRED_BY_CONTACT_LABEL}
+            value={query.referrerContactId ?? []}
+            onChange={(contacts) => update({ referrerContactId: idList(contacts) })}
+          />
+        </Field>
+        <Field label={REFERRED_BY_USER_LABEL} className={width.wide}>
+          <UserField
+            multiple
+            size="sm"
+            aria-label={REFERRED_BY_USER_LABEL}
+            value={query.referrerUserId ?? []}
+            onChange={(users) => update({ referrerUserId: idList(users) })}
           />
         </Field>
         <Field label="Cadastrado em" className={width.wide}>

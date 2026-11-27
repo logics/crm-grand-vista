@@ -11,6 +11,7 @@ import { FarmPage } from './modules/farms/farm-page.js';
 import { FarmsPage } from './modules/farms/farms-page.js';
 // Registra a seção "Fazendas" na ficha do contato (efeito do módulo).
 import './modules/farms/contact-farms-section.js';
+import './modules/referrals/referrals-made-section.js';
 import { ParametersPage } from './modules/settings/parameters-page.js';
 import { SettingsLayout } from './modules/settings/settings-layout.js';
 import { VocabularyPage } from './modules/settings/vocabulary-page.js';

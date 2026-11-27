@@ -35,3 +35,4 @@ Lista, ficha e formulário de fazendas (cadastro mínimo, #145; técnico e comer
 
 - Seção `indicacao` ("Cadeia de indicação") do formulário, logo depois de Proprietários, com o `ReferralChainField`; `farmFormSchemaWithChain` estende o schema com os elos do editor e `save` converte com `referralChainInputOf`. Só envia `referralChain` se a seção foi tocada (`chainTouched`); o nome digitado encabeça o seletor (`typedName`).
 - `fetchFarm`, `createFarm` e `updateFarm` devolvem `FarmDetail` (com a cadeia); `farmSections` é `createRecordSectionRegistry<FarmDetail>()`. A ficha registra a seção `referral-chain` (`order: 15`).
+- Filtro "Indicado por" (#189): no "Mais filtros", depois de "Corretor responsável", "Indicado por (contato)" (`ContactField` múltiplo; só com `contatos.ver` ou valor vindo no link) e "Indicado por (interno)" (`UserField` múltiplo, sempre, inclusive no escopo `own`); os dois entram no contador do botão. `listParams` já repassa os parâmetros.

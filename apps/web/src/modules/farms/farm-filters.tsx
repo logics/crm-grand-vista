@@ -1,4 +1,6 @@
 import {
+  REFERRED_BY_CONTACT_LABEL,
+  REFERRED_BY_USER_LABEL,
   DOCUMENT_STATUSES,
   DOCUMENT_STATUS_LABELS,
   FIELD_REGISTRY,
@@ -109,6 +111,8 @@ function activeMoreFilters(query: FarmList['query']): number {
     'maxDistanceToWarehouseKm',
     'ownerContactId',
     'responsibleUserId',
+    'referrerContactId',
+    'referrerUserId',
   ] as const;
   return keys.filter((key) => query[key] !== undefined).length;
 }
@@ -303,6 +307,27 @@ export function FarmFilters({ query, update }: FarmList) {
               />
             </Field>
           )}
+          {(canSeeContacts || query.referrerContactId) && (
+            <Field label={REFERRED_BY_CONTACT_LABEL}>
+              <ContactField
+                multiple
+                size="sm"
+                role="external_broker"
+                aria-label={REFERRED_BY_CONTACT_LABEL}
+                value={query.referrerContactId ?? []}
+                onChange={(contacts) => update({ referrerContactId: idList(contacts) })}
+              />
+            </Field>
+          )}
+          <Field label={REFERRED_BY_USER_LABEL}>
+            <UserField
+              multiple
+              size="sm"
+              aria-label={REFERRED_BY_USER_LABEL}
+              value={query.referrerUserId ?? []}
+              onChange={(users) => update({ referrerUserId: idList(users) })}
+            />
+          </Field>
         </PopoverContent>
       </Popover>
       {/* o aviso só aparece quando o filtro de valor está em uso: fora disso, é ruído */}

@@ -57,6 +57,7 @@ import { defineList, escapeLike, paginatedQuery } from '../../listing/query.js';
 import { ensureContactRole } from '../../contact-roles/ensure.js';
 import { defaultEntries } from '../settings/service.js';
 import { deleteReferralChain, readReferralChain, replaceReferralChain } from '../referrals/service.js';
+import { referredBy } from '../referrals/referred-by.js';
 import { farmScopeOf } from './scope.js';
 
 type FarmRow = typeof farms.$inferSelect;
@@ -304,6 +305,8 @@ function farmFilters(tx: Transaction, access: EffectiveAccess, query: FarmListQu
     numeric(farms.distanceToHighwayKm, '<=', query.maxDistanceToHighwayKm),
     numeric(farms.distanceToWarehouseKm, '<=', query.maxDistanceToWarehouseKm),
     query.ownerContactId ? joinedWithAny(tx, farmOwners, farmOwners.contactId, [query.ownerContactId]) : undefined,
+    // Sem escopo próprio: o `farmScopeOf` da lista já recorta, então o `total` é o do leitor.
+    referredBy({ contactIds: query.referrerContactId, userIds: query.referrerUserId }, 'farm'),
   ];
 }
 

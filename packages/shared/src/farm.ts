@@ -20,7 +20,7 @@ import {
 import { listPageSchema, listQuerySchema } from './listing.js';
 import { COMMERCIAL_STATUS_MEANINGS } from './vocabulary.js';
 import { UFS, municipalityOptionSchema } from './region.js';
-import { referralChainInputSchema, referralChainOutputSchema } from './referral-chain.js';
+import { REFERRER_FILTER_INVALID_MESSAGE, referralChainInputSchema, referralChainOutputSchema } from './referral-chain.js';
 import { optionalText } from './text.js';
 
 /** Nível: o tipo único das colunas de potencial, prioridade e nota. A tabela as protege por `CHECK` montado desta constante. */
@@ -585,6 +585,9 @@ export const farmListFilters = {
   maxDistanceToHighwayKm: distanceFilterSchema('Distância até a rodovia inválida.').optional(),
   maxDistanceToWarehouseKm: distanceFilterSchema('Distância até o armazém inválida.').optional(),
   ownerContactId: z.uuid({ error: FARM_OWNER_UNKNOWN_MESSAGE }).optional(),
+  // Indicador em qualquer posição da cadeia (spec fase-1-cadeia-de-indicacao): contato e usuário, qualquer um dos escolhidos.
+  referrerContactId: idsFilter(REFERRER_FILTER_INVALID_MESSAGE),
+  referrerUserId: idsFilter(REFERRER_FILTER_INVALID_MESSAGE),
 };
 
 export const farmListQuerySchema = listQuerySchema({ sortable: FARM_SORT_FIELDS, filters: farmListFilters }).superRefine(
