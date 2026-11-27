@@ -18,7 +18,7 @@ import {
 } from '@crm/shared';
 import { type ComponentProps, useId, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
-import { reorderableRow } from '../lib/styles.js';
+import { mobileTouchTarget, reorderableRow } from '../lib/styles.js';
 import { FieldControlContext, type FieldControlProps, useFieldControl, useFieldLabelId } from '../lib/field-control.js';
 import { PartyPicker, type PartySearches } from '../lib/party-picker.js';
 import { useReorder } from '../lib/reorder.js';
@@ -191,7 +191,7 @@ export function ReferralChainEditor({
             <p className="m-0 flex flex-wrap items-center gap-3 text-sm text-text-body">
               <span className="font-medium text-text-heading">{subject.name}</span>
               {rows.map((row) => (
-                <span key={row.id} className="inline-flex items-center gap-3">
+                <span key={row.id} className="inline-flex min-w-0 items-center gap-3 wrap-anywhere">
                   <Icon name="arrow-left" size="sm" aria-hidden className="text-text-faint" />
                   <span className="sr-only">, indicado por </span>
                   {row.link.referrer.name}
@@ -226,22 +226,24 @@ export function ReferralChainEditor({
                           icon="grip-vertical"
                           label={`Mover ${referrer.name}`}
                           size="sm"
-                          className="cursor-grab"
+                          className={cn('cursor-grab', mobileTouchTarget.square)}
                           {...reorder.handleProps(row)}
                         />
                       )}
                       <span aria-hidden className="gv-num w-5 text-center text-sm text-text-faint">
                         {position}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-body">{referrer.name}</span>
-                      <Badge size="sm" tone={referrer.kind === 'user' ? 'brand' : 'neutral'}>
-                        {REFERRER_KIND_LABELS[referrer.kind]}
-                      </Badge>
-                      {referrer.kind === 'user' && referrer.linked === false && (
-                        <Badge size="sm" tone="warning">
-                          {REFERRER_UNLINKED_LABEL}
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+                        <span className="min-w-0 grow text-sm font-medium wrap-break-word text-text-body">{referrer.name}</span>
+                        <Badge size="sm" tone={referrer.kind === 'user' ? 'brand' : 'neutral'}>
+                          {REFERRER_KIND_LABELS[referrer.kind]}
                         </Badge>
-                      )}
+                        {referrer.kind === 'user' && referrer.linked === false && (
+                          <Badge size="sm" tone="warning">
+                            {REFERRER_UNLINKED_LABEL}
+                          </Badge>
+                        )}
+                      </div>
                       {editable && (
                         <IconButton
                           ref={(element) => {
@@ -251,6 +253,7 @@ export function ReferralChainEditor({
                           icon="trash-2"
                           label={`Remover ${referrer.name}`}
                           size="sm"
+                          className={mobileTouchTarget.square}
                           disabled={disabled}
                           onClick={() => remove(row, index)}
                         />
@@ -259,6 +262,7 @@ export function ReferralChainEditor({
                     {editable ? (
                       <Input
                         size="sm"
+                        className={mobileTouchTarget.bar}
                         aria-label={`Nota sobre ${referrer.name}`}
                         placeholder="Nota"
                         value={notes ?? ''}
