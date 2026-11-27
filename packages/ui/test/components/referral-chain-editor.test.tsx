@@ -601,7 +601,9 @@ describe('ReferralChainEditor — mobile (390 px)', () => {
   it('as marcas ficam no grupo do nome, que quebra linha', () => {
     render(<Harness initial={[link(unlinked, 1)]} />);
 
-    const group = within(itemOf('Maria')).getByText('Maria Aparecida Conceição').parentElement;
+    const name = within(itemOf('Maria')).getByText('Maria Aparecida Conceição');
+    const group = name.parentElement;
+    expect(name).toHaveClass('grow');
     expect(group).toHaveClass('flex-wrap', 'min-w-0');
     expect(within(group!).getByText('Interno')).toBeInTheDocument();
     expect(within(group!).getByText('Sem acesso')).toBeInTheDocument();

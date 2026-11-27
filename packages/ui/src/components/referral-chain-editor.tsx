@@ -191,7 +191,7 @@ export function ReferralChainEditor({
             <p className="m-0 flex flex-wrap items-center gap-3 text-sm text-text-body">
               <span className="font-medium text-text-heading">{subject.name}</span>
               {rows.map((row) => (
-                <span key={row.id} className="inline-flex min-w-0 items-center gap-3 wrap-break-word">
+                <span key={row.id} className="inline-flex min-w-0 items-center gap-3 wrap-anywhere">
                   <Icon name="arrow-left" size="sm" aria-hidden className="text-text-faint" />
                   <span className="sr-only">, indicado por </span>
                   {row.link.referrer.name}
@@ -234,7 +234,7 @@ export function ReferralChainEditor({
                         {position}
                       </span>
                       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
-                        <span className="min-w-0 text-sm font-medium wrap-break-word text-text-body">{referrer.name}</span>
+                        <span className="min-w-0 grow text-sm font-medium wrap-break-word text-text-body">{referrer.name}</span>
                         <Badge size="sm" tone={referrer.kind === 'user' ? 'brand' : 'neutral'}>
                           {REFERRER_KIND_LABELS[referrer.kind]}
                         </Badge>
