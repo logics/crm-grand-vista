@@ -90,6 +90,67 @@ describe('EntityForm: seções ancoradas', () => {
   });
 });
 
+describe('EntityForm: âncora de seção (focusSection)', () => {
+  const anchoredSections = sections.map((section, index) => ({ ...section, id: index === 0 ? 'identificacao' : 'area' }));
+  const collapsedSections = anchoredSections.map((section, index) => ({ ...section, collapsed: index === 1 }));
+
+  function renderAnchored(props: Partial<EntityFormProps<typeof farmSchema>> = {}, list = anchoredSections) {
+    const element = (extra: Partial<EntityFormProps<typeof farmSchema>>) => (
+      <EntityForm
+        schema={farmSchema}
+        defaultValues={filled}
+        sections={list}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        {...props}
+        {...extra}
+      />
+    );
+    const view = render(element({}));
+    return { ...view, element };
+  }
+
+  it('rola até a seção e foca o primeiro campo dela', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderAnchored({ focusSection: 'area' });
+    expect(screen.getByLabelText(/Área total/)).toHaveFocus();
+    // o foco é repetido no render logo após o commit; todas as rolagens vão ao mesmo card
+    expect(scroll).toHaveBeenCalled();
+    expect(new Set(scroll.mock.contexts)).toEqual(new Set([document.getElementById('area')]));
+    scroll.mockRestore();
+  });
+
+  it('abre a seção recolhida e foca o primeiro campo dela', () => {
+    renderAnchored({ focusSection: 'area' }, collapsedSections);
+    expect(screen.getByRole('button', { name: 'Recolher' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(/Área total/)).toHaveFocus();
+  });
+
+  it('id inexistente: sem erro, sem foco e sem rolagem', () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderAnchored({ focusSection: 'nao-existe' });
+    expect(document.body).toHaveFocus();
+    expect(scroll).not.toHaveBeenCalled();
+    scroll.mockRestore();
+  });
+
+  it('um re-render não devolve o foco à seção', async () => {
+    const user = userEvent.setup();
+    const { rerender, element } = renderAnchored({ focusSection: 'area' });
+    await user.type(screen.getByRole('textbox', { name: /Nome da fazenda/ }), 'x');
+    rerender(element({}));
+    expect(screen.getByRole('textbox', { name: /Nome da fazenda/ })).toHaveFocus();
+  });
+
+  it('o clique na âncora do índice abre a seção e foca o primeiro campo', async () => {
+    const user = userEvent.setup();
+    renderAnchored({}, collapsedSections);
+    await user.click(screen.getByRole('link', { name: 'Área' }));
+    expect(screen.getByRole('button', { name: 'Recolher' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText(/Área total/)).toHaveFocus();
+  });
+});
+
 function renderForm(props: Partial<EntityFormProps<typeof farmSchema>> = {}) {
   const onSubmit = props.onSubmit ?? vi.fn();
   const onCancel = props.onCancel ?? vi.fn();

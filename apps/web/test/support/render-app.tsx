@@ -27,5 +27,5 @@ export function renderApp(path: string, { tenantPages = [] }: RenderAppOptions =
       <RouterProvider router={router} />
     </AppProviders>,
   );
-  return { router, pathname: () => router.state.location.pathname };
+  return { router, pathname: () => router.state.location.pathname, hash: () => router.state.location.hash };
 }

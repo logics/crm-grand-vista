@@ -40,7 +40,7 @@ import {
 } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { z } from 'zod';
 import { useUnsavedChangesGuard } from '../../lib/use-unsaved-changes-guard.js';
 import { useDisplayContext } from '../settings/display-context.js';
@@ -96,6 +96,7 @@ export function ContactFormPage() {
 function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchContact>> | null }) {
   const slug = useTenantSlug();
   const navigate = useNavigate();
+  const { hash } = useLocation();
   const queryClient = useQueryClient();
   const [personType, setPersonType] = useState<PersonType>(contact?.personType ?? 'pf');
   const [roles, setRoles] = useState<ContactRole[]>(contact?.roles ?? []);
@@ -402,6 +403,7 @@ function ContactForm({ contact }: { contact: Awaited<ReturnType<typeof fetchCont
       />
       <EntityForm
         id={FORM_ID}
+        focusSection={hash.slice(1) || undefined}
         schema={schema}
         defaultValues={{
           personType: contact?.personType ?? 'pf',

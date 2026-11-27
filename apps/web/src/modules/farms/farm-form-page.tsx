@@ -43,7 +43,7 @@ import {
 } from '@crm/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { z } from 'zod';
 import { useUnsavedChangesGuard } from '../../lib/use-unsaved-changes-guard.js';
 import { useSession } from '../auth/session.js';
@@ -284,6 +284,7 @@ function ownersChanged(saved: Farm['owners'], desired: readonly FarmOwnerInput[]
 function FarmForm({ farm }: { farm: FarmDetail | null }) {
   const slug = useTenantSlug();
   const navigate = useNavigate();
+  const { hash } = useLocation();
   const queryClient = useQueryClient();
   const session = useSession().data;
   const scope = useDataScope('fazendas');
@@ -914,6 +915,7 @@ function FarmForm({ farm }: { farm: FarmDetail | null }) {
       />
       <EntityForm
         id={FORM_ID}
+        focusSection={hash.slice(1) || undefined}
         schema={farmFormSchemaWithChain}
         defaultValues={{
           name: farm?.name ?? '',

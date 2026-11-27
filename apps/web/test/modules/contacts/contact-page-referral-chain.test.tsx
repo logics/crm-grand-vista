@@ -70,8 +70,9 @@ describe('cadeia de indicação na ficha do contato', () => {
     expect(first).not.toHaveTextContent('Sem acesso');
   });
 
-  it('vazia: mostra "Sem cadeia de indicação" e o atalho leva ao formulário', async () => {
-    const { pathname } = open(contact([]));
+  it('vazia: o atalho abre o formulário na cadeia de indicação, com foco no seletor', async () => {
+    const { pathname, hash } = open(contact([]));
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
     const user = userEvent.setup();
 
     expect(await screen.findByText('Sem cadeia de indicação')).toBeInTheDocument();
@@ -79,6 +80,13 @@ describe('cadeia de indicação na ficha do contato', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar indicação' }));
 
     await waitFor(() => expect(pathname()).toBe('/e/grand-vista/contacts/c1/edit'));
+    expect(hash()).toBe('#indicacao');
+    const heading = await screen.findByRole('heading', { name: 'Cadeia de indicação' });
+    const card = heading.closest('[id="indicacao"]');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Indicadores' })).toHaveFocus());
+    expect(card).not.toBeNull();
+    expect(scroll.mock.contexts).toContain(card);
+    scroll.mockRestore();
   });
 
   it('vazia, sem contatos.editar: o estado vazio fica sem o atalho', async () => {
