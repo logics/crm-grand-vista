@@ -9,6 +9,7 @@ import type { Context } from 'hono';
 import { databaseError, SQLSTATE } from '../../database-error.js';
 import type { TenantEnv } from '../../tenant-context.js';
 import { ReferralChainRejection } from './service.js';
+import { visibleLinksOfReferrer } from './referrer-usage.js';
 import { declareRoleUsage } from '../../contact-roles/usage.js';
 import type { HistoryChildDeclaration } from '../../history/assemble.js';
 
@@ -17,6 +18,8 @@ declareRoleUsage('external_broker', {
   column: 'referrer_contact_id',
   label: { singular: 'cadeia de indicação', plural: 'cadeias de indicação', gender: 'f' },
   inUsePhrase: 'é indicador em cadeia de indicação',
+  visibleCount: visibleLinksOfReferrer,
+  uncountedPhrase: 'em cadeias de indicação',
 });
 
 /** O elo como filho do histórico do contato: "Indicador adicionado: João (posição 1)". */
