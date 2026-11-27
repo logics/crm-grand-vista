@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ComponentProps, type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { type ComponentProps, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import {
   Controller,
   type ControllerRenderProps,
@@ -81,9 +81,27 @@ export type EntityFormProps<TSchema extends FormSchema> = Omit<
   submitLabel?: string;
   /** Avisa quando o formulário passa a ter (ou deixa de ter) alterações não salvas. */
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Id de uma seção ancorada: o formulário abre a seção (se recolhida), rola até ela e foca o primeiro campo.
+   * Uso típico: o hash da URL sem `#`. O pacote não lê a URL; quem passa o valor é o app.
+   */
+  focusSection?: string;
 };
 
 const colSpanClass = { 1: '', 2: 'col-span-2 max-mobile:col-span-1' } as const;
+
+/** Rola até o card da seção e foca o controle do primeiro `Field` dela (ou o primeiro focável). */
+function focusSectionControl(form: HTMLFormElement | null, id: string) {
+  const card = form?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+  if (!card) return;
+  card.scrollIntoView({ block: 'start' });
+  const label = card.querySelector<HTMLLabelElement>('label[for]');
+  const control =
+    (label && document.getElementById(label.htmlFor)) ??
+    card.querySelector<HTMLElement>('input, select, textarea, button, [tabindex]:not([tabindex="-1"])');
+  // a rolagem já foi feita pela seção: sem `preventScroll`, o foco rolaria só até o controle e esconderia o título
+  control?.focus({ preventScroll: true });
+}
 
 /** Erro geral no topo; `focus` quando nenhum campo recebe o foco no lugar dele. */
 type ServerError = { messages: string[]; focus: boolean };
@@ -97,6 +115,7 @@ export function EntityForm<TSchema extends FormSchema>({
   onCancel,
   submitLabel = 'Salvar',
   onDirtyChange,
+  focusSection,
   ...props
 }: EntityFormProps<TSchema>) {
   type Input = z.input<TSchema>;
@@ -118,9 +137,54 @@ export function EntityForm<TSchema extends FormSchema>({
   });
   const { isSubmitting, isDirty } = form.formState;
   // seções recolhidas abertas pela pessoa, pela âncora (`id`) ou, sem ela, pela posição
-  const [opened, setOpened] = useState<ReadonlySet<string | number>>(new Set());
+  const [opened, setOpened] = useState<ReadonlySet<string | number>>(() =>
+    sections.some((section) => section.id === focusSection && section.collapsed) && focusSection
+      ? new Set([focusSection])
+      : new Set(),
+  );
   const anchored = sections.filter((section) => section.id);
+  const formRef = useRef<HTMLFormElement>(null);
+  const pendingSection = useRef<string | null>(null);
   const fieldNames = sections.flatMap((section) => section.fields.map((field) => field.name));
+
+  // Clique no índice: abre a seção recolhida e deixa rolagem e foco para depois do commit. O Set novo
+  // força o render que roda o efeito, mesmo com a seção já aberta.
+  const goToSection = (id: string) => {
+    pendingSection.current = id;
+    setOpened((current) => {
+      const next = new Set(current);
+      if (sections.find((section) => section.id === id)?.collapsed) next.add(id);
+      return next;
+    });
+  };
+
+  useLayoutEffect(() => {
+    const id = pendingSection.current;
+    if (!id) return;
+    pendingSection.current = null;
+    focusSectionControl(formRef.current, id);
+  });
+
+  // `focusSection` que muda abre a seção recolhida já no render (ajuste de estado durante o render)
+  const [shownFocus, setShownFocus] = useState(focusSection);
+  if (focusSection !== shownFocus) {
+    setShownFocus(focusSection);
+    if (focusSection && sections.some((section) => section.id === focusSection && section.collapsed)) {
+      setOpened((current) => new Set(current).add(focusSection));
+    }
+  }
+
+  // Só `focusSection` dispara: um re-render não pode puxar o foco de volta. Os campos podem trocar de
+  // elemento num render logo depois do primeiro commit (o seletor da cadeia refaz o controle), então o
+  // foco é repetido nesse render seguinte; o microtask encerra a janela antes de qualquer ação da pessoa.
+  useEffect(() => {
+    if (!focusSection) return;
+    focusSectionControl(formRef.current, focusSection);
+    pendingSection.current = focusSection;
+    queueMicrotask(() => {
+      pendingSection.current = null;
+    });
+  }, [focusSection]);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -159,6 +223,7 @@ export function EntityForm<TSchema extends FormSchema>({
 
   return (
     <form
+      ref={formRef}
       data-slot="entity-form"
       noValidate
       aria-busy={isSubmitting || undefined}
@@ -192,8 +257,7 @@ export function EntityForm<TSchema extends FormSchema>({
               href={`#${section.id}`}
               className={textLink}
               onClick={() => {
-                const key = section.id;
-                if (section.collapsed && key) setOpened((current) => new Set(current).add(key));
+                if (section.id) goToSection(section.id);
               }}
             >
               {section.title}
