@@ -13,6 +13,7 @@ import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Field, ReferralChainEditor, type ReferralChainEditorProps } from '../../src/index.js';
+import { mobileTouchTarget } from '../../src/lib/styles.js';
 import { classesWithoutCss } from '../support/classes.js';
 import { compileStyles } from '../support/tailwind.js';
 
@@ -556,5 +557,53 @@ describe('ReferralChainEditor — contato criado pelo cadastro rápido', () => {
     } finally {
       process.off('unhandledRejection', unhandled);
     }
+  });
+});
+
+describe('ReferralChainEditor — mobile (390 px)', () => {
+  const longName = 'Agropecuária Vale Verde do Alto Paranaíba Participações Ltda';
+  const longContact: Referrer = { kind: 'contact', id: 'c-longo', name: longName };
+  const unlinked: Referrer = { kind: 'user', id: 'u-sem-acesso', name: 'Maria Aparecida Conceição', linked: false };
+  const itemOf = (name: string) => screen.getByRole('listitem', { name: new RegExp(name) });
+
+  it('o nome do elo não é cortado: sem truncate, quebra linha', () => {
+    render(<Harness initial={[link(longContact, 1)]} />);
+
+    const name = within(itemOf('Agropecuária')).getByText(longName);
+    expect(name).not.toHaveClass('truncate');
+    expect(name).toHaveClass('wrap-break-word');
+  });
+
+  it('reordenar e remover crescem para o alvo de toque no mobile', () => {
+    render(<Harness initial={[link(joao, 1)]} />);
+
+    for (const name of ['Mover João Batista', 'Remover João Batista']) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toHaveClass(...mobileTouchTarget.square.split(' '));
+      expect(button).toHaveClass('size-control-height-sm');
+    }
+  });
+
+  it('a nota cresce para o alvo de toque no mobile', () => {
+    render(<Harness initial={[link(joao, 1)]} />);
+
+    const field = screen.getByRole('textbox', { name: 'Nota sobre João Batista' }).closest('[data-slot="input"]');
+    expect(field).toHaveClass(...mobileTouchTarget.bar.split(' '));
+  });
+
+  it('as classes do layout estreito geram CSS', async () => {
+    const build = await compileStyles();
+    render(<Harness initial={[link(unlinked, 1, 'Nota do elo')]} />);
+
+    expect(classesWithoutCss(build)).toEqual([]);
+  });
+
+  it('as marcas ficam no grupo do nome, que quebra linha', () => {
+    render(<Harness initial={[link(unlinked, 1)]} />);
+
+    const group = within(itemOf('Maria')).getByText('Maria Aparecida Conceição').parentElement;
+    expect(group).toHaveClass('flex-wrap', 'min-w-0');
+    expect(within(group!).getByText('Interno')).toBeInTheDocument();
+    expect(within(group!).getByText('Sem acesso')).toBeInTheDocument();
   });
 });

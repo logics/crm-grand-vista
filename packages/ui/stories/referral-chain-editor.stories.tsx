@@ -154,3 +154,21 @@ export const ComCadastroRapido: Story = {
   name: 'Com cadastro rápido',
   args: { createContact: true, initial: [link(joao, 1)] },
 };
+
+export const NomesLongos: Story = {
+  name: 'Nomes longos',
+  args: {
+    initial: [
+      link(
+        { kind: 'contact', id: 'c-vale-verde', name: 'Agropecuária Vale Verde do Alto Paranaíba Participações Ltda' },
+        1,
+        'Conhece o proprietário desde a safra de 2019',
+      ),
+      link(
+        { kind: 'user', id: 'u-maria', name: 'Maria Aparecida Conceição dos Santos Figueiredo', linked: false },
+        2,
+      ),
+      link(joao, 3),
+    ],
+  },
+};
